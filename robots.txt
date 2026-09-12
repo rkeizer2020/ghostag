@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://rkeizer2020.github.io/Ghostag/sitemap.xml
