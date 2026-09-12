@@ -26,13 +26,13 @@ const GAME = {
 
   // Thrown-log trap: press Space to drop a log where you stand. When the
   // Spook walks over it, it is slowed for a while.
-  LOG_COOLDOWN: 2200,      // ms between throws
+  LOG_COOLDOWN: 5000,      // ms between throws
   LOG_LIFESPAN: 10000,     // ms a log stays on the ground before fading
   LOG_SLOW_DURATION: 5000, // ms the Spook stays slowed
   LOG_SLOW_FACTOR: 0.4,    // enemy speed multiplier while slowed
 
   // Red ghost's forward smash
-  SMASH_COOLDOWN: 1800,        // ms between smashes
+  SMASH_COOLDOWN: 6000,        // ms between smashes
   SMASH_RANGE: 155,            // how far the slash reaches
   SMASH_ARC: Math.PI * 0.62,   // width of the hit cone (~112 degrees)
   SMASH_STUN_DURATION: 3000,   // ms the Spook is stunned on hit
@@ -112,12 +112,12 @@ const Settings = {
   CHARACTERS: {
     blue: {
       label: 'Blue Ghost', tex: 'ghost', ability: 'log',
-      abilityName: 'Log', icon: '🪵', speedMul: 1.0, lives: 1, cooldown: 2200,
+      abilityName: 'Log', icon: '🪵', speedMul: 1.0, lives: 1, cooldown: 5000,
       desc: 'Drops a log behind you. The Spook is slowed for 5s when it steps over it.',
     },
     red: {
       label: 'Red Ghost', tex: 'ghostRed', ability: 'smash',
-      abilityName: 'Smash', icon: '💥', speedMul: 1.0, lives: 1, cooldown: 1800,
+      abilityName: 'Smash', icon: '💥', speedMul: 1.0, lives: 1, cooldown: 6000,
       desc: 'Slashes forward with long range. On a hit the Spook is stunned for 3s.',
     },
     green: {
