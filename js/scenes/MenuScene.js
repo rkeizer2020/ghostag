@@ -18,9 +18,10 @@ class MenuScene extends Phaser.Scene {
     this.tweens.add({ targets: [spook, sword], y: '-=10', duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.tweens.add({ targets: sword, angle: { from: -8, to: 8 }, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    // glowing blue TAGZ logo (layered shadows create the glow)
-    const title = this.add.text(cx, H * 0.14, 'TAGZ', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '80px', fontStyle: 'bold', color: '#bfe6ff',
+    // glowing blue GHOSTAG logo (layered shadows create the glow)
+    const logoSize = Math.min(80, Math.round(W * 0.15));
+    const title = this.add.text(cx, H * 0.14, 'GHOSTAG', {
+      fontFamily: 'system-ui, sans-serif', fontSize: logoSize + 'px', fontStyle: 'bold', color: '#bfe6ff',
     }).setOrigin(0.5).setDepth(3);
     title.setShadow(0, 0, '#6fb8ff', 24, true, true);
     this.tweens.add({ targets: title, alpha: { from: 1, to: 0.82 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
