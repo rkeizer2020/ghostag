@@ -25,10 +25,6 @@ class MenuScene extends Phaser.Scene {
     title.setShadow(0, 0, '#6fb8ff', 24, true, true);
     this.tweens.add({ targets: title, alpha: { from: 1, to: 0.82 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    this.add.text(cx, H * 0.14 + 58, 'The Little Ghost and the Spook', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '18px', color: '#9fc4d8',
-    }).setOrigin(0.5).setDepth(3);
-
     this.add.text(cx, H * 0.52, 'Best: ' + Storage.getHighscore(), {
       fontFamily: 'system-ui, sans-serif', fontSize: '20px', color: '#ffd54a',
     }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
