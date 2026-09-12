@@ -36,6 +36,7 @@ const GAME = {
   SMASH_RANGE: 155,            // how far the slash reaches
   SMASH_ARC: Math.PI * 0.62,   // width of the hit cone (~112 degrees)
   SMASH_STUN_DURATION: 3000,   // ms the Spook is stunned on hit
+  SMASH_HIT_POINTS: 80,        // points for landing a smash on the Spook
 
   // Green ghost's shield
   SHIELD_DURATION: 1000,       // ms the shield stays up

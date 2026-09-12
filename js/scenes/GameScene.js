@@ -269,13 +269,14 @@ class GameScene extends Phaser.Scene {
 
   stunEnemy() {
     this.stunUntil = this.time.now + GAME.SMASH_STUN_DURATION;
+    this.score += GAME.SMASH_HIT_POINTS;
     this.enemy.setVelocity(0, 0);
     SFX.caught();
     this.cameras.main.shake(180, 0.012);
     for (let i = 0; i < 12; i++) {
       this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-16, 16), this.enemy.y + Phaser.Math.Between(-16, 8));
     }
-    const txt = this.add.text(this.enemy.x, this.enemy.y - 54, 'STUNNED!', {
+    const txt = this.add.text(this.enemy.x, this.enemy.y - 54, 'STUNNED! +' + GAME.SMASH_HIT_POINTS, {
       fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ffe066',
     }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
     this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
@@ -306,6 +307,8 @@ class GameScene extends Phaser.Scene {
     if (!log.active) return;
     log.destroy();
     this.slowUntil = this.time.now + GAME.LOG_SLOW_DURATION;
+    this.abilityReadyAt = this.time.now; // refresh the log cooldown immediately
+    this.updateLogHud();
     SFX.boost();
     // leafy puff where the Spook trips
     for (let i = 0; i < 8; i++) {
