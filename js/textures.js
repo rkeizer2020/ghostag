@@ -7,6 +7,8 @@ const Textures = {
     this._ghost(scene, 'ghostRed', { glow: 0xff5b6e, glow2: 0xff8f9c, body: 0xff8a8a, eye: 0x5a1420 });
     this._ghost(scene, 'ghostGreen', { glow: 0x3fbf6a, glow2: 0x7fe0a0, body: 0x8fe6a0, eye: 0x144a24 });
     this._ghost(scene, 'ghostPurple', { glow: 0x7a3fbf, glow2: 0xb98fe0, body: 0xc79cff, eye: 0x2a1444 });
+    this._ghost(scene, 'ghostYellow', { glow: 0xd9a400, glow2: 0xffe680, body: 0xffe066, eye: 0x5a4410 });
+    this._ghost(scene, 'ghostBrown', { glow: 0x7a4f28, glow2: 0xc79a6a, body: 0xb98a5e, eye: 0x3a2614 });
     this.spook(scene);
     this.sword(scene);
     this.slash(scene);

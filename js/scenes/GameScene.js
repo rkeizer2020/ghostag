@@ -174,6 +174,14 @@ class GameScene extends Phaser.Scene {
       case 'phase':
         this.activatePhase(now); // sets its own ready time (cooldown after it ends)
         break;
+      case 'dash':
+        this.dash(now);
+        this.abilityReadyAt = now + this.abilityCooldown;
+        break;
+      case 'path':
+        this.makePath();
+        this.abilityReadyAt = now + this.abilityCooldown;
+        break;
       case 'log':
       default:
         this.dropLog();
@@ -181,6 +189,43 @@ class GameScene extends Phaser.Scene {
         break;
     }
     this.updateLogHud();
+  }
+
+  dash(now) {
+    const range = GAME.DASH_RANGE;
+    const fromX = this.player.x, fromY = this.player.y;
+    const nx = Phaser.Math.Clamp(fromX + this.faceDir.x * range, 20, GAME.WORLD_WIDTH - 20);
+    const ny = Phaser.Math.Clamp(fromY + this.faceDir.y * range, 20, GAME.WORLD_HEIGHT - 20);
+
+    // afterimage at the old spot
+    const ghostImg = this.add.image(fromX, fromY, this.playerTex).setAlpha(0.5).setDepth(9);
+    this.tweens.add({ targets: ghostImg, alpha: 0, scale: 0.7, duration: 260, onComplete: () => ghostImg.destroy() });
+
+    this.player.setPosition(nx, ny);
+    this.player.setVelocity(0, 0);
+    this.score += GAME.DASH_POINTS;
+    this.invulnUntil = now + GAME.DASH_INVULN; // pass through the Spook safely
+    SFX.boost();
+
+    for (let i = 0; i < 8; i++) {
+      this.trail.emitParticleAt(nx + Phaser.Math.Between(-10, 10), ny + Phaser.Math.Between(-10, 10));
+    }
+  }
+
+  makePath() {
+    for (let i = 0; i < GAME.PATH_ORBS; i++) {
+      const d = GAME.PATH_START + i * GAME.PATH_SPACING;
+      const x = Phaser.Math.Clamp(this.player.x + this.faceDir.x * d, 30, GAME.WORLD_WIDTH - 30);
+      const y = Phaser.Math.Clamp(this.player.y + this.faceDir.y * d, 30, GAME.WORLD_HEIGHT - 30);
+      const orb = this.orbs.create(x, y, 'orb');
+      orb.setCircle(8, 6, 6);
+      orb.setDepth(6);
+      orb.isPath = true; // bonus orb: collecting it doesn't respawn a field orb
+      orb.setScale(0.4);
+      this.tweens.add({ targets: orb, scale: { from: 0.9, to: 1.15 }, duration: 600, yoyo: true, repeat: -1 });
+      this.time.delayedCall(GAME.PATH_LIFESPAN, () => { if (orb.active) orb.destroy(); });
+    }
+    SFX.click();
   }
 
   activateShield(now) {
@@ -292,13 +337,15 @@ class GameScene extends Phaser.Scene {
   }
 
   collectOrb(player, orb) {
+    const wasPath = orb.isPath;
     orb.destroy();
     this.score += GAME.ORB_POINTS;
     this.boostUntil = this.time.now + GAME.BOOST_DURATION;
     SFX.pickup();
     SFX.boost();
     this.cameras.main.flash(120, 120, 200, 255);
-    this.spawnOrb();
+    // only field orbs keep the map stocked; bonus path orbs don't respawn
+    if (!wasPath) this.spawnOrb();
   }
 
   buildHUD() {
@@ -460,7 +507,7 @@ class GameScene extends Phaser.Scene {
   }
 
   boostTint() {
-    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff }[this.charKey] || 0x9fe0ff;
+    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a }[this.charKey] || 0x9fe0ff;
   }
 
   // Keeps the shield bubble on the player and toggles tree-phasing on/off.

@@ -1,5 +1,5 @@
-// Character select (forest-styled): a row of cards, each showing the ghost,
-// its special ability, and an Equip button. The chosen character is saved.
+// Character select (forest-styled): a responsive grid of cards, each showing
+// the ghost, its ability and an Equip button. The chosen character is saved.
 class CharactersScene extends Phaser.Scene {
   constructor() {
     super('Characters');
@@ -10,35 +10,45 @@ class CharactersScene extends Phaser.Scene {
 
     UI.backdrop(this);
 
-    this.add.text(cx, H * 0.09, 'Characters', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '42px', fontStyle: 'bold', color: '#bfe6ff',
+    this.add.text(cx, H * 0.08, 'Characters', {
+      fontFamily: 'system-ui, sans-serif', fontSize: Math.min(42, Math.round(W * 0.09)) + 'px',
+      fontStyle: 'bold', color: '#bfe6ff',
     }).setOrigin(0.5).setDepth(3).setShadow(0, 0, '#6fb8ff', 18, true, true);
 
     const keys = Settings.CHAR_ORDER;
     const n = keys.length;
-    const gap = 14;
-    const cardW = Math.min(210, (W - 60 - gap * (n - 1)) / n);
-    const totalW = n * cardW + (n - 1) * gap;
-    let x = cx - totalW / 2 + cardW / 2;
+    const cols = W >= H ? 3 : 2;          // wide screens: 3 across; tall: 2
+    const rows = Math.ceil(n / cols);
+    const gapX = 14, gapY = 14;
+
+    const topArea = H * 0.15, bottomArea = H * 0.87;
+    const availH = bottomArea - topArea;
+    const cardH = Math.min(300, (availH - gapY * (rows - 1)) / rows);
+    const cardW = Math.min(240, (W - 32 - gapX * (cols - 1)) / cols);
+
+    const gridW = cols * cardW + (cols - 1) * gapX;
+    const startX = cx - gridW / 2 + cardW / 2;
+    const startY = topArea + cardH / 2;
 
     this.cards = {};
-    keys.forEach((key) => {
-      this.makeCard(key, x, H * 0.52, cardW, 344);
-      x += cardW + gap;
+    keys.forEach((key, i) => {
+      const c = i % cols, r = Math.floor(i / cols);
+      this.makeCard(key, startX + c * (cardW + gapX), startY + r * (cardH + gapY), cardW, cardH);
     });
 
     this.refreshCards();
 
-    UI.button(this, cx, H * 0.93, '←  Back', () => this.scene.start('Menu'), { width: 220, height: 50, fontSize: 20 });
+    UI.button(this, cx, H * 0.94, '←  Back', () => this.scene.start('Menu'), { width: 200, height: 46, fontSize: 20 });
     this.input.keyboard.on('keydown-ESC', () => this.scene.start('Menu'));
     UI.restartOnResize(this);
   }
 
   makeCard(key, x, y, w, h) {
     const info = Settings.CHARACTERS[key];
-    const accent = { blue: 0x6fb8ff, red: 0xff6b7a, green: 0x6fe0a0, purple: 0xb98fe0 }[key] || 0x6fb8ff;
+    const accent = { blue: 0x6fb8ff, red: 0xff6b7a, green: 0x6fe0a0, purple: 0xb98fe0, yellow: 0xffd24a, brown: 0xc79a6a }[key] || 0x6fb8ff;
     const accentHex = '#' + accent.toString(16).padStart(6, '0');
     const top = -h / 2;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
     const container = this.add.container(x, y).setDepth(3);
     const panel = this.add.graphics();
@@ -52,25 +62,26 @@ class CharactersScene extends Phaser.Scene {
     drawPanel(false);
     container.add(panel);
 
-    const ghost = this.add.image(0, top + 62, info.tex).setScale(1.35);
+    const ghost = this.add.image(0, top + h * 0.24, info.tex).setScale(clamp(h * 0.006, 0.9, 1.5));
     container.add(ghost);
-    this.tweens.add({ targets: ghost, y: ghost.y - 7, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.tweens.add({ targets: ghost, y: ghost.y - 6, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    container.add(this.add.text(0, top + 118, info.label, {
-      fontFamily: 'system-ui, sans-serif', fontSize: '17px', fontStyle: 'bold', color: '#eaf6ff',
+    container.add(this.add.text(0, top + h * 0.45, info.label, {
+      fontFamily: 'system-ui, sans-serif', fontSize: clamp(h * 0.075, 13, 17) + 'px', fontStyle: 'bold', color: '#eaf6ff',
     }).setOrigin(0.5));
 
-    container.add(this.add.text(0, top + 144, info.icon + ' ' + info.abilityName, {
-      fontFamily: 'system-ui, sans-serif', fontSize: '15px', fontStyle: 'bold', color: accentHex,
+    container.add(this.add.text(0, top + h * 0.56, info.icon + ' ' + info.abilityName, {
+      fontFamily: 'system-ui, sans-serif', fontSize: clamp(h * 0.062, 12, 15) + 'px', fontStyle: 'bold', color: accentHex,
     }).setOrigin(0.5));
 
-    container.add(this.add.text(0, top + 166, info.desc, {
-      fontFamily: 'system-ui, sans-serif', fontSize: '11.5px', color: '#b8c4cc',
-      align: 'center', wordWrap: { width: w - 26 }, lineSpacing: 2,
+    container.add(this.add.text(0, top + h * 0.64, info.desc, {
+      fontFamily: 'system-ui, sans-serif', fontSize: clamp(h * 0.05, 10, 12) + 'px', color: '#b8c4cc',
+      align: 'center', wordWrap: { width: w - 24 }, lineSpacing: 2,
     }).setOrigin(0.5, 0));
 
-    const btn = UI.button(this, x, y + h / 2 - 28, 'Equip', () => this.equip(key), {
-      width: w - 26, height: 40, fontSize: 18, accent,
+    const btnH = clamp(h * 0.15, 34, 46);
+    const btn = UI.button(this, x, y + h / 2 - btnH * 0.55, 'Equip', () => this.equip(key), {
+      width: w - 24, height: btnH, fontSize: clamp(h * 0.075, 15, 18), accent,
     });
 
     this.cards[key] = { drawPanel, btn };

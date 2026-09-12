@@ -46,6 +46,17 @@ const GAME = {
   PHASE_DURATION: 7500,        // ms of phasing
   PHASE_COOLDOWN: 5000,        // ms cooldown AFTER phasing ends
 
+  // Yellow ghost's teleport dash
+  DASH_RANGE: 155,             // short teleport distance
+  DASH_POINTS: 10,             // points per dash
+  DASH_INVULN: 400,            // ms of safety during/after the teleport
+
+  // Brown ghost's power-up path
+  PATH_ORBS: 5,                // orbs laid in a row
+  PATH_SPACING: 74,            // px between path orbs
+  PATH_START: 64,              // px ahead of the player where the path begins
+  PATH_LIFESPAN: 8000,         // ms before an uncollected path orb fades
+
   COLORS: {
     bg: 0x1c130b,
     ground: 0x3d2b1a,      // brown earth
@@ -61,6 +72,8 @@ const GAME = {
     ghostRedGlow: 0xff5b6e,
     ghostGreen: 0x8fe6a0,
     ghostPurple: 0xc79cff,
+    ghostYellow: 0xffe066,
+    ghostBrown: 0xb98a5e,
   },
 };
 
@@ -113,25 +126,35 @@ const Settings = {
     blue: {
       label: 'Blue Ghost', tex: 'ghost', ability: 'log',
       abilityName: 'Log', icon: '🪵', speedMul: 1.0, lives: 1, cooldown: 5000,
-      desc: 'Drops a log behind you. The Spook is slowed for 5s when it steps over it.',
+      desc: 'Drop a log; slows the Spook 5s.',
     },
     red: {
       label: 'Red Ghost', tex: 'ghostRed', ability: 'smash',
       abilityName: 'Smash', icon: '💥', speedMul: 1.0, lives: 1, cooldown: 6000,
-      desc: 'Slashes forward with long range. On a hit the Spook is stunned for 3s.',
+      desc: 'Long forward slash; stuns 3s on hit.',
     },
     green: {
       label: 'Green Ghost', tex: 'ghostGreen', ability: 'shield',
       abilityName: 'Shield', icon: '🛡️', speedMul: 0.85, lives: 1, cooldown: 7500,
-      desc: '1s shield. Blocks one hit, then gives a speed boost and +100 points. A bit slower.',
+      desc: '1s shield; blocks a hit, then boost +100. Bit slower.',
     },
     purple: {
       label: 'Purple Ghost', tex: 'ghostPurple', ability: 'phase',
       abilityName: 'Phase', icon: '🌀', speedMul: 0.85, lives: 2, cooldown: 5000,
-      desc: '2 lives. Walk through trees for 7.5s (5s cooldown after). A bit slower.',
+      desc: '2 lives; walk through trees 7.5s. Bit slower.',
+    },
+    yellow: {
+      label: 'Yellow Ghost', tex: 'ghostYellow', ability: 'dash',
+      abilityName: 'Dash', icon: '⚡', speedMul: 1.0, lives: 1, cooldown: 3000,
+      desc: 'Teleport past trees & the Spook. +10.',
+    },
+    brown: {
+      label: 'Brown Ghost', tex: 'ghostBrown', ability: 'path',
+      abilityName: 'Path', icon: '🪙', speedMul: 1.0, lives: 1, cooldown: 6000,
+      desc: 'Lay a row of orbs ahead of you.',
     },
   },
-  CHAR_ORDER: ['blue', 'red', 'green', 'purple'],
+  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown'],
 
   getCharacter() {
     try {
