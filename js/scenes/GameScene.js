@@ -11,20 +11,26 @@ class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WW, WH);
     this.cameras.main.setBackgroundColor(GAME.COLORS.bg);
 
-    // tiled ground
+    // tiled forest floor
     this.add.tileSprite(0, 0, WW, WH, 'ground').setOrigin(0).setDepth(-10);
+    this.createFog();
 
     // state
     this.score = 0;
     this.elapsed = 0;
     this.enemySpeed = GAME.ENEMY_START_SPEED;
     this.boostUntil = 0;
+    this.slowUntil = 0;
+    this.lastLogTime = -GAME.LOG_COOLDOWN;
     this.gameOver = false;
     this.lastWarnBeep = 0;
 
-    // gravestones (static obstacles)
-    this.graves = this.physics.add.staticGroup();
-    this.placeGravestones();
+    // trees (static obstacles)
+    this.trees = this.physics.add.staticGroup();
+    this.placeTrees();
+
+    // dropped logs (traps that slow the Spook)
+    this.logs = this.physics.add.group({ allowGravity: false, immovable: true });
 
     // player
     this.player = this.physics.add.image(WW * 0.5, WH * 0.75, 'ghost');
@@ -39,9 +45,12 @@ class GameScene extends Phaser.Scene {
     this.enemy.setDepth(10);
     this.sword = this.add.image(this.enemy.x, this.enemy.y - 44, 'sword').setDepth(11);
 
-    // collisions with gravestones
-    this.physics.add.collider(this.player, this.graves);
-    this.physics.add.collider(this.enemy, this.graves);
+    // collisions with trees
+    this.physics.add.collider(this.player, this.trees);
+    this.physics.add.collider(this.enemy, this.trees);
+
+    // the Spook steps on a log -> slowed
+    this.physics.add.overlap(this.enemy, this.logs, this.hitLog, null, this);
 
     // orbs
     this.orbs = this.physics.add.group();
@@ -54,6 +63,8 @@ class GameScene extends Phaser.Scene {
     // input
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' });
+    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.spaceKey.on('down', () => this.dropLog());
     this.joystick = null;
     if (this.sys.game.device.input.touch) {
       this.joystick = new VirtualJoystick(this);
@@ -71,27 +82,92 @@ class GameScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-P', () => this.togglePause());
   }
 
-  placeGravestones() {
+  createFog() {
+    // several large soft puffs drifting slowly for a misty forest feel
+    this.fogLayer = this.add.container(0, 0).setDepth(8);
+    const WW = GAME.WORLD_WIDTH, WH = GAME.WORLD_HEIGHT;
+    for (let i = 0; i < 14; i++) {
+      const puff = this.add.image(
+        Phaser.Math.Between(0, WW), Phaser.Math.Between(0, WH), 'fog'
+      );
+      puff.setScale(Phaser.Math.FloatBetween(1.4, 3.2));
+      puff.setAlpha(Phaser.Math.FloatBetween(0.12, 0.28));
+      puff.setBlendMode(Phaser.BlendModes.SCREEN);
+      this.fogLayer.add(puff);
+      this.tweens.add({
+        targets: puff,
+        x: puff.x + Phaser.Math.Between(-160, 160),
+        y: puff.y + Phaser.Math.Between(-90, 90),
+        duration: Phaser.Math.Between(8000, 16000),
+        yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      });
+    }
+  }
+
+  placeTrees() {
     const WW = GAME.WORLD_WIDTH, WH = GAME.WORLD_HEIGHT;
     const spots = [];
     let attempts = 0;
-    while (spots.length < GAME.GRAVESTONE_COUNT && attempts < 400) {
+    while (spots.length < GAME.TREE_COUNT && attempts < 800) {
       attempts++;
-      const x = Phaser.Math.Between(120, WW - 120);
-      const y = Phaser.Math.Between(120, WH - 120);
+      const x = Phaser.Math.Between(100, WW - 100);
+      const y = Phaser.Math.Between(100, WH - 100);
       // keep clear of the player/enemy spawn columns
       if (Math.abs(x - WW * 0.5) < 90 && (y > WH * 0.6 || y < WH * 0.3)) continue;
-      if (spots.some((s) => Phaser.Math.Distance.Between(s.x, s.y, x, y) < 140)) continue;
+      if (spots.some((s) => Phaser.Math.Distance.Between(s.x, s.y, x, y) < 110)) continue;
       spots.push({ x, y });
     }
+    // sort by y so nearer trees overlap farther ones naturally
+    spots.sort((a, b) => a.y - b.y);
     spots.forEach((s) => {
-      const g = this.graves.create(s.x, s.y, 'grave');
-      g.setDepth(5);
-      // tighten the body to the stone slab (not the shadow)
-      g.body.setSize(38, 46, true);
-      g.body.setOffset((g.width - 38) / 2, 14);
-      g.refreshBody();
+      const t = this.trees.create(s.x, s.y, 'tree');
+      t.setDepth(5 + s.y / GAME.WORLD_HEIGHT); // depth by row
+      // collision only around the trunk, so you can brush past the canopy
+      t.body.setSize(20, 24, true);
+      t.body.setOffset((t.width - 20) / 2, t.height - 30);
+      t.refreshBody();
     });
+  }
+
+  dropLog() {
+    if (this.gameOver) return;
+    const now = this.time.now;
+    if (now - this.lastLogTime < GAME.LOG_COOLDOWN) return;
+    this.lastLogTime = now;
+
+    const log = this.logs.create(this.player.x, this.player.y, 'log');
+    log.setDepth(4);
+    log.setBodySize(40, 16);
+    log.setImmovable(true);
+    log.body.allowGravity = false;
+    log.setAngle(Phaser.Math.Between(-20, 20));
+    log.setScale(0.4);
+    this.tweens.add({ targets: log, scale: 1, duration: 180, ease: 'Back.out' });
+    SFX.click();
+
+    // fade out and remove near the end of its life
+    this.time.delayedCall(GAME.LOG_LIFESPAN - 1500, () => {
+      if (!log.active) return;
+      this.tweens.add({ targets: log, alpha: 0.15, duration: 1500 });
+    });
+    this.time.delayedCall(GAME.LOG_LIFESPAN, () => { if (log.active) log.destroy(); });
+
+    this.updateLogHud();
+  }
+
+  hitLog(enemy, log) {
+    if (!log.active) return;
+    log.destroy();
+    this.slowUntil = this.time.now + GAME.LOG_SLOW_DURATION;
+    SFX.boost();
+    // leafy puff where the Spook trips
+    for (let i = 0; i < 8; i++) {
+      this.trail.emitParticleAt(enemy.x + Phaser.Math.Between(-12, 12), enemy.y + Phaser.Math.Between(-6, 12));
+    }
+    const txt = this.add.text(enemy.x, enemy.y - 50, 'SLOW!', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '18px', fontStyle: 'bold', color: '#9fe0ff',
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 900, onComplete: () => txt.destroy() });
   }
 
   spawnOrb() {
@@ -102,8 +178,8 @@ class GameScene extends Phaser.Scene {
       x = Phaser.Math.Between(60, WW - 60);
       y = Phaser.Math.Between(60, WH - 60);
       ok = true;
-      this.graves.children.iterate((g) => {
-        if (g && Phaser.Math.Distance.Between(g.x, g.y, x, y) < 70) ok = false;
+      this.trees.children.iterate((g) => {
+        if (g && Phaser.Math.Distance.Between(g.x, g.y, x, y) < 64) ok = false;
       });
       if (this.player && Phaser.Math.Distance.Between(this.player.x, this.player.y, x, y) < 120) ok = false;
     }
@@ -144,6 +220,32 @@ class GameScene extends Phaser.Scene {
     // danger vignette (screen edge glow when the spook is close)
     this.danger = this.add.rectangle(0, 0, W, this.scale.height, 0xff2b2b)
       .setOrigin(0).setScrollFactor(0).setDepth(1500).setAlpha(0);
+
+    // log-throw readiness indicator (bottom-left)
+    const H = this.scale.height;
+    this.logHud = this.add.text(16, H - 34, '', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '16px', fontStyle: 'bold', color: '#c9a26a',
+    }).setScrollFactor(0).setDepth(2000).setShadow(0, 2, '#000', 4);
+    this.updateLogHud();
+
+    // touch: a button to drop a log
+    if (this.sys.game.device.input.touch) {
+      this.logBtn = this.add.text(W - 20, H - 20, '🪵 LOG', {
+        fontFamily: 'system-ui, sans-serif', fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
+        backgroundColor: '#3a2a1e', padding: { x: 16, y: 12 },
+      }).setOrigin(1, 1).setScrollFactor(0).setDepth(2000).setInteractive({ useHandCursor: true });
+      this.logBtn.on('pointerdown', (p, x, y, event) => {
+        if (event) event.stopPropagation();
+        this.dropLog();
+      });
+    }
+  }
+
+  updateLogHud() {
+    if (!this.logHud) return;
+    const ready = this.time.now - this.lastLogTime >= GAME.LOG_COOLDOWN;
+    this.logHud.setText(ready ? '🪵 Log klaar (spatie)' : '🪵 ...');
+    this.logHud.setColor(ready ? '#d8b57e' : '#6b5a44');
   }
 
   toggleMute() {
@@ -179,6 +281,7 @@ class GameScene extends Phaser.Scene {
     this.handlePlayer(time);
     this.handleEnemy(time);
     this.handleSwordAndDanger(time);
+    this.updateLogHud();
   }
 
   handlePlayer(time) {
@@ -216,11 +319,18 @@ class GameScene extends Phaser.Scene {
   }
 
   handleEnemy(time) {
+    const slowed = time < this.slowUntil;
+    const speed = slowed ? this.enemySpeed * GAME.LOG_SLOW_FACTOR : this.enemySpeed;
+
     // steer toward the player
     const ang = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
-    this.enemy.setVelocity(Math.cos(ang) * this.enemySpeed, Math.sin(ang) * this.enemySpeed);
+    this.enemy.setVelocity(Math.cos(ang) * speed, Math.sin(ang) * speed);
     if (this.player.x < this.enemy.x) this.enemy.setFlipX(true);
     else this.enemy.setFlipX(false);
+
+    // struggling look while slowed
+    if (slowed) this.enemy.setTint(0x6fd0ff);
+    else this.enemy.clearTint();
 
     const dist = Phaser.Math.Distance.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
     if (dist < GAME.CATCH_DISTANCE) this.caught();

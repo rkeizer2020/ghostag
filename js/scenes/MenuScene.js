@@ -36,13 +36,14 @@ class MenuScene extends Phaser.Scene {
 
     const isTouch = this.sys.game.device.input.touch;
     const controls = isTouch
-      ? 'Sleep met je duim om te bewegen'
-      : 'Beweeg met WASD of de pijltjestoetsen';
+      ? 'Sleep met je duim om te bewegen  •  tik op LOG om een boomstam te gooien'
+      : 'Beweeg met WASD/pijltjes  •  spatie = boomstam gooien';
     this.add.text(cx, H * 0.66, controls, {
       fontFamily: 'system-ui, sans-serif', fontSize: '16px', color: '#8a80a8',
+      align: 'center', wordWrap: { width: W - 60 },
     }).setOrigin(0.5);
 
-    this.add.text(cx, H * 0.72, 'Pak de gouden bolletjes  •  ontwijk de grafstenen  •  overleef!', {
+    this.add.text(cx, H * 0.73, 'Pak de gouden bolletjes  •  verstop je tussen de bomen  •  vertraag het Spook met een boomstam  •  overleef!', {
       fontFamily: 'system-ui, sans-serif', fontSize: '15px', color: '#6f688c',
       align: 'center', wordWrap: { width: W - 60 },
     }).setOrigin(0.5);

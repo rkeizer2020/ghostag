@@ -18,22 +18,30 @@ const GAME = {
   CATCH_DISTANCE: 34,      // distance at which you get caught
   WARN_DISTANCE: 200,      // distance at which the sword starts trembling
 
-  ORB_COUNT: 7,
+  ORB_COUNT: 13,
   ORB_POINTS: 10,
   SURVIVE_POINTS_PER_SEC: 2,
 
-  GRAVESTONE_COUNT: 14,
+  TREE_COUNT: 26,
+
+  // Thrown-log trap: press Space to drop a log where you stand. When the
+  // Spook walks over it, it is slowed for a while.
+  LOG_COOLDOWN: 2200,      // ms between throws
+  LOG_LIFESPAN: 10000,     // ms a log stays on the ground before fading
+  LOG_SLOW_DURATION: 5000, // ms the Spook stays slowed
+  LOG_SLOW_FACTOR: 0.4,    // enemy speed multiplier while slowed
 
   COLORS: {
-    bg: 0x0a0812,
-    ground: 0x141024,
+    bg: 0x081410,
+    ground: 0x0d1f1a,
     ghost: 0xbfe6ff,
     ghostGlow: 0x6fb8ff,
-    spook: 0x2a1440,
-    spookEye: 0xff2b2b,
+    spook: 0x1e3a52,       // dark blue - blends into the fog
+    spookEye: 0x8fb8d8,
     sword: 0xffe066,
     orb: 0xffd54a,
-    grave: 0x6b6f7a,
+    tree: 0x2f6b3a,
+    fog: 0x9fd8ff,
   },
 };
 
