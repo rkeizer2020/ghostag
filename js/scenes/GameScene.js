@@ -32,6 +32,13 @@ class GameScene extends Phaser.Scene {
     this.enemyAccel = GAME.ENEMY_ACCEL_PER_SEC * diff.accelMul;
     this.enemySpeed = this.enemyStart;
 
+    // stuck-on-a-tree detection / escape steering
+    this.enemyPrevX = null;
+    this.enemyPrevY = null;
+    this.stuckTime = 0;
+    this.escapeUntil = 0;
+    this.escapeSign = 1;
+
     // trees (static obstacles)
     this.trees = this.physics.add.staticGroup();
     this.placeTrees();
@@ -286,7 +293,7 @@ class GameScene extends Phaser.Scene {
     );
 
     this.handlePlayer(time);
-    this.handleEnemy(time);
+    this.handleEnemy(time, dt);
     this.handleSwordAndDanger(time);
     this.updateLogHud();
   }
@@ -325,22 +332,81 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  handleEnemy(time) {
+  handleEnemy(time, dt) {
     const slowed = time < this.slowUntil;
     const speed = slowed ? this.enemySpeed * GAME.LOG_SLOW_FACTOR : this.enemySpeed;
 
-    // steer toward the player
-    const ang = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
+    // direction straight at the player
+    const chase = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
+
+    // While escaping, steer off to one side of the chase line (still angled
+    // forward) so the Spook arcs around whatever tree is blocking the way.
+    let ang = chase;
+    if (time < this.escapeUntil) {
+      ang = chase + this.escapeSign * (Math.PI * 0.42);
+    }
+
     this.enemy.setVelocity(Math.cos(ang) * speed, Math.sin(ang) * speed);
-    if (this.player.x < this.enemy.x) this.enemy.setFlipX(true);
-    else this.enemy.setFlipX(false);
+    this.enemy.setFlipX(this.player.x < this.enemy.x);
 
     // struggling look while slowed
     if (slowed) this.enemy.setTint(0x6fd0ff);
     else this.enemy.clearTint();
 
+    this.detectStuck(time, dt, speed);
+
     const dist = Phaser.Math.Distance.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
     if (dist < GAME.CATCH_DISTANCE) this.caught();
+  }
+
+  detectStuck(time, dt, speed) {
+    if (this.enemyPrevX === null) {
+      this.enemyPrevX = this.enemy.x;
+      this.enemyPrevY = this.enemy.y;
+      return;
+    }
+    const moved = Phaser.Math.Distance.Between(this.enemyPrevX, this.enemyPrevY, this.enemy.x, this.enemy.y);
+    const expected = speed * dt;
+    this.enemyPrevX = this.enemy.x;
+    this.enemyPrevY = this.enemy.y;
+
+    // Blocked = it wanted to move but barely did (a tree is in the way).
+    if (expected > 1 && moved < expected * 0.35) {
+      this.stuckTime += dt;
+    } else if (time >= this.escapeUntil) {
+      // moving freely again and not mid-escape: clear the counter
+      this.stuckTime = 0;
+    }
+
+    if (this.stuckTime > 0.18) {
+      if (time < this.escapeUntil) {
+        // still blocked mid-escape: this side is jammed too, try the other
+        this.escapeSign *= -1;
+      } else {
+        // fresh block: steer toward the more open side (away from tree centre
+        // when known, otherwise keep the current side)
+        this.escapeSign = this.pickEscapeSide();
+      }
+      this.escapeUntil = time + 550;
+      this.stuckTime = 0;
+    }
+  }
+
+  // Choose which way to arc around: whichever perpendicular points away from
+  // the nearest tree, so we head toward open space.
+  pickEscapeSide() {
+    let nearest = null, best = Infinity;
+    this.trees.children.iterate((t) => {
+      if (!t) return;
+      const d = Phaser.Math.Distance.Between(t.x, t.y, this.enemy.x, this.enemy.y);
+      if (d < best) { best = d; nearest = t; }
+    });
+    if (!nearest) return this.escapeSign;
+    const chase = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
+    const toTree = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, nearest.x, nearest.y);
+    // positive cross => tree is on the left of the chase line; go right (-1)
+    const cross = Math.sin(toTree - chase);
+    return cross > 0 ? -1 : 1;
   }
 
   handleSwordAndDanger(time) {
