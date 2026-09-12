@@ -86,12 +86,12 @@ class GameScene extends Phaser.Scene {
     // several large soft puffs drifting slowly for a misty forest feel
     this.fogLayer = this.add.container(0, 0).setDepth(8);
     const WW = GAME.WORLD_WIDTH, WH = GAME.WORLD_HEIGHT;
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 22; i++) {
       const puff = this.add.image(
         Phaser.Math.Between(0, WW), Phaser.Math.Between(0, WH), 'fog'
       );
-      puff.setScale(Phaser.Math.FloatBetween(1.4, 3.2));
-      puff.setAlpha(Phaser.Math.FloatBetween(0.12, 0.28));
+      puff.setScale(Phaser.Math.FloatBetween(1.6, 3.6));
+      puff.setAlpha(Phaser.Math.FloatBetween(0.22, 0.45));
       puff.setBlendMode(Phaser.BlendModes.SCREEN);
       this.fogLayer.add(puff);
       this.tweens.add({
@@ -137,7 +137,7 @@ class GameScene extends Phaser.Scene {
 
     const log = this.logs.create(this.player.x, this.player.y, 'log');
     log.setDepth(4);
-    log.setBodySize(40, 16);
+    log.setBodySize(78, 34);
     log.setImmovable(true);
     log.body.allowGravity = false;
     log.setAngle(Phaser.Math.Between(-20, 20));

@@ -18,7 +18,7 @@ const GAME = {
   CATCH_DISTANCE: 34,      // distance at which you get caught
   WARN_DISTANCE: 200,      // distance at which the sword starts trembling
 
-  ORB_COUNT: 13,
+  ORB_COUNT: 20,
   ORB_POINTS: 10,
   SURVIVE_POINTS_PER_SEC: 2,
 
@@ -32,8 +32,8 @@ const GAME = {
   LOG_SLOW_FACTOR: 0.4,    // enemy speed multiplier while slowed
 
   COLORS: {
-    bg: 0x081410,
-    ground: 0x0d1f1a,
+    bg: 0x1c130b,
+    ground: 0x3d2b1a,      // brown earth
     ghost: 0xbfe6ff,
     ghostGlow: 0x6fb8ff,
     spook: 0x1e3a52,       // dark blue - blends into the fog
@@ -41,7 +41,7 @@ const GAME = {
     sword: 0xffe066,
     orb: 0xffd54a,
     tree: 0x2f6b3a,
-    fog: 0x9fd8ff,
+    fog: 0x5aa0ff,
   },
 };
 

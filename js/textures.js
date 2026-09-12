@@ -142,22 +142,26 @@ const Textures = {
 
   log(scene) {
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
-    const w = 46, h = 22;
+    const w = 84, h = 40;
     // shadow
-    g.fillStyle(0x000000, 0.25);
-    g.fillEllipse(w / 2, h - 4, 40, 8);
+    g.fillStyle(0x000000, 0.28);
+    g.fillEllipse(w / 2, h - 6, 74, 14);
     // log body
     g.fillStyle(0x6b4a2a, 1);
-    g.fillRoundedRect(3, 4, w - 6, 12, 6);
+    g.fillRoundedRect(6, 6, w - 12, 24, 12);
     g.fillStyle(0x7d5834, 1);
-    g.fillRoundedRect(3, 4, w - 6, 6, 6);
+    g.fillRoundedRect(6, 6, w - 12, 12, 12);
     // bark rings on the ends
     g.fillStyle(0x8a6a44, 1);
-    g.fillCircle(8, 10, 5);
-    g.fillCircle(w - 8, 10, 5);
+    g.fillCircle(15, 18, 9);
+    g.fillCircle(w - 15, 18, 9);
     g.fillStyle(0x5a3f24, 1);
-    g.fillCircle(8, 10, 2.4);
-    g.fillCircle(w - 8, 10, 2.4);
+    g.fillCircle(15, 18, 4.5);
+    g.fillCircle(w - 15, 18, 4.5);
+    // a couple of bark lines
+    g.lineStyle(2, 0x5a3f24, 0.7);
+    g.beginPath(); g.moveTo(30, 12); g.lineTo(30, 26); g.strokePath();
+    g.beginPath(); g.moveTo(48, 12); g.lineTo(48, 26); g.strokePath();
     g.generateTexture('log', w, h);
     g.destroy();
   },
@@ -165,21 +169,21 @@ const Textures = {
   ground(scene) {
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
     const s = 128;
-    // deep forest floor
-    g.fillStyle(0x0d1f1a, 1);
+    // brown earth
+    g.fillStyle(0x3d2b1a, 1);
     g.fillRect(0, 0, s, s);
-    // mossy/leafy specks
-    for (let i = 0; i < 50; i++) {
+    // dirt patches (lighter and darker soil)
+    for (let i = 0; i < 10; i++) {
+      g.fillStyle(Phaser.Math.RND.pick([0x4a3420, 0x342414, 0x453018]), 0.5);
+      g.fillCircle(Phaser.Math.Between(0, s), Phaser.Math.Between(0, s), Phaser.Math.Between(10, 26));
+    }
+    // pebbles / soil specks
+    for (let i = 0; i < 60; i++) {
       const x = Phaser.Math.Between(0, s);
       const y = Phaser.Math.Between(0, s);
-      const a = Phaser.Math.FloatBetween(0.04, 0.11);
-      g.fillStyle(Phaser.Math.RND.pick([0x1c3a2c, 0x24402f, 0x18302a]), a);
+      const a = Phaser.Math.FloatBetween(0.06, 0.16);
+      g.fillStyle(Phaser.Math.RND.pick([0x5a4028, 0x2a1c10, 0x6b4d2e]), a);
       g.fillRect(x, y, 2, 2);
-    }
-    // faint blue fog pooling on the ground
-    for (let i = 0; i < 6; i++) {
-      g.fillStyle(0x2a5a6e, 0.16);
-      g.fillCircle(Phaser.Math.Between(0, s), Phaser.Math.Between(0, s), Phaser.Math.Between(10, 24));
     }
     g.generateTexture('ground', s, s);
     g.destroy();
@@ -191,9 +195,9 @@ const Textures = {
     const canvas = scene.textures.createCanvas('fog', s, s);
     const ctx = canvas.getContext();
     const grad = ctx.createRadialGradient(r, r, 0, r, r, r);
-    grad.addColorStop(0, 'rgba(159,216,255,0.55)');
-    grad.addColorStop(0.5, 'rgba(120,180,220,0.22)');
-    grad.addColorStop(1, 'rgba(120,180,220,0)');
+    grad.addColorStop(0, 'rgba(90,160,255,0.75)');
+    grad.addColorStop(0.5, 'rgba(70,140,255,0.32)');
+    grad.addColorStop(1, 'rgba(70,140,255,0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, s, s);
     canvas.refresh();
