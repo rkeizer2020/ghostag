@@ -31,6 +31,12 @@ const GAME = {
   LOG_SLOW_DURATION: 5000, // ms the Spook stays slowed
   LOG_SLOW_FACTOR: 0.4,    // enemy speed multiplier while slowed
 
+  // Red ghost's forward smash
+  SMASH_COOLDOWN: 1800,        // ms between smashes
+  SMASH_RANGE: 155,            // how far the slash reaches
+  SMASH_ARC: Math.PI * 0.62,   // width of the hit cone (~112 degrees)
+  SMASH_STUN_DURATION: 3000,   // ms the Spook is stunned on hit
+
   COLORS: {
     bg: 0x1c130b,
     ground: 0x3d2b1a,      // brown earth
@@ -42,6 +48,8 @@ const GAME = {
     orb: 0xffd54a,
     tree: 0x2f6b3a,
     fog: 0x5aa0ff,
+    ghostRed: 0xff8a8a,
+    ghostRedGlow: 0xff5b6e,
   },
 };
 
@@ -87,5 +95,36 @@ const Settings = {
   },
   difficulty() {
     return this.DIFFICULTIES[this.getDifficulty()];
+  },
+
+  // Playable characters and their special ability.
+  CHARACTERS: {
+    blue: {
+      label: 'Blue Ghost', tex: 'ghost', ability: 'log',
+      abilityName: 'Log', icon: '🪵',
+      desc: 'Drops a log behind you. The Spook is slowed for 5s when it steps over it.',
+    },
+    red: {
+      label: 'Red Ghost', tex: 'ghostRed', ability: 'smash',
+      abilityName: 'Smash', icon: '💥',
+      desc: 'Slashes forward with long range. On a hit the Spook is stunned for 3s.',
+    },
+  },
+  CHAR_ORDER: ['blue', 'red'],
+
+  getCharacter() {
+    try {
+      const c = localStorage.getItem('tagz.character');
+      return this.CHARACTERS[c] ? c : 'blue';
+    } catch (e) {
+      return 'blue';
+    }
+  },
+  setCharacter(key) {
+    if (!this.CHARACTERS[key]) return;
+    try { localStorage.setItem('tagz.character', key); } catch (e) { /* ignore */ }
+  },
+  character() {
+    return this.CHARACTERS[this.getCharacter()];
   },
 };

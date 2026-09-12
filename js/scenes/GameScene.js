@@ -21,9 +21,17 @@ class GameScene extends Phaser.Scene {
     this.enemySpeed = GAME.ENEMY_START_SPEED;
     this.boostUntil = 0;
     this.slowUntil = 0;
-    this.lastLogTime = -GAME.LOG_COOLDOWN;
+    this.stunUntil = 0;
     this.gameOver = false;
     this.lastWarnBeep = 0;
+
+    // selected character + its ability
+    this.charKey = Settings.getCharacter();
+    this.character = Settings.CHARACTERS[this.charKey];
+    this.playerTex = this.character.tex;
+    this.abilityCooldown = this.charKey === 'red' ? GAME.SMASH_COOLDOWN : GAME.LOG_COOLDOWN;
+    this.lastAbilityTime = -this.abilityCooldown;
+    this.faceDir = new Phaser.Math.Vector2(0, -1); // starts facing the Spook
 
     // difficulty scaling
     const diff = Settings.difficulty();
@@ -47,7 +55,7 @@ class GameScene extends Phaser.Scene {
     this.logs = this.physics.add.group({ allowGravity: false, immovable: true });
 
     // player
-    this.player = this.physics.add.image(WW * 0.5, WH * 0.75, 'ghost');
+    this.player = this.physics.add.image(WW * 0.5, WH * 0.75, this.playerTex);
     this.player.setCircle(16, 8, 14);
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(10);
@@ -78,7 +86,7 @@ class GameScene extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' });
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.spaceKey.on('down', () => this.dropLog());
+    this.spaceKey.on('down', () => this.useAbility());
     this.joystick = null;
     if (this.sys.game.device.input.touch) {
       this.joystick = new VirtualJoystick(this);
@@ -143,12 +151,52 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  dropLog() {
+  useAbility() {
     if (this.gameOver) return;
     const now = this.time.now;
-    if (now - this.lastLogTime < GAME.LOG_COOLDOWN) return;
-    this.lastLogTime = now;
+    if (now - this.lastAbilityTime < this.abilityCooldown) return;
+    this.lastAbilityTime = now;
+    if (this.charKey === 'red') this.smash();
+    else this.dropLog();
+    this.updateLogHud();
+  }
 
+  smash() {
+    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
+    const cos = Math.cos(ang), sin = Math.sin(ang);
+
+    // slash visual sweeping in front of the player
+    const slash = this.add.image(this.player.x, this.player.y, 'slash')
+      .setDepth(12).setRotation(ang).setScale(0.7).setAlpha(0.95).setTint(0xffdede);
+    this.tweens.add({ targets: slash, scale: 2.1, alpha: 0, duration: 240, ease: 'Quad.out',
+      onComplete: () => slash.destroy() });
+    this.cameras.main.shake(90, 0.004);
+    SFX.slash();
+
+    // hit test: enemy within range and inside the forward cone
+    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.enemy.x, this.enemy.y);
+    if (dist <= GAME.SMASH_RANGE && this.time.now >= this.stunUntil) {
+      const toEnemy = Phaser.Math.Angle.Between(this.player.x, this.player.y, this.enemy.x, this.enemy.y);
+      const diff = Math.abs(Phaser.Math.Angle.Wrap(toEnemy - ang));
+      if (diff <= GAME.SMASH_ARC / 2) this.stunEnemy();
+    }
+  }
+
+  stunEnemy() {
+    this.stunUntil = this.time.now + GAME.SMASH_STUN_DURATION;
+    this.enemy.setVelocity(0, 0);
+    SFX.caught();
+    this.cameras.main.shake(180, 0.012);
+    for (let i = 0; i < 12; i++) {
+      this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-16, 16), this.enemy.y + Phaser.Math.Between(-16, 8));
+    }
+    const txt = this.add.text(this.enemy.x, this.enemy.y - 54, 'STUNNED!', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ffe066',
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
+  }
+
+  dropLog() {
     const log = this.logs.create(this.player.x, this.player.y, 'log');
     log.setDepth(4);
     log.setBodySize(78, 34);
@@ -242,24 +290,26 @@ class GameScene extends Phaser.Scene {
     }).setScrollFactor(0).setDepth(2000).setShadow(0, 2, '#000', 4);
     this.updateLogHud();
 
-    // touch: a button to drop a log
+    // touch: a button to use the ability
     if (this.sys.game.device.input.touch) {
-      this.logBtn = this.add.text(W - 20, H - 20, '🪵 LOG', {
+      const label = this.character.icon + ' ' + this.character.abilityName.toUpperCase();
+      this.logBtn = this.add.text(W - 20, H - 20, label, {
         fontFamily: 'system-ui, sans-serif', fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
-        backgroundColor: '#3a2a1e', padding: { x: 16, y: 12 },
+        backgroundColor: this.charKey === 'red' ? '#4a1e24' : '#3a2a1e', padding: { x: 16, y: 12 },
       }).setOrigin(1, 1).setScrollFactor(0).setDepth(2000).setInteractive({ useHandCursor: true });
       this.logBtn.on('pointerdown', (p, x, y, event) => {
         if (event) event.stopPropagation();
-        this.dropLog();
+        this.useAbility();
       });
     }
   }
 
   updateLogHud() {
     if (!this.logHud) return;
-    const ready = this.time.now - this.lastLogTime >= GAME.LOG_COOLDOWN;
-    this.logHud.setText(ready ? '🪵 Log ready (space)' : '🪵 ...');
-    this.logHud.setColor(ready ? '#d8b57e' : '#6b5a44');
+    const ready = this.time.now - this.lastAbilityTime >= this.abilityCooldown;
+    const name = this.character.abilityName;
+    this.logHud.setText(ready ? this.character.icon + ' ' + name + ' ready (space)' : this.character.icon + ' ...');
+    this.logHud.setColor(ready ? (this.charKey === 'red' ? '#ff9a9a' : '#d8b57e') : '#6b5a44');
   }
 
   toggleMute() {
@@ -314,7 +364,11 @@ class GameScene extends Phaser.Scene {
     }
 
     const v = new Phaser.Math.Vector2(vx, vy);
-    if (v.lengthSq() > 0) v.normalize().scale(speed);
+    if (v.lengthSq() > 0) {
+      v.normalize().scale(speed);
+      // remember facing direction for the smash
+      this.faceDir.set(v.x, v.y).normalize();
+    }
     this.player.setVelocity(v.x, v.y);
 
     // face movement direction (flip only)
@@ -323,7 +377,7 @@ class GameScene extends Phaser.Scene {
 
     // boost visuals
     if (boosting) {
-      this.player.setTint(0x9fe0ff);
+      this.player.setTint(this.charKey === 'red' ? 0xffb0b0 : 0x9fe0ff);
       if (v.lengthSq() > 0 && Math.random() < 0.6) {
         this.trail.emitParticleAt(this.player.x, this.player.y + 10);
       }
@@ -333,6 +387,17 @@ class GameScene extends Phaser.Scene {
   }
 
   handleEnemy(time, dt) {
+    // stunned: frozen and helpless (cannot move or catch)
+    if (time < this.stunUntil) {
+      this.enemy.setVelocity(0, 0);
+      this.enemy.setTint(0xffe066);
+      this.enemy.setAngle(Math.sin(time / 55) * 7);
+      this.enemyPrevX = this.enemy.x;
+      this.enemyPrevY = this.enemy.y;
+      return;
+    }
+    this.enemy.setAngle(0);
+
     const slowed = time < this.slowUntil;
     const speed = slowed ? this.enemySpeed * GAME.LOG_SLOW_FACTOR : this.enemySpeed;
 
@@ -468,8 +533,8 @@ class GameScene extends Phaser.Scene {
     this.player.setVisible(false);
 
     // two halves of the ghost fly apart (left and right)
-    const leftHalf = this.add.image(px, py, 'ghost').setDepth(12).setCrop(0, 0, 24, 56);
-    const rightHalf = this.add.image(px, py, 'ghost').setDepth(12).setCrop(24, 0, 24, 56);
+    const leftHalf = this.add.image(px, py, this.playerTex).setDepth(12).setCrop(0, 0, 24, 56);
+    const rightHalf = this.add.image(px, py, this.playerTex).setDepth(12).setCrop(24, 0, 24, 56);
 
     this.tweens.add({
       targets: leftHalf, x: px - 70, y: py + 40, angle: -90, alpha: 0,

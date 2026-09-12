@@ -3,9 +3,11 @@
 // zero image assets.
 const Textures = {
   makeAll(scene) {
-    this.ghost(scene);
+    this._ghost(scene, 'ghost', { glow: 0x6fb8ff, glow2: 0x9fd2ff, body: 0xbfe6ff, eye: 0x1a2b40 });
+    this._ghost(scene, 'ghostRed', { glow: 0xff5b6e, glow2: 0xff8f9c, body: 0xff8a8a, eye: 0x5a1420 });
     this.spook(scene);
     this.sword(scene);
+    this.slash(scene);
     this.orb(scene);
     this.tree(scene);
     this.log(scene);
@@ -14,16 +16,16 @@ const Textures = {
     this.particle(scene);
   },
 
-  ghost(scene) {
+  _ghost(scene, key, c) {
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
     const w = 48, h = 56;
     // soft glow
-    g.fillStyle(0x6fb8ff, 0.18);
+    g.fillStyle(c.glow, 0.18);
     g.fillCircle(w / 2, h / 2, 26);
-    g.fillStyle(0x9fd2ff, 0.28);
+    g.fillStyle(c.glow2, 0.28);
     g.fillCircle(w / 2, h / 2, 20);
     // body
-    g.fillStyle(0xbfe6ff, 1);
+    g.fillStyle(c.body, 1);
     g.fillCircle(w / 2, 22, 16);
     g.fillRect(w / 2 - 16, 22, 32, 20);
     // wavy bottom
@@ -35,10 +37,23 @@ const Textures = {
     g.fillStyle(0xffffff, 0.85);
     g.fillCircle(w / 2 - 5, 18, 5);
     // eyes
-    g.fillStyle(0x1a2b40, 1);
+    g.fillStyle(c.eye, 1);
     g.fillCircle(w / 2 - 6, 22, 3);
     g.fillCircle(w / 2 + 6, 22, 3);
-    g.generateTexture('ghost', w, h);
+    g.generateTexture(key, w, h);
+    g.destroy();
+  },
+
+  slash(scene) {
+    // A bright forward-facing crescent for the Red ghost's smash. Drawn
+    // bulging toward +x so it can be rotated to the facing direction in game.
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const s = 160, cx = s / 2, cy = s / 2, r = 52;
+    g.lineStyle(18, 0xffffff, 0.95);
+    g.beginPath(); g.arc(cx, cy, r, -Math.PI / 3, Math.PI / 3, false); g.strokePath();
+    g.lineStyle(8, 0xbfe6ff, 1);
+    g.beginPath(); g.arc(cx, cy, r, -Math.PI / 3, Math.PI / 3, false); g.strokePath();
+    g.generateTexture('slash', s, s);
     g.destroy();
   },
 

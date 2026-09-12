@@ -121,4 +121,9 @@ const SFX = {
   click() {
     this._tone(520, 0.06, 'square', 0.2);
   },
+
+  slash() {
+    this._noise(0.14, 0.28);
+    this._tone(700, 0.14, 'sawtooth', 0.18, 180);
+  },
 };
