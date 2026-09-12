@@ -43,6 +43,7 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(3);
 
     this.makeMuteButton();
+    UI.restartOnResize(this);
 
     // keyboard shortcut: Enter / Space to play
     this.input.keyboard.on('keydown-ENTER', () => this.startGame());

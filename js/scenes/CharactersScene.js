@@ -31,6 +31,7 @@ class CharactersScene extends Phaser.Scene {
 
     UI.button(this, cx, H * 0.93, '←  Back', () => this.scene.start('Menu'), { width: 220, height: 50, fontSize: 20 });
     this.input.keyboard.on('keydown-ESC', () => this.scene.start('Menu'));
+    UI.restartOnResize(this);
   }
 
   makeCard(key, x, y, w, h) {

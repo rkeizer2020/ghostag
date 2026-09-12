@@ -45,5 +45,12 @@ class GameOverScene extends Phaser.Scene {
       UI.button(this, cx, H * 0.72, '↻  Play Again', () => this.scene.start('Game'), { width: 260, height: 60, fontSize: 24 });
       UI.button(this, cx, H * 0.72 + 78, '🏠  Main Menu', () => this.scene.start('Menu'), { width: 260, height: 54, fontSize: 22 });
     });
+
+    // keep filling the screen if the window changes (preserve the score)
+    const onResize = () => {
+      if (this.scene.isActive()) this.scene.restart({ score: this.finalScore, isNew: this.isNew });
+    };
+    this.scale.on('resize', onResize);
+    this.events.once('shutdown', () => this.scale.off('resize', onResize));
   }
 }

@@ -1,6 +1,15 @@
 // Shared UI helpers used by the menu and settings screens so they match the
 // in-game forest look: a drifting-fog backdrop, styled buttons, a slider.
 const UI = {
+  // Re-run a static scene's layout when the window size changes, so it keeps
+  // filling the screen. Cheap for menu-style scenes; the listener is removed
+  // when the scene shuts down.
+  restartOnResize(scene) {
+    const onResize = () => { if (scene.scene.isActive()) scene.scene.restart(); };
+    scene.scale.on('resize', onResize);
+    scene.events.once('shutdown', () => scene.scale.off('resize', onResize));
+  },
+
   // Full-screen forest backdrop (brown earth + blue fog + a few trees).
   backdrop(scene) {
     const W = scene.scale.width, H = scene.scale.height;

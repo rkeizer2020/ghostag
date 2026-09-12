@@ -348,6 +348,20 @@ class GameScene extends Phaser.Scene {
         this.useAbility();
       });
     }
+
+    // keep the HUD anchored to the corners when the window resizes
+    this.layoutHud();
+    const onResize = () => this.layoutHud();
+    this.scale.on('resize', onResize);
+    this.events.once('shutdown', () => this.scale.off('resize', onResize));
+  }
+
+  layoutHud() {
+    const W = this.scale.width, H = this.scale.height;
+    if (this.muteBtn) this.muteBtn.setPosition(W - 16, 14);
+    if (this.danger) this.danger.setDisplaySize(W, H).setPosition(0, 0);
+    if (this.logHud) this.logHud.setPosition(16, H - 34);
+    if (this.logBtn) this.logBtn.setPosition(W - 20, H - 20);
   }
 
   updateLogHud() {

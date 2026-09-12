@@ -62,6 +62,7 @@ class SettingsScene extends Phaser.Scene {
     // --- Back ---
     UI.button(this, cx, H * 0.86, '←  Back', () => this.scene.start('Menu'), { width: 220, height: 56, fontSize: 22 });
     this.input.keyboard.on('keydown-ESC', () => this.scene.start('Menu'));
+    UI.restartOnResize(this);
   }
 
   selectDifficulty(key, save = true) {
