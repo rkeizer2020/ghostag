@@ -5,9 +5,12 @@ const Textures = {
   makeAll(scene) {
     this._ghost(scene, 'ghost', { glow: 0x6fb8ff, glow2: 0x9fd2ff, body: 0xbfe6ff, eye: 0x1a2b40 });
     this._ghost(scene, 'ghostRed', { glow: 0xff5b6e, glow2: 0xff8f9c, body: 0xff8a8a, eye: 0x5a1420 });
+    this._ghost(scene, 'ghostGreen', { glow: 0x3fbf6a, glow2: 0x7fe0a0, body: 0x8fe6a0, eye: 0x144a24 });
+    this._ghost(scene, 'ghostPurple', { glow: 0x7a3fbf, glow2: 0xb98fe0, body: 0xc79cff, eye: 0x2a1444 });
     this.spook(scene);
     this.sword(scene);
     this.slash(scene);
+    this.shield(scene);
     this.orb(scene);
     this.tree(scene);
     this.log(scene);
@@ -54,6 +57,23 @@ const Textures = {
     g.lineStyle(8, 0xbfe6ff, 1);
     g.beginPath(); g.arc(cx, cy, r, -Math.PI / 3, Math.PI / 3, false); g.strokePath();
     g.generateTexture('slash', s, s);
+    g.destroy();
+  },
+
+  shield(scene) {
+    // translucent protective bubble drawn around the Green ghost
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const s = 84, c = s / 2;
+    g.fillStyle(0x8fffce, 0.16);
+    g.fillCircle(c, c, 38);
+    g.lineStyle(4, 0x9fffd0, 0.9);
+    g.strokeCircle(c, c, 38);
+    g.lineStyle(2, 0xffffff, 0.55);
+    g.strokeCircle(c, c, 32);
+    // little sparkle highlight
+    g.fillStyle(0xffffff, 0.8);
+    g.fillCircle(c + 16, c - 22, 3);
+    g.generateTexture('shield', s, s);
     g.destroy();
   },
 

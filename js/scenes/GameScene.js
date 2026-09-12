@@ -22,6 +22,10 @@ class GameScene extends Phaser.Scene {
     this.boostUntil = 0;
     this.slowUntil = 0;
     this.stunUntil = 0;
+    this.invulnUntil = 0;
+    this.shieldUntil = 0;
+    this.phaseUntil = 0;
+    this.phasing = false;
     this.gameOver = false;
     this.lastWarnBeep = 0;
 
@@ -29,8 +33,10 @@ class GameScene extends Phaser.Scene {
     this.charKey = Settings.getCharacter();
     this.character = Settings.CHARACTERS[this.charKey];
     this.playerTex = this.character.tex;
-    this.abilityCooldown = this.charKey === 'red' ? GAME.SMASH_COOLDOWN : GAME.LOG_COOLDOWN;
-    this.lastAbilityTime = -this.abilityCooldown;
+    this.charSpeedMul = this.character.speedMul || 1;
+    this.lives = this.character.lives || 1;
+    this.abilityCooldown = this.character.cooldown || 2000;
+    this.abilityReadyAt = 0; // time (ms) when the ability can be used again
     this.faceDir = new Phaser.Math.Vector2(0, -1); // starts facing the Spook
 
     // difficulty scaling
@@ -67,8 +73,8 @@ class GameScene extends Phaser.Scene {
     this.enemy.setDepth(10);
     this.sword = this.add.image(this.enemy.x, this.enemy.y - 44, 'sword').setDepth(11);
 
-    // collisions with trees
-    this.physics.add.collider(this.player, this.trees);
+    // collisions with trees (player collider is toggled off while phasing)
+    this.playerTreeCollider = this.physics.add.collider(this.player, this.trees);
     this.physics.add.collider(this.enemy, this.trees);
 
     // the Spook steps on a log -> slowed
@@ -154,11 +160,45 @@ class GameScene extends Phaser.Scene {
   useAbility() {
     if (this.gameOver) return;
     const now = this.time.now;
-    if (now - this.lastAbilityTime < this.abilityCooldown) return;
-    this.lastAbilityTime = now;
-    if (this.charKey === 'red') this.smash();
-    else this.dropLog();
+    if (now < this.abilityReadyAt) return;
+
+    switch (this.character.ability) {
+      case 'smash':
+        this.smash();
+        this.abilityReadyAt = now + this.abilityCooldown;
+        break;
+      case 'shield':
+        this.activateShield(now);
+        this.abilityReadyAt = now + this.abilityCooldown;
+        break;
+      case 'phase':
+        this.activatePhase(now); // sets its own ready time (cooldown after it ends)
+        break;
+      case 'log':
+      default:
+        this.dropLog();
+        this.abilityReadyAt = now + this.abilityCooldown;
+        break;
+    }
     this.updateLogHud();
+  }
+
+  activateShield(now) {
+    this.shieldUntil = now + GAME.SHIELD_DURATION;
+    if (this.shieldFx) this.shieldFx.destroy();
+    this.shieldFx = this.add.image(this.player.x, this.player.y, 'shield').setDepth(11).setAlpha(0.95);
+    this.tweens.add({ targets: this.shieldFx, scale: { from: 0.7, to: 1.05 }, duration: 200, ease: 'Back.out' });
+    SFX.click();
+  }
+
+  activatePhase(now) {
+    this.phaseUntil = now + GAME.PHASE_DURATION;
+    this.abilityReadyAt = this.phaseUntil + GAME.PHASE_COOLDOWN; // cooldown starts after it ends
+    SFX.boost();
+    const txt = this.add.text(this.player.x, this.player.y - 44, 'PHASE', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '16px', fontStyle: 'bold', color: '#d8b0ff',
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 26, alpha: 0, duration: 800, onComplete: () => txt.destroy() });
   }
 
   smash() {
@@ -271,6 +311,12 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif', fontSize: '15px', color: '#ffd54a',
     }).setScrollFactor(0).setDepth(2000).setShadow(0, 2, '#000', 4);
 
+    // lives (only shown for characters with more than one life)
+    this.livesText = this.add.text(16, 64, '', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '18px', color: '#ff8a8a',
+    }).setScrollFactor(0).setDepth(2000).setShadow(0, 2, '#000', 4);
+    this.updateLivesHud();
+
     this.muteBtn = this.add.text(W - 16, 14, SFX.muted ? '🔇' : '🔊', {
       fontSize: '26px',
     }).setOrigin(1, 0).setScrollFactor(0).setDepth(2000).setInteractive({ useHandCursor: true });
@@ -306,10 +352,21 @@ class GameScene extends Phaser.Scene {
 
   updateLogHud() {
     if (!this.logHud) return;
-    const ready = this.time.now - this.lastAbilityTime >= this.abilityCooldown;
+    const now = this.time.now;
+    const phasingNow = this.character.ability === 'phase' && now < this.phaseUntil;
+    const ready = now >= this.abilityReadyAt;
     const name = this.character.abilityName;
-    this.logHud.setText(ready ? this.character.icon + ' ' + name + ' ready (space)' : this.character.icon + ' ...');
-    this.logHud.setColor(ready ? (this.charKey === 'red' ? '#ff9a9a' : '#d8b57e') : '#6b5a44');
+    let label;
+    if (phasingNow) label = this.character.icon + ' ' + name + ' active';
+    else if (ready) label = this.character.icon + ' ' + name + ' ready (space)';
+    else label = this.character.icon + ' ...';
+    this.logHud.setText(label);
+    this.logHud.setColor(phasingNow ? '#d8b0ff' : (ready ? '#d8e6b0' : '#6b5a44'));
+  }
+
+  updateLivesHud() {
+    if (!this.livesText) return;
+    this.livesText.setText(this.lives > 1 || this.character.lives > 1 ? '❤'.repeat(Math.max(0, this.lives)) : '');
   }
 
   toggleMute() {
@@ -349,8 +406,10 @@ class GameScene extends Phaser.Scene {
   }
 
   handlePlayer(time) {
+    this.updateAbilityVisuals(time);
+
     const boosting = time < this.boostUntil;
-    const speed = boosting ? GAME.PLAYER_BOOST_SPEED : GAME.PLAYER_SPEED;
+    const speed = (boosting ? GAME.PLAYER_BOOST_SPEED : GAME.PLAYER_SPEED) * this.charSpeedMul;
 
     let vx = 0, vy = 0;
     if (this.cursors.left.isDown || this.wasd.left.isDown) vx -= 1;
@@ -377,12 +436,39 @@ class GameScene extends Phaser.Scene {
 
     // boost visuals
     if (boosting) {
-      this.player.setTint(this.charKey === 'red' ? 0xffb0b0 : 0x9fe0ff);
+      this.player.setTint(this.boostTint());
       if (v.lengthSq() > 0 && Math.random() < 0.6) {
         this.trail.emitParticleAt(this.player.x, this.player.y + 10);
       }
     } else {
       this.player.clearTint();
+    }
+  }
+
+  boostTint() {
+    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff }[this.charKey] || 0x9fe0ff;
+  }
+
+  // Keeps the shield bubble on the player and toggles tree-phasing on/off.
+  updateAbilityVisuals(time) {
+    // shield bubble follows the player, disappears when it expires
+    if (this.shieldFx) {
+      if (time < this.shieldUntil) {
+        this.shieldFx.setPosition(this.player.x, this.player.y);
+      } else {
+        this.shieldFx.destroy();
+        this.shieldFx = null;
+      }
+    }
+
+    // phasing: pass through trees + go translucent
+    if (this.charKey === 'purple') {
+      const phasing = time < this.phaseUntil;
+      if (phasing !== this.phasing) {
+        this.phasing = phasing;
+        this.playerTreeCollider.active = !phasing;
+        this.player.setAlpha(phasing ? 0.45 : 1);
+      }
     }
   }
 
@@ -500,6 +586,65 @@ class GameScene extends Phaser.Scene {
 
   caught() {
     if (this.gameOver) return;
+    const now = this.time.now;
+    if (now < this.invulnUntil) return; // grace after a block / life loss
+
+    // Green shield blocks the hit
+    if (now < this.shieldUntil) { this.blockWithShield(now); return; }
+
+    // Extra lives (Purple): survive the hit and lose one life
+    if (this.lives > 1) { this.loseLife(now); return; }
+
+    this.die();
+  }
+
+  blockWithShield(now) {
+    this.shieldUntil = 0;
+    this.score += GAME.SHIELD_BONUS_POINTS;
+    this.boostUntil = now + GAME.BOOST_DURATION;
+    this.stunUntil = now + GAME.SHIELD_BLOCK_STUN;
+    this.invulnUntil = now + GAME.SHIELD_BLOCK_STUN;
+    this.knockbackEnemy(90);
+    SFX.boost();
+    this.cameras.main.flash(140, 150, 255, 190);
+    if (this.shieldFx) {
+      this.tweens.add({ targets: this.shieldFx, scale: 1.8, alpha: 0, duration: 260,
+        onComplete: () => { if (this.shieldFx) { this.shieldFx.destroy(); this.shieldFx = null; } } });
+    }
+    this.floatText('BLOCKED! +100', 0x9fffce);
+  }
+
+  loseLife(now) {
+    this.lives -= 1;
+    this.updateLivesHud();
+    this.stunUntil = now + 900;
+    this.invulnUntil = now + 1300;
+    this.knockbackEnemy(110);
+    SFX.caught();
+    this.cameras.main.flash(160, 255, 90, 90);
+    this.cameras.main.shake(180, 0.01);
+    // brief blink to show invulnerability
+    this.tweens.add({ targets: this.player, alpha: 0.3, duration: 130, yoyo: true, repeat: 4,
+      onComplete: () => { if (this.player.active) this.player.setAlpha(this.phasing ? 0.45 : 1); } });
+    this.floatText('-1 LIFE', 0xff8a8a);
+  }
+
+  knockbackEnemy(px) {
+    const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, this.enemy.x, this.enemy.y);
+    const nx = Phaser.Math.Clamp(this.enemy.x + Math.cos(a) * px, 20, GAME.WORLD_WIDTH - 20);
+    const ny = Phaser.Math.Clamp(this.enemy.y + Math.sin(a) * px, 20, GAME.WORLD_HEIGHT - 20);
+    this.enemy.setPosition(nx, ny);
+  }
+
+  floatText(msg, color) {
+    const hex = '#' + color.toString(16).padStart(6, '0');
+    const txt = this.add.text(this.player.x, this.player.y - 48, msg, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '18px', fontStyle: 'bold', color: hex,
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
+  }
+
+  die() {
     this.gameOver = true;
     this.player.setVelocity(0, 0);
     this.enemy.setVelocity(0, 0);
