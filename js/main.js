@@ -15,7 +15,7 @@ const config = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   render: { antialias: true, roundPixels: false },
-  scene: [BootScene, MenuScene, GameScene, GameOverScene],
+  scene: [BootScene, MenuScene, SettingsScene, GameScene, GameOverScene],
 };
 
 window.game = new Phaser.Game(config);

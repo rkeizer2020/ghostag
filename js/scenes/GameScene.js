@@ -25,6 +25,13 @@ class GameScene extends Phaser.Scene {
     this.gameOver = false;
     this.lastWarnBeep = 0;
 
+    // difficulty scaling
+    const diff = Settings.difficulty();
+    this.enemyStart = GAME.ENEMY_START_SPEED * diff.speedMul;
+    this.enemyMax = GAME.ENEMY_MAX_SPEED * diff.speedMul;
+    this.enemyAccel = GAME.ENEMY_ACCEL_PER_SEC * diff.accelMul;
+    this.enemySpeed = this.enemyStart;
+
     // trees (static obstacles)
     this.trees = this.physics.add.staticGroup();
     this.placeTrees();
@@ -86,12 +93,12 @@ class GameScene extends Phaser.Scene {
     // several large soft puffs drifting slowly for a misty forest feel
     this.fogLayer = this.add.container(0, 0).setDepth(8);
     const WW = GAME.WORLD_WIDTH, WH = GAME.WORLD_HEIGHT;
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < 11; i++) {
       const puff = this.add.image(
         Phaser.Math.Between(0, WW), Phaser.Math.Between(0, WH), 'fog'
       );
-      puff.setScale(Phaser.Math.FloatBetween(1.6, 3.6));
-      puff.setAlpha(Phaser.Math.FloatBetween(0.22, 0.45));
+      puff.setScale(Phaser.Math.FloatBetween(2.0, 3.8));
+      puff.setAlpha(Phaser.Math.FloatBetween(0.30, 0.5));
       puff.setBlendMode(Phaser.BlendModes.SCREEN);
       this.fogLayer.add(puff);
       this.tweens.add({
@@ -244,7 +251,7 @@ class GameScene extends Phaser.Scene {
   updateLogHud() {
     if (!this.logHud) return;
     const ready = this.time.now - this.lastLogTime >= GAME.LOG_COOLDOWN;
-    this.logHud.setText(ready ? '🪵 Log klaar (spatie)' : '🪵 ...');
+    this.logHud.setText(ready ? '🪵 Log ready (space)' : '🪵 ...');
     this.logHud.setColor(ready ? '#d8b57e' : '#6b5a44');
   }
 
@@ -274,8 +281,8 @@ class GameScene extends Phaser.Scene {
 
     // enemy ramps up the longer you live
     this.enemySpeed = Math.min(
-      GAME.ENEMY_MAX_SPEED,
-      GAME.ENEMY_START_SPEED + GAME.ENEMY_ACCEL_PER_SEC * this.elapsed
+      this.enemyMax,
+      this.enemyStart + this.enemyAccel * this.elapsed
     );
 
     this.handlePlayer(time);

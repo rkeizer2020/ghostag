@@ -1,72 +1,61 @@
-// Title screen: shows the premise, the highscore, and how to control the
-// game. Any key or tap starts play (and unlocks audio).
+// Title screen, styled to match the forest map: drifting blue fog over brown
+// earth, the glowing blue TAGZ logo, and Play / Settings buttons.
 class MenuScene extends Phaser.Scene {
   constructor() {
     super('Menu');
   }
 
   create() {
-    const W = this.scale.width;
-    const H = this.scale.height;
-    const cx = W / 2;
+    const W = this.scale.width, H = this.scale.height, cx = W / 2;
 
-    this.add.rectangle(0, 0, W, H, GAME.COLORS.bg).setOrigin(0).setScrollFactor(0);
+    UI.backdrop(this);
 
-    // decorative floating ghost + chasing spook
-    const ghost = this.add.image(cx - 70, H * 0.34, 'ghost').setScale(1.6);
-    const spook = this.add.image(cx + 70, H * 0.34, 'spook').setScale(1.4);
-    const sword = this.add.image(cx + 70, H * 0.34 - 46, 'sword').setScale(1.2);
+    // decorative chase: bright ghost fleeing the stealthy blue Spook
+    const ghost = this.add.image(cx - 70, H * 0.34, 'ghost').setScale(1.5).setDepth(1);
+    const spook = this.add.image(cx + 70, H * 0.34, 'spook').setScale(1.35).setDepth(1);
+    const sword = this.add.image(cx + 70, H * 0.34 - 46, 'sword').setScale(1.15).setDepth(2);
     this.tweens.add({ targets: ghost, y: '-=12', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.tweens.add({ targets: [spook, sword], y: '-=10', duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.tweens.add({ targets: sword, angle: { from: -8, to: 8 }, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    this.add.text(cx, H * 0.12, 'TAGZ', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '72px', fontStyle: 'bold',
-      color: '#bfe6ff',
-    }).setOrigin(0.5).setShadow(0, 4, '#6fb8ff', 12, false, true);
+    // glowing blue TAGZ logo (layered shadows create the glow)
+    const title = this.add.text(cx, H * 0.14, 'TAGZ', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '80px', fontStyle: 'bold', color: '#bfe6ff',
+    }).setOrigin(0.5).setDepth(3);
+    title.setShadow(0, 0, '#6fb8ff', 24, true, true);
+    this.tweens.add({ targets: title, alpha: { from: 1, to: 0.82 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    this.add.text(cx, H * 0.12 + 56, 'Het Spookje en het Spook', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '20px', color: '#9a8fc0',
-    }).setOrigin(0.5);
+    this.add.text(cx, H * 0.14 + 58, 'The Little Ghost and the Spook', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '18px', color: '#9fc4d8',
+    }).setOrigin(0.5).setDepth(3);
 
-    const hs = Storage.getHighscore();
-    this.add.text(cx, H * 0.56, 'Highscore: ' + hs, {
-      fontFamily: 'system-ui, sans-serif', fontSize: '22px', color: '#ffd54a',
-    }).setOrigin(0.5);
+    this.add.text(cx, H * 0.52, 'Best: ' + Storage.getHighscore(), {
+      fontFamily: 'system-ui, sans-serif', fontSize: '20px', color: '#ffd54a',
+    }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
+
+    // buttons
+    UI.button(this, cx, H * 0.65, '▶  Play', () => this.startGame(), { width: 260, height: 64, fontSize: 28 });
+    UI.button(this, cx, H * 0.65 + 84, '⚙  Settings', () => this.scene.start('Settings'), { width: 260, height: 56, fontSize: 22 });
 
     const isTouch = this.sys.game.device.input.touch;
-    const controls = isTouch
-      ? 'Sleep met je duim om te bewegen  •  tik op LOG om een boomstam te gooien'
-      : 'Beweeg met WASD/pijltjes  •  spatie = boomstam gooien';
-    this.add.text(cx, H * 0.66, controls, {
-      fontFamily: 'system-ui, sans-serif', fontSize: '16px', color: '#8a80a8',
+    this.add.text(cx, H * 0.93, isTouch
+      ? 'Drag to move  •  tap LOG to drop a log'
+      : 'WASD / arrows to move  •  Space to drop a log', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '14px', color: '#8a9aa4',
       align: 'center', wordWrap: { width: W - 60 },
-    }).setOrigin(0.5);
-
-    this.add.text(cx, H * 0.73, 'Pak de gouden bolletjes  •  verstop je tussen de bomen  •  vertraag het Spook met een boomstam  •  overleef!', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '15px', color: '#6f688c',
-      align: 'center', wordWrap: { width: W - 60 },
-    }).setOrigin(0.5);
-
-    const start = this.add.text(cx, H * 0.85, isTouch ? 'TIK OM TE STARTEN' : 'DRUK OP EEN TOETS', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '24px', fontStyle: 'bold', color: '#ffffff',
-      backgroundColor: '#3a2a5e', padding: { x: 20, y: 12 },
-    }).setOrigin(0.5);
-    this.tweens.add({ targets: start, alpha: { from: 1, to: 0.5 }, duration: 700, yoyo: true, repeat: -1 });
+    }).setOrigin(0.5).setDepth(3);
 
     this.makeMuteButton();
 
-    const begin = () => {
-      SFX.unlock();
-      SFX.click();
-      this.scene.start('Game');
-    };
-    this.input.keyboard.once('keydown', begin);
-    this.input.once('pointerdown', (p) => {
-      // don't start if they tapped the mute button
-      if (p.x > W - 70 && p.y < 70) return;
-      begin();
-    });
+    // keyboard shortcut: Enter / Space to play
+    this.input.keyboard.on('keydown-ENTER', () => this.startGame());
+    this.input.keyboard.on('keydown-SPACE', () => this.startGame());
+  }
+
+  startGame() {
+    SFX.unlock();
+    SFX.click();
+    this.scene.start('Game');
   }
 
   makeMuteButton() {

@@ -4,10 +4,13 @@ const SFX = {
   ctx: null,
   master: null,
   _muted: false,
+  _volume: 0.6,
 
   init() {
     try {
       this._muted = localStorage.getItem('tagz.muted') === '1';
+      const v = parseFloat(localStorage.getItem('tagz.volume'));
+      if (Number.isFinite(v)) this._volume = Phaser.Math.Clamp(v, 0, 1);
     } catch (e) {
       this._muted = false;
     }
@@ -19,8 +22,22 @@ const SFX = {
     if (!AC) return;
     this.ctx = new AC();
     this.master = this.ctx.createGain();
-    this.master.gain.value = this._muted ? 0 : 0.6;
+    this.master.gain.value = this._effectiveGain();
     this.master.connect(this.ctx.destination);
+  },
+
+  _effectiveGain() {
+    return this._muted ? 0 : this._volume;
+  },
+
+  get volume() {
+    return this._volume;
+  },
+
+  setVolume(v) {
+    this._volume = Phaser.Math.Clamp(v, 0, 1);
+    try { localStorage.setItem('tagz.volume', String(this._volume)); } catch (e) { /* ignore */ }
+    if (this.master) this.master.gain.value = this._effectiveGain();
   },
 
   // Call from a user gesture to unlock audio on mobile browsers.
@@ -38,7 +55,7 @@ const SFX = {
     try {
       localStorage.setItem('tagz.muted', this._muted ? '1' : '0');
     } catch (e) { /* ignore */ }
-    if (this.master) this.master.gain.value = this._muted ? 0 : 0.6;
+    if (this.master) this.master.gain.value = this._effectiveGain();
     return this._muted;
   },
 

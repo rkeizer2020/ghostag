@@ -1,4 +1,5 @@
-// End screen with final score, highscore, and a "new record" flourish.
+// End screen (forest-styled): final score, highscore, and buttons to play
+// again or return to the main menu.
 class GameOverScene extends Phaser.Scene {
   constructor() {
     super('GameOver');
@@ -12,51 +13,37 @@ class GameOverScene extends Phaser.Scene {
   create() {
     const W = this.scale.width, H = this.scale.height, cx = W / 2;
 
-    this.add.rectangle(0, 0, W, H, 0x0a0812, 0.92).setOrigin(0).setScrollFactor(0);
+    UI.backdrop(this);
+    this.add.rectangle(0, 0, W, H, 0x0a0806, 0.55).setOrigin(0).setScrollFactor(0).setDepth(-11);
 
-    this.add.text(cx, H * 0.22, 'GEPAKT!', {
+    this.add.text(cx, H * 0.2, 'CAUGHT!', {
       fontFamily: 'system-ui, sans-serif', fontSize: '56px', fontStyle: 'bold', color: '#ff5b5b',
-    }).setOrigin(0.5).setShadow(0, 4, '#5a0000', 10, false, true);
+    }).setOrigin(0.5).setDepth(3).setShadow(0, 4, '#5a0000', 12, false, true);
 
     // a forlorn split ghost
-    const l = this.add.image(cx - 24, H * 0.4, 'ghost').setCrop(0, 0, 24, 56).setAngle(-30).setAlpha(0.7);
-    const r = this.add.image(cx + 24, H * 0.4, 'ghost').setCrop(24, 0, 24, 56).setAngle(30).setAlpha(0.7);
+    const l = this.add.image(cx - 24, H * 0.37, 'ghost').setCrop(0, 0, 24, 56).setAngle(-30).setAlpha(0.75).setDepth(3);
+    const r = this.add.image(cx + 24, H * 0.37, 'ghost').setCrop(24, 0, 24, 56).setAngle(30).setAlpha(0.75).setDepth(3);
     this.tweens.add({ targets: [l, r], y: '+=6', duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    this.add.text(cx, H * 0.56, 'Score: ' + this.finalScore, {
+    this.add.text(cx, H * 0.52, 'Score: ' + this.finalScore, {
       fontFamily: 'system-ui, sans-serif', fontSize: '32px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
 
     if (this.isNew) {
-      const nr = this.add.text(cx, H * 0.63, '✨ NIEUW RECORD! ✨', {
+      const nr = this.add.text(cx, H * 0.585, '✨ NEW RECORD! ✨', {
         fontFamily: 'system-ui, sans-serif', fontSize: '22px', fontStyle: 'bold', color: '#ffd54a',
-      }).setOrigin(0.5);
+      }).setOrigin(0.5).setDepth(3);
       this.tweens.add({ targets: nr, scale: { from: 1, to: 1.15 }, duration: 500, yoyo: true, repeat: -1 });
     } else {
-      this.add.text(cx, H * 0.63, 'Best: ' + Storage.getHighscore(), {
+      this.add.text(cx, H * 0.585, 'Best: ' + Storage.getHighscore(), {
         fontFamily: 'system-ui, sans-serif', fontSize: '18px', color: '#ffd54a',
-      }).setOrigin(0.5);
+      }).setOrigin(0.5).setDepth(3);
     }
 
-    const isTouch = this.sys.game.device.input.touch;
-    const btn = this.add.text(cx, H * 0.8, isTouch ? 'TIK OM OPNIEUW TE SPELEN' : 'DRUK OP EEN TOETS', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
-      backgroundColor: '#3a2a5e', padding: { x: 18, y: 10 },
-    }).setOrigin(0.5);
-    this.tweens.add({ targets: btn, alpha: { from: 1, to: 0.5 }, duration: 700, yoyo: true, repeat: -1 });
-
-    const restart = () => {
-      SFX.click();
-      this.scene.start('Game');
-    };
-    // small delay so the death tap doesn't instantly restart
-    this.time.delayedCall(600, () => {
-      this.input.keyboard.once('keydown', restart);
-      this.input.once('pointerdown', restart);
+    // buttons appear after a short delay so the death tap doesn't hit them
+    this.time.delayedCall(500, () => {
+      UI.button(this, cx, H * 0.72, '↻  Play Again', () => this.scene.start('Game'), { width: 260, height: 60, fontSize: 24 });
+      UI.button(this, cx, H * 0.72 + 78, '🏠  Main Menu', () => this.scene.start('Menu'), { width: 260, height: 54, fontSize: 22 });
     });
-
-    this.add.text(cx, H * 0.9, 'M = geluid aan/uit', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '13px', color: '#6f688c',
-    }).setOrigin(0.5);
   }
 }

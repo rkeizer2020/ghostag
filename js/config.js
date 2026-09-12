@@ -63,3 +63,29 @@ const Storage = {
     }
   },
 };
+
+// Difficulty presets and the player's chosen difficulty (persisted).
+const Settings = {
+  DIFFICULTIES: {
+    easy:   { label: 'Easy',   speedMul: 0.78, accelMul: 0.65 },
+    normal: { label: 'Normal', speedMul: 1.0,  accelMul: 1.0 },
+    hard:   { label: 'Hard',   speedMul: 1.28, accelMul: 1.6 },
+  },
+  ORDER: ['easy', 'normal', 'hard'],
+
+  getDifficulty() {
+    try {
+      const d = localStorage.getItem('tagz.difficulty');
+      return this.DIFFICULTIES[d] ? d : 'normal';
+    } catch (e) {
+      return 'normal';
+    }
+  },
+  setDifficulty(key) {
+    if (!this.DIFFICULTIES[key]) return;
+    try { localStorage.setItem('tagz.difficulty', key); } catch (e) { /* ignore */ }
+  },
+  difficulty() {
+    return this.DIFFICULTIES[this.getDifficulty()];
+  },
+};
