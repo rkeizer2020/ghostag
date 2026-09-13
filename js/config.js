@@ -80,21 +80,52 @@ const GAME = {
 };
 
 const Storage = {
-  KEY: 'tagz.highscore',
-  getHighscore() {
+  // Bump to wipe everyone's high scores once (applied on load / next login).
+  RESET_ID: '2',
+
+  _hsKey(d) { return 'tagz.hs.' + d; },
+
+  // Per-difficulty best score. `d` defaults to the current difficulty.
+  getHighscore(d) {
+    d = d || (typeof Settings !== 'undefined' ? Settings.getDifficulty() : 'normal');
     try {
-      const v = parseInt(localStorage.getItem(this.KEY), 10);
+      const v = parseInt(localStorage.getItem(this._hsKey(d)), 10);
       return Number.isFinite(v) ? v : 0;
     } catch (e) {
       return 0;
     }
   },
-  setHighscore(v) {
+  setHighscore(v, d) {
+    d = d || (typeof Settings !== 'undefined' ? Settings.getDifficulty() : 'normal');
+    try { localStorage.setItem(this._hsKey(d), String(v)); } catch (e) { /* ignore */ }
+  },
+  allHighscores() {
+    return { easy: this.getHighscore('easy'), normal: this.getHighscore('normal'), hard: this.getHighscore('hard') };
+  },
+  setAllHighscores(o) {
+    this.setHighscore(o.easy || 0, 'easy');
+    this.setHighscore(o.normal || 0, 'normal');
+    this.setHighscore(o.hard || 0, 'hard');
+  },
+  bestOverall() {
+    return Math.max(this.getHighscore('easy'), this.getHighscore('normal'), this.getHighscore('hard'));
+  },
+  applyResetIfNeeded() {
     try {
-      localStorage.setItem(this.KEY, String(v));
-    } catch (e) {
-      /* private mode / storage disabled: silently ignore */
-    }
+      if (localStorage.getItem('tagz.resetId') !== this.RESET_ID) {
+        localStorage.removeItem('tagz.highscore'); // old single score
+        this.setAllHighscores({ easy: 0, normal: 0, hard: 0 });
+        localStorage.setItem('tagz.resetId', this.RESET_ID);
+      }
+    } catch (e) { /* ignore */ }
+  },
+
+  // Founder perk: all characters unlocked regardless of score.
+  allCharsUnlocked() {
+    try { return localStorage.getItem('tagz.unlockall') === '1'; } catch (e) { return false; }
+  },
+  setAllCharsUnlocked() {
+    try { localStorage.setItem('tagz.unlockall', '1'); } catch (e) { /* ignore */ }
   },
 
   // ---- Coins (currency kept between runs, spent on skins) ----
@@ -209,7 +240,9 @@ const Settings = {
   isUnlocked(key) {
     const c = this.CHARACTERS[key];
     if (!c) return false;
-    return Storage.getHighscore() >= (c.unlock || 0);
+    if (key === 'blue') return true;
+    if (Storage.allCharsUnlocked()) return true; // founder perk
+    return Storage.bestOverall() >= (c.unlock || 0);
   },
 
   getCharacter() {

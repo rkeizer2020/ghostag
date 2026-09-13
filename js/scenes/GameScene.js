@@ -44,6 +44,7 @@ class GameScene extends Phaser.Scene {
 
     // difficulty scaling
     const diff = Settings.difficulty();
+    this.difficultyKey = Settings.getDifficulty();
     this.enemyStart = GAME.ENEMY_START_SPEED * diff.speedMul;
     this.enemyMax = GAME.ENEMY_MAX_SPEED * diff.speedMul;
     this.enemyAccel = GAME.ENEMY_ACCEL_PER_SEC * diff.accelMul;
@@ -395,7 +396,7 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif', fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
     }).setScrollFactor(0).setDepth(2000).setShadow(0, 2, '#000', 4);
 
-    this.hiText = this.add.text(16, 42, 'Best: ' + Storage.getHighscore(), {
+    this.hiText = this.add.text(16, 42, 'Best (' + Settings.difficulty().label + '): ' + Storage.getHighscore(this.difficultyKey), {
       fontFamily: 'system-ui, sans-serif', fontSize: '15px', color: '#ffd54a',
     }).setScrollFactor(0).setDepth(2000).setShadow(0, 2, '#000', 4);
 
@@ -817,19 +818,22 @@ class GameScene extends Phaser.Scene {
     }
 
     this.time.delayedCall(1000, () => {
-      const oldBest = Storage.getHighscore();
+      const dkey = this.difficultyKey;
+      const oldBest = Storage.getHighscore(dkey);
+      const oldOverall = Storage.bestOverall();
       const finalScore = Math.floor(this.score);
       const isNew = finalScore > oldBest;
-      if (isNew) Storage.setHighscore(finalScore);
+      if (isNew) Storage.setHighscore(finalScore, dkey);
+      const newOverall = Storage.bestOverall();
       Auth.queuePush(); // sync best score + coins to the cloud account
-      // characters whose unlock threshold this run just crossed
+      // characters unlock by overall best across difficulties
       const newUnlocks = Settings.CHAR_ORDER
         .filter((k) => {
           const u = Settings.CHARACTERS[k].unlock || 0;
-          return u > 0 && u > oldBest && u <= finalScore;
+          return u > 0 && u > oldOverall && u <= newOverall;
         })
         .map((k) => Settings.CHARACTERS[k].label);
-      this.scene.start('GameOver', { score: finalScore, isNew, newUnlocks, coins: this.runCoins });
+      this.scene.start('GameOver', { score: finalScore, isNew, newUnlocks, coins: this.runCoins, difficulty: dkey });
     });
   }
 }

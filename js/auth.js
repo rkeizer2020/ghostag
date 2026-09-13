@@ -109,11 +109,17 @@ const Auth = {
   },
 
   // ---- local <-> cloud ----
+  // The cloud `saves` table keeps one `highscore` column, so we sync the
+  // OVERALL best across devices; per-difficulty bests are tracked locally.
+  // A hidden marker token in the `skins` list records which reset generation
+  // a cloud row belongs to, so the one-time wipe carries across devices too.
+  _resetToken() { return 'rst' + Storage.RESET_ID; },
+
   _readLocal() {
     const skins = Storage.getOwnedSkins();
     if (Storage.isOwnerUnlocked() && !skins.includes('owner')) skins.push('owner');
     return {
-      highscore: Storage.getHighscore(),
+      highscore: Storage.bestOverall(),
       coins: Storage.getCoins(),
       skins: skins.join(','),
       equipped_char: Settings.getCharacter(),
@@ -123,9 +129,13 @@ const Auth = {
 
   _writeLocal(m) {
     try {
-      Storage.setHighscore(m.highscore || 0);
+      // We only carry the overall best in the cloud. On a fresh device with no
+      // local scores yet, seed it into the Normal slot so the player sees it.
+      const cloudHs = m.highscore || 0;
+      if (Storage.bestOverall() === 0 && cloudHs > 0) Storage.setHighscore(cloudHs, 'normal');
       localStorage.setItem('tagz.coins', String(m.coins || 0));
-      const skins = String(m.skins || '').split(',').filter(Boolean);
+      const token = this._resetToken();
+      const skins = String(m.skins || '').split(',').filter(Boolean).filter((s) => s !== token);
       if (skins.includes('owner')) localStorage.setItem('tagz.owner', '1');
       localStorage.setItem('tagz.skins', skins.filter((s) => s !== 'owner').join(','));
       if (m.equipped_char) localStorage.setItem('tagz.character', m.equipped_char);
@@ -140,8 +150,10 @@ const Auth = {
   },
 
   _row(m) {
+    // stamp the current reset generation into the skins list
+    const skins = this._union(m.skins, this._resetToken());
     return {
-      highscore: m.highscore, coins: m.coins, skins: m.skins,
+      highscore: m.highscore, coins: m.coins, skins,
       equipped_char: m.equipped_char, equipped_skin: m.equipped_skin, updated_at: new Date().toISOString(),
     };
   },
@@ -159,8 +171,11 @@ const Auth = {
     if (!row) {
       merged = local;
     } else {
+      // If the cloud row predates this reset generation, drop its old high
+      // score so the one-time wipe sticks across devices.
+      const cloudReset = String(row.skins || '').split(',').indexOf(this._resetToken()) !== -1;
       merged = {
-        highscore: Math.max(local.highscore, row.highscore || 0),
+        highscore: cloudReset ? Math.max(local.highscore, row.highscore || 0) : local.highscore,
         coins: Math.max(local.coins, row.coins || 0),
         skins: this._union(local.skins, row.skins),
         equipped_char: row.equipped_char || local.equipped_char,
@@ -168,12 +183,12 @@ const Auth = {
       };
     }
 
-    // founder accounts: grant everything
+    // founder accounts: grant every skin, coins, and unlock all characters
     const effName = uname || this.username();
     if (this._isFounder(effName)) {
       merged.skins = Settings.SKIN_ORDER.join(','); // all skins incl. owner
-      merged.highscore = Math.max(merged.highscore, 100000);
       merged.coins = Math.max(merged.coins, 100000);
+      Storage.setAllCharsUnlocked();
     }
 
     try {

@@ -28,6 +28,9 @@ try {
   }
 } catch (e) { /* ignore */ }
 
+// one-time reset of all high scores when RESET_ID changes
+Storage.applyResetIfNeeded();
+
 window.game = new Phaser.Game(config);
 
 // Account/cloud sync: when auth state or synced data changes, refresh the

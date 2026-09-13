@@ -38,7 +38,7 @@ class MenuScene extends Phaser.Scene {
     this.tweens.add({ targets: title, alpha: { from: 1, to: 0.82 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
     // Brawl-Stars-style badges in the top-left corner
-    UI.statBadge(this, 14, 30, '⭐', String(Storage.getHighscore()), { height: 40, fontSize: 18 });
+    UI.statBadge(this, 14, 30, '⭐', String(Storage.bestOverall()), { height: 40, fontSize: 18 });
     UI.statBadge(this, 14, 76, '🪙', String(Storage.getCoins()), { height: 40, fontSize: 18 });
 
     // buttons

@@ -16,7 +16,7 @@ class CharactersScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(3).setShadow(0, 0, '#6fb8ff', 18, true, true);
 
     // best-score banner (drives unlocks)
-    this.add.text(cx, H * 0.13, '⭐ Best: ' + Storage.getHighscore(), {
+    this.add.text(cx, H * 0.13, '⭐ Best: ' + Storage.bestOverall(), {
       fontFamily: 'system-ui, sans-serif', fontSize: '17px', fontStyle: 'bold', color: '#ffd54a',
     }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
 

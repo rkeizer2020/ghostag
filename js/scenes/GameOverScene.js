@@ -10,6 +10,7 @@ class GameOverScene extends Phaser.Scene {
     this.isNew = !!data.isNew;
     this.newUnlocks = data.newUnlocks || [];
     this.coins = data.coins || 0;
+    this.difficulty = data.difficulty || Settings.getDifficulty();
   }
 
   create() {
@@ -35,13 +36,14 @@ class GameOverScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif', fontSize: '17px', fontStyle: 'bold', color: '#ffd54a',
     }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
 
+    const diffLabel = (Settings.DIFFICULTIES[this.difficulty] || {}).label || 'Normal';
     if (this.isNew) {
-      const nr = this.add.text(cx, H * 0.585, '✨ NEW RECORD! ✨', {
-        fontFamily: 'system-ui, sans-serif', fontSize: '22px', fontStyle: 'bold', color: '#ffd54a',
+      const nr = this.add.text(cx, H * 0.585, '✨ NEW ' + diffLabel.toUpperCase() + ' RECORD! ✨', {
+        fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ffd54a',
       }).setOrigin(0.5).setDepth(3);
-      this.tweens.add({ targets: nr, scale: { from: 1, to: 1.15 }, duration: 500, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: nr, scale: { from: 1, to: 1.12 }, duration: 500, yoyo: true, repeat: -1 });
     } else {
-      this.add.text(cx, H * 0.585, 'Best: ' + Storage.getHighscore(), {
+      this.add.text(cx, H * 0.585, 'Best (' + diffLabel + '): ' + Storage.getHighscore(this.difficulty), {
         fontFamily: 'system-ui, sans-serif', fontSize: '18px', color: '#ffd54a',
       }).setOrigin(0.5).setDepth(3);
     }

@@ -78,7 +78,11 @@ class SettingsScene extends Phaser.Scene {
       normal: 'A balanced chase.',
       hard: 'The Spook is fast and accelerates quickly.',
     };
-    this.diffHint.setText(hints[key] || '');
+    const best = Storage.getHighscore(key);
+    this.diffHint.setText((hints[key] || '') + '\n⭐ Best on ' + Settings.DIFFICULTIES[key].label + ': ' + best);
+    this.diffHint.setAlign('center');
+    this.diffHint.setOrigin(0.5, 0.5);
+    this.diffHint.setLineSpacing(4);
   }
 
   updateVolLabel(v) {
