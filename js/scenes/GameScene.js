@@ -32,7 +32,10 @@ class GameScene extends Phaser.Scene {
     // selected character + its ability
     this.charKey = Settings.getCharacter();
     this.character = Settings.CHARACTERS[this.charKey];
-    this.playerTex = this.character.tex;
+    // equipped cosmetic skin overrides the look (classic = character colour)
+    this.skin = Settings.skin();
+    this.playerTex = (this.skin.kind === 'default') ? this.character.tex : this.skin.tex;
+    this.runCoins = 0;
     this.charSpeedMul = this.character.speedMul || 1;
     this.lives = this.character.lives || 1;
     this.abilityCooldown = this.character.cooldown || 2000;
@@ -73,6 +76,12 @@ class GameScene extends Phaser.Scene {
     this.enemy.setDepth(10);
     this.sword = this.add.image(this.enemy.x, this.enemy.y - 44, 'sword').setDepth(11);
 
+    // cosmetic hat overlay (some skins) that follows the player
+    this.hat = null;
+    if (this.skin.hat) {
+      this.hat = this.add.image(this.player.x, this.player.y, this.skin.hat).setDepth(12);
+    }
+
     // collisions with trees (player collider is toggled off while phasing)
     this.playerTreeCollider = this.physics.add.collider(this.player, this.trees);
     this.physics.add.collider(this.enemy, this.trees);
@@ -101,7 +110,7 @@ class GameScene extends Phaser.Scene {
     // boost particle trail
     this.trail = this.add.particles(0, 0, 'spark', {
       speed: 0, lifespan: 300, scale: { start: 0.7, end: 0 },
-      alpha: { start: 0.5, end: 0 }, tint: 0x6fb8ff, frequency: -1, depth: 9,
+      alpha: { start: 0.5, end: 0 }, tint: this.skin.trail || 0x6fb8ff, frequency: -1, depth: 9,
     });
 
     this.buildHUD();
@@ -348,6 +357,9 @@ class GameScene extends Phaser.Scene {
     const ox = orb.x, oy = orb.y;
     orb.destroy();
     this.score += GAME.ORB_POINTS;
+    this.runCoins += GAME.ORB_COINS;
+    Storage.addCoins(GAME.ORB_COINS);
+    if (this.coinsText) this.coinsText.setText('🪙 ' + this.runCoins);
     this.boostUntil = this.time.now + GAME.BOOST_DURATION;
     SFX.pickup();
     SFX.boost();
@@ -381,8 +393,13 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif', fontSize: '15px', color: '#ffd54a',
     }).setScrollFactor(0).setDepth(2000).setShadow(0, 2, '#000', 4);
 
+    // coins earned this run
+    this.coinsText = this.add.text(16, 64, '🪙 0', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '15px', fontStyle: 'bold', color: '#ffd54a',
+    }).setScrollFactor(0).setDepth(2000).setShadow(0, 2, '#000', 4);
+
     // lives (only shown for characters with more than one life)
-    this.livesText = this.add.text(16, 64, '', {
+    this.livesText = this.add.text(16, 88, '', {
       fontFamily: 'system-ui, sans-serif', fontSize: '18px', color: '#ff8a8a',
     }).setScrollFactor(0).setDepth(2000).setShadow(0, 2, '#000', 4);
     this.updateLivesHud();
@@ -518,14 +535,26 @@ class GameScene extends Phaser.Scene {
     if (v.x < -1) this.player.setFlipX(true);
     else if (v.x > 1) this.player.setFlipX(false);
 
-    // boost visuals
-    if (boosting) {
+    // boost visuals / rainbow skin
+    if (this.skin.rainbow) {
+      const hue = (time * 0.00012) % 1;
+      this.player.setTint(Phaser.Display.Color.HSVToRGB(hue, 0.7, 1).color);
+      if (boosting && v.lengthSq() > 0 && Math.random() < 0.6) {
+        this.trail.emitParticleAt(this.player.x, this.player.y + 10);
+      }
+    } else if (boosting) {
       this.player.setTint(this.boostTint());
       if (v.lengthSq() > 0 && Math.random() < 0.6) {
         this.trail.emitParticleAt(this.player.x, this.player.y + 10);
       }
     } else {
       this.player.clearTint();
+    }
+
+    // hat overlay follows the ghost
+    if (this.hat) {
+      this.hat.setPosition(this.player.x, this.player.y - this.player.displayHeight * 0.42);
+      this.hat.setFlipX(this.player.flipX);
     }
   }
 
@@ -755,6 +784,7 @@ class GameScene extends Phaser.Scene {
 
   splitGhost(px, py) {
     this.player.setVisible(false);
+    if (this.hat) this.hat.setVisible(false);
 
     // two halves of the ghost fly apart (left and right)
     const leftHalf = this.add.image(px, py, this.playerTex).setDepth(12).setCrop(0, 0, 24, 56);
@@ -787,7 +817,7 @@ class GameScene extends Phaser.Scene {
           return u > 0 && u > oldBest && u <= finalScore;
         })
         .map((k) => Settings.CHARACTERS[k].label);
-      this.scene.start('GameOver', { score: finalScore, isNew, newUnlocks });
+      this.scene.start('GameOver', { score: finalScore, isNew, newUnlocks, coins: this.runCoins });
     });
   }
 }

@@ -9,6 +9,16 @@ const Textures = {
     this._ghost(scene, 'ghostPurple', { glow: 0x7a3fbf, glow2: 0xb98fe0, body: 0xc79cff, eye: 0x2a1444 });
     this._ghost(scene, 'ghostYellow', { glow: 0xd9a400, glow2: 0xffe680, body: 0xffe066, eye: 0x5a4410 });
     this._ghost(scene, 'ghostBrown', { glow: 0x7a4f28, glow2: 0xc79a6a, body: 0xb98a5e, eye: 0x3a2614 });
+    // skin bodies
+    this._ghost(scene, 'skinEmber', { glow: 0xff5a1a, glow2: 0xffb060, body: 0xff7a3a, eye: 0x4a1000 });
+    this._ghost(scene, 'skinFrost', { glow: 0x6fd0ff, glow2: 0xd0f0ff, body: 0xe8f6ff, eye: 0x2a4a5a });
+    this._ghost(scene, 'skinToxic', { glow: 0x3fbf2a, glow2: 0x9fff6a, body: 0x7fe04a, eye: 0x143a10 });
+    this._ghost(scene, 'skinWhite', { glow: 0xffffff, glow2: 0xffffff, body: 0xffffff, eye: 0x333333 });
+    this._ghost(scene, 'skinNeutral', { glow: 0x9fb0c0, glow2: 0xd8e0e8, body: 0xdfe6ee, eye: 0x2a3440 });
+    this.skinPumpkin(scene);
+    this.skinSkull(scene);
+    this.hatCrown(scene);
+    this.hatWitch(scene);
     this.spook(scene);
     this.sword(scene);
     this.slash(scene);
@@ -76,6 +86,97 @@ const Textures = {
     g.fillStyle(0xffffff, 0.8);
     g.fillCircle(c + 16, c - 22, 3);
     g.generateTexture('shield', s, s);
+    g.destroy();
+  },
+
+  // Ghost body helper without eyes (for skins that draw their own face).
+  _ghostBody(g, w, h, c) {
+    g.fillStyle(c.glow, 0.18);
+    g.fillCircle(w / 2, h / 2, 26);
+    g.fillStyle(c.glow2, 0.28);
+    g.fillCircle(w / 2, h / 2, 20);
+    g.fillStyle(c.body, 1);
+    g.fillCircle(w / 2, 22, 16);
+    g.fillRect(w / 2 - 16, 22, 32, 20);
+    g.fillTriangle(w / 2 - 16, 42, w / 2 - 8, 42, w / 2 - 12, 52);
+    g.fillTriangle(w / 2 - 8, 42, w / 2, 42, w / 2 - 4, 52);
+    g.fillTriangle(w / 2, 42, w / 2 + 8, 42, w / 2 + 4, 52);
+    g.fillTriangle(w / 2 + 8, 42, w / 2 + 16, 42, w / 2 + 12, 52);
+    g.fillStyle(0xffffff, 0.5);
+    g.fillCircle(w / 2 - 5, 16, 4);
+  },
+
+  skinPumpkin(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    this._ghostBody(g, w, h, { glow: 0xff7a1a, glow2: 0xffb060, body: 0xff8a2a });
+    // carved jack-o'-lantern face
+    g.fillStyle(0x3a1400, 1);
+    g.fillTriangle(cx - 10, 18, cx - 3, 24, cx - 10, 24);   // left eye
+    g.fillTriangle(cx + 10, 18, cx + 3, 24, cx + 10, 24);   // right eye
+    g.fillTriangle(cx, 26, cx - 4, 31, cx + 4, 31);         // nose
+    g.fillRect(cx - 11, 34, 22, 4);                          // mouth
+    g.fillStyle(0xff8a2a, 1);
+    [cx - 7, cx - 1, cx + 5].forEach((x) => g.fillRect(x, 34, 3, 4)); // teeth gaps
+    g.generateTexture('skinPumpkin', w, h);
+    g.destroy();
+  },
+
+  skinSkull(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    this._ghostBody(g, w, h, { glow: 0xbfc6d0, glow2: 0xe8ecf2, body: 0xf2f4f8 });
+    // skull face
+    g.fillStyle(0x1a1f28, 1);
+    g.fillCircle(cx - 6, 22, 4.5);   // left socket
+    g.fillCircle(cx + 6, 22, 4.5);   // right socket
+    g.fillTriangle(cx, 27, cx - 2.5, 31, cx + 2.5, 31); // nose
+    // teeth
+    g.fillRect(cx - 8, 35, 16, 5);
+    g.fillStyle(0xf2f4f8, 1);
+    [cx - 5, cx - 1, cx + 3].forEach((x) => g.fillRect(x, 35, 1.6, 5));
+    g.generateTexture('skinSkull', w, h);
+    g.destroy();
+  },
+
+  hatCrown(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 40, h = 26;
+    g.fillStyle(0xffd54a, 1);
+    g.fillRect(6, 16, w - 12, 8);                 // band
+    // points
+    g.fillTriangle(6, 16, 13, 2, 20, 16);
+    g.fillTriangle(14, 16, 20, 6, 26, 16);
+    g.fillTriangle(20, 16, 27, 2, 34, 16);
+    // jewels
+    g.fillStyle(0xff5b6e, 1);
+    g.fillCircle(13, 4, 2); g.fillCircle(27, 4, 2);
+    g.fillStyle(0x6fb8ff, 1); g.fillCircle(20, 8, 2);
+    g.fillStyle(0xc99a2e, 1); g.fillRect(6, 22, w - 12, 2);
+    g.generateTexture('hatCrown', w, h);
+    g.destroy();
+  },
+
+  hatWitch(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 44, h = 40;
+    const cx = w / 2;
+    // brim
+    g.fillStyle(0x3a2050, 1);
+    g.fillEllipse(cx, 34, 40, 10);
+    // cone
+    g.fillStyle(0x5a2f7a, 1);
+    g.fillTriangle(cx, 2, cx - 13, 34, cx + 13, 34);
+    // bent tip
+    g.fillStyle(0x5a2f7a, 1);
+    g.fillTriangle(cx - 2, 2, cx + 6, 8, cx + 1, 12);
+    // band + buckle
+    g.fillStyle(0x2a1440, 1);
+    g.fillTriangle(cx - 9, 26, cx + 9, 26, cx, 26); // (thin band base)
+    g.fillRect(cx - 9, 24, 18, 5);
+    g.fillStyle(0xffd54a, 1);
+    g.fillRect(cx - 3, 24, 6, 5);
+    g.generateTexture('hatWitch', w, h);
     g.destroy();
   },
 

@@ -10,10 +10,16 @@ class MenuScene extends Phaser.Scene {
 
     UI.backdrop(this);
 
-    // decorative chase: your equipped ghost fleeing the stealthy blue Spook
-    const ghost = this.add.image(cx - 70, H * 0.34, Settings.character().tex).setScale(1.5).setDepth(1);
+    // decorative chase: your equipped ghost (with skin) fleeing the Spook
+    const skin = Settings.skin();
+    const decorTex = (skin.kind === 'default') ? Settings.character().tex : skin.tex;
+    const ghost = this.add.image(cx - 70, H * 0.34, decorTex).setScale(1.5).setDepth(1);
     const spook = this.add.image(cx + 70, H * 0.34, 'spook').setScale(1.35).setDepth(1);
     const sword = this.add.image(cx + 70, H * 0.34 - 46, 'sword').setScale(1.15).setDepth(2);
+    if (skin.hat) {
+      const hat = this.add.image(cx - 70, H * 0.34 - ghost.displayHeight * 0.42, skin.hat).setScale(1.4).setDepth(2);
+      this.tweens.add({ targets: hat, y: '-=12', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
     this.tweens.add({ targets: ghost, y: '-=12', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.tweens.add({ targets: [spook, sword], y: '-=10', duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.tweens.add({ targets: sword, angle: { from: -8, to: 8 }, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -26,13 +32,15 @@ class MenuScene extends Phaser.Scene {
     title.setShadow(0, 0, '#6fb8ff', 24, true, true);
     this.tweens.add({ targets: title, alpha: { from: 1, to: 0.82 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    // Brawl-Stars-style score badge in the top-left corner
-    UI.statBadge(this, 14, 30, '⭐', String(Storage.getHighscore()), { height: 42, fontSize: 19 });
+    // Brawl-Stars-style badges in the top-left corner
+    UI.statBadge(this, 14, 30, '⭐', String(Storage.getHighscore()), { height: 40, fontSize: 18 });
+    UI.statBadge(this, 14, 76, '🪙', String(Storage.getCoins()), { height: 40, fontSize: 18 });
 
     // buttons
-    UI.button(this, cx, H * 0.60, '▶  Play', () => this.startGame(), { width: 260, height: 64, fontSize: 28 });
-    UI.button(this, cx, H * 0.60 + 74, '👻  Characters', () => this.scene.start('Characters'), { width: 260, height: 56, fontSize: 22 });
-    UI.button(this, cx, H * 0.60 + 142, '⚙  Settings', () => this.scene.start('Settings'), { width: 260, height: 56, fontSize: 22 });
+    UI.button(this, cx, H * 0.55, '▶  Play', () => this.startGame(), { width: 260, height: 62, fontSize: 28 });
+    UI.button(this, cx, H * 0.55 + 68, '👻  Characters', () => this.scene.start('Characters'), { width: 260, height: 52, fontSize: 21 });
+    UI.button(this, cx, H * 0.55 + 128, '🪙  Skins', () => this.scene.start('Skins'), { width: 260, height: 52, fontSize: 21 });
+    UI.button(this, cx, H * 0.55 + 188, '⚙  Settings', () => this.scene.start('Settings'), { width: 260, height: 52, fontSize: 21 });
 
     const isTouch = this.sys.game.device.input.touch;
     this.add.text(cx, H * 0.955, isTouch

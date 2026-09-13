@@ -9,6 +9,7 @@ class GameOverScene extends Phaser.Scene {
     this.finalScore = data.score || 0;
     this.isNew = !!data.isNew;
     this.newUnlocks = data.newUnlocks || [];
+    this.coins = data.coins || 0;
   }
 
   create() {
@@ -26,8 +27,12 @@ class GameOverScene extends Phaser.Scene {
     const r = this.add.image(cx + 24, H * 0.37, 'ghost').setCrop(24, 0, 24, 56).setAngle(30).setAlpha(0.75).setDepth(3);
     this.tweens.add({ targets: [l, r], y: '+=6', duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    this.add.text(cx, H * 0.52, 'Score: ' + this.finalScore, {
+    this.add.text(cx, H * 0.48, 'Score: ' + this.finalScore, {
       fontFamily: 'system-ui, sans-serif', fontSize: '32px', fontStyle: 'bold', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
+
+    this.add.text(cx, H * 0.53, '🪙 +' + this.coins + '  (total ' + Storage.getCoins() + ')', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '17px', fontStyle: 'bold', color: '#ffd54a',
     }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
 
     if (this.isNew) {

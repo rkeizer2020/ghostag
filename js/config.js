@@ -20,6 +20,7 @@ const GAME = {
 
   ORB_COUNT: 20,
   ORB_POINTS: 10,
+  ORB_COINS: 2,            // coins earned per orb (kept between runs)
   SURVIVE_POINTS_PER_SEC: 2,
 
   TREE_COUNT: 26,
@@ -94,6 +95,45 @@ const Storage = {
     } catch (e) {
       /* private mode / storage disabled: silently ignore */
     }
+  },
+
+  // ---- Coins (currency kept between runs, spent on skins) ----
+  getCoins() {
+    try {
+      const v = parseInt(localStorage.getItem('tagz.coins'), 10);
+      return Number.isFinite(v) ? v : 0;
+    } catch (e) {
+      return 0;
+    }
+  },
+  addCoins(n) {
+    try {
+      localStorage.setItem('tagz.coins', String(Math.max(0, this.getCoins() + n)));
+    } catch (e) { /* ignore */ }
+  },
+
+  // ---- Owned skins ('classic' is always owned) ----
+  getOwnedSkins() {
+    try {
+      const s = localStorage.getItem('tagz.skins');
+      const arr = s ? s.split(',').filter(Boolean) : [];
+      if (!arr.includes('classic')) arr.push('classic');
+      return arr;
+    } catch (e) {
+      return ['classic'];
+    }
+  },
+  isSkinOwned(id) {
+    return id === 'classic' || this.getOwnedSkins().includes(id);
+  },
+  addSkin(id) {
+    try {
+      const arr = this.getOwnedSkins();
+      if (!arr.includes(id)) {
+        arr.push(id);
+        localStorage.setItem('tagz.skins', arr.join(','));
+      }
+    } catch (e) { /* ignore */ }
   },
 };
 
@@ -177,5 +217,45 @@ const Settings = {
   },
   character() {
     return this.CHARACTERS[this.getCharacter()];
+  },
+
+  // ---- Skins: cosmetic looks bought with coins (no gameplay effect) ----
+  // kind 'default' uses the equipped character's own colour; others override
+  // the ghost's look. `hat` overlays an accessory; `rainbow` cycles the tint.
+  SKINS: {
+    classic: { name: 'Classic', cost: 0, kind: 'default', trail: 0x6fb8ff },
+    ember:   { name: 'Ember',   cost: 80,  tex: 'skinEmber',  trail: 0xff7a2a },
+    frost:   { name: 'Frost',   cost: 80,  tex: 'skinFrost',  trail: 0x9fe0ff },
+    toxic:   { name: 'Toxic',   cost: 120, tex: 'skinToxic',  trail: 0x7fff5a },
+    pumpkin: { name: 'Pumpkin', cost: 150, tex: 'skinPumpkin', trail: 0xff9a2a },
+    skull:   { name: 'Skull',   cost: 200, tex: 'skinSkull',  trail: 0xcfd8e0 },
+    crown:   { name: 'Royal',   cost: 300, tex: 'skinNeutral', hat: 'hatCrown', trail: 0xffd54a },
+    witch:   { name: 'Witch',   cost: 300, tex: 'skinNeutral', hat: 'hatWitch', trail: 0xb98fe0 },
+    rainbow: { name: 'Rainbow', cost: 500, tex: 'skinWhite', trail: 0xffffff, rainbow: true },
+  },
+  SKIN_ORDER: ['classic', 'ember', 'frost', 'toxic', 'pumpkin', 'skull', 'crown', 'witch', 'rainbow'],
+
+  getSkin() {
+    try {
+      const s = localStorage.getItem('tagz.skin');
+      if (this.SKINS[s] && Storage.isSkinOwned(s)) return s;
+    } catch (e) { /* ignore */ }
+    return 'classic';
+  },
+  setSkin(id) {
+    if (!this.SKINS[id] || !Storage.isSkinOwned(id)) return;
+    try { localStorage.setItem('tagz.skin', id); } catch (e) { /* ignore */ }
+  },
+  skin() {
+    return this.SKINS[this.getSkin()];
+  },
+  buySkin(id) {
+    const s = this.SKINS[id];
+    if (!s) return false;
+    if (Storage.isSkinOwned(id)) return true;
+    if (Storage.getCoins() < (s.cost || 0)) return false;
+    Storage.addCoins(-(s.cost || 0));
+    Storage.addSkin(id);
+    return true;
   },
 };
