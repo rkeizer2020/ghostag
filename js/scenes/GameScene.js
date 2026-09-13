@@ -108,6 +108,10 @@ class GameScene extends Phaser.Scene {
 
     this.input.keyboard.on('keydown-M', () => this.toggleMute());
     this.input.keyboard.on('keydown-P', () => this.togglePause());
+
+    // background music for the chase; stops when the scene ends
+    SFX.startMusic();
+    this.events.once('shutdown', () => SFX.stopMusic());
   }
 
   createFog() {
@@ -341,12 +345,16 @@ class GameScene extends Phaser.Scene {
 
   collectOrb(player, orb) {
     const wasPath = orb.isPath;
+    const ox = orb.x, oy = orb.y;
     orb.destroy();
     this.score += GAME.ORB_POINTS;
     this.boostUntil = this.time.now + GAME.BOOST_DURATION;
     SFX.pickup();
     SFX.boost();
-    this.cameras.main.flash(90, 24, 46, 74); // soft, dim glow instead of a bright flash
+    // subtle local sparkle at the orb (no full-screen colour flash)
+    for (let i = 0; i < 5; i++) {
+      this.trail.emitParticleAt(ox + Phaser.Math.Between(-8, 8), oy + Phaser.Math.Between(-8, 8));
+    }
     // only field orbs keep the map stocked; bonus path orbs don't respawn
     if (!wasPath) this.spawnOrb();
   }
@@ -640,12 +648,8 @@ class GameScene extends Phaser.Scene {
     this.sword.setScale(1 + near * 0.25);
     this.sword.setTint(near > 0.05 ? 0xffef99 : 0xffffff);
 
-    // red danger vignette + spooky melody that recurs a bit faster up close
+    // red danger vignette (audio danger cue is now the background music)
     this.danger.setAlpha(near * 0.22);
-    if (near > 0.35 && time - this.lastWarnBeep > (2200 - near * 900)) {
-      SFX.spooky(near);
-      this.lastWarnBeep = time;
-    }
   }
 
   caught() {
@@ -670,7 +674,6 @@ class GameScene extends Phaser.Scene {
     this.invulnUntil = now + GAME.SHIELD_BLOCK_STUN;
     this.knockbackEnemy(90);
     SFX.boost();
-    this.cameras.main.flash(120, 60, 120, 90);
     if (this.shieldFx) {
       this.tweens.add({ targets: this.shieldFx, scale: 1.8, alpha: 0, duration: 260,
         onComplete: () => { if (this.shieldFx) { this.shieldFx.destroy(); this.shieldFx = null; } } });
@@ -685,7 +688,6 @@ class GameScene extends Phaser.Scene {
     this.invulnUntil = now + 1300;
     this.knockbackEnemy(110);
     SFX.caught();
-    this.cameras.main.flash(150, 150, 45, 45);
     this.cameras.main.shake(180, 0.01);
     // brief blink to show invulnerability
     this.tweens.add({ targets: this.player, alpha: 0.3, duration: 130, yoyo: true, repeat: 4,

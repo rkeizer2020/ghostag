@@ -163,4 +163,51 @@ const SFX = {
     this._noise(0.14, 0.28);
     this._tone(700, 0.14, 'sawtooth', 0.18, 180);
   },
+
+  // ---- Background music: a slow, eerie looping tune played during the game ----
+  music: null,
+
+  startMusic() {
+    this._ensure();
+    if (!this.ctx) return;
+    if (this.music && this.music.timer) return; // already playing
+
+    const stepMs = 320;
+    // 16-step loop in A minor: low bass roots + a sparse ghostly melody
+    const bass = { 0: 110.00, 4: 110.00, 8: 87.31, 12: 98.00 };      // A2 A2 F2 G2
+    const mel  = { 0: 329.63, 2: 220.00, 5: 261.63, 8: 349.23, 10: 261.63, 13: 329.63, 15: 293.66 };
+
+    this.music = { step: 0, timer: null };
+    const tick = () => {
+      const s = this.music.step % 16;
+      if (bass[s]) this._pad(bass[s], 1.4, 0.06, 'triangle');
+      if (mel[s]) this._pad(mel[s], 0.7, 0.045, 'sine');
+      this.music.step++;
+    };
+    tick();
+    this.music.timer = setInterval(tick, stepMs);
+  },
+
+  stopMusic() {
+    if (this.music && this.music.timer) {
+      clearInterval(this.music.timer);
+      this.music.timer = null;
+    }
+  },
+
+  _pad(freq, dur, vol, type) {
+    if (!this.ctx || this._muted) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.1);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g);
+    g.connect(this.master);
+    osc.start(t);
+    osc.stop(t + dur + 0.05);
+  },
 };
