@@ -14,7 +14,25 @@ const Auth = {
 
   init(onChange) {
     this.onChange = onChange || function () {};
-    if (!window.supabase || !window.supabase.createClient) return; // SDK unavailable
+    // Load the Supabase SDK in the background so a slow/blocked network never
+    // stops the game from starting; cloud features light up once it arrives.
+    this._loadSdk(() => this._start());
+  },
+
+  _loadSdk(cb) {
+    if (window.supabase && window.supabase.createClient) { cb(); return; }
+    try {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      s.async = true;
+      s.onload = () => { try { cb(); } catch (e) { /* ignore */ } };
+      s.onerror = () => { /* offline: stay fully local */ };
+      document.head.appendChild(s);
+    } catch (e) { /* ignore */ }
+  },
+
+  _start() {
+    if (!window.supabase || !window.supabase.createClient) return;
     try {
       this.client = window.supabase.createClient(this.URL, this.KEY, {
         auth: { persistSession: true, autoRefreshToken: true, storage: window.localStorage },
@@ -32,6 +50,7 @@ const Auth = {
       this.user = session ? session.user : null;
       this.onChange();
     });
+    this.onChange();
   },
 
   available() { return !!this.client; },
