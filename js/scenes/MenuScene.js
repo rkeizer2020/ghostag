@@ -26,9 +26,8 @@ class MenuScene extends Phaser.Scene {
     title.setShadow(0, 0, '#6fb8ff', 24, true, true);
     this.tweens.add({ targets: title, alpha: { from: 1, to: 0.82 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    this.add.text(cx, H * 0.50, 'Best: ' + Storage.getHighscore(), {
-      fontFamily: 'system-ui, sans-serif', fontSize: '20px', color: '#ffd54a',
-    }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
+    // Brawl-Stars-style score badge in the top-left corner
+    UI.statBadge(this, 14, 30, '⭐', String(Storage.getHighscore()), { height: 42, fontSize: 19 });
 
     // buttons
     UI.button(this, cx, H * 0.60, '▶  Play', () => this.startGame(), { width: 260, height: 64, fontSize: 28 });

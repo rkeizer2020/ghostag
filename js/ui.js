@@ -74,6 +74,25 @@ const UI = {
     return c;
   },
 
+  // A rounded stat pill anchored by its top-left, like a game's currency bar.
+  statBadge(scene, x, y, icon, text, opts = {}) {
+    const h = opts.height || 40;
+    const padX = 14;
+    const accent = opts.accent || 0xffd54a;
+    const c = scene.add.container(x, y).setScrollFactor(0).setDepth(2000);
+    const label = scene.add.text(padX, 0, icon + '  ' + text, {
+      fontFamily: 'system-ui, sans-serif', fontSize: (opts.fontSize || 18) + 'px', fontStyle: 'bold', color: '#ffe9a8',
+    }).setOrigin(0, 0.5);
+    const w = label.width + padX * 2;
+    const g = scene.add.graphics();
+    g.fillStyle(0x1a120a, 0.85);
+    g.fillRoundedRect(0, -h / 2, w, h, h / 2);
+    g.lineStyle(2, accent, 0.6);
+    g.strokeRoundedRect(0, -h / 2, w, h, h / 2);
+    c.add([g, label]);
+    return c;
+  },
+
   // A horizontal slider (0..1). Returns { setValue, container }.
   slider(scene, cx, cy, width, value, onChange) {
     const left = cx - width / 2;
