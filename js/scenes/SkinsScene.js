@@ -109,6 +109,7 @@ class SkinsScene extends Phaser.Scene {
     } else {
       SFX.warn(); // not enough coins
     }
+    Auth.queuePush(); // sync coins / owned skins / equipped skin
     this.refreshCards();
   }
 

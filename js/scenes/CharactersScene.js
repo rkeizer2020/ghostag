@@ -127,6 +127,7 @@ class CharactersScene extends Phaser.Scene {
   equip(key) {
     if (!Settings.isUnlocked(key)) return;
     Settings.setCharacter(key);
+    Auth.queuePush(); // sync equipped character
     this.refreshCards();
   }
 

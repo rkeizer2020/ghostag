@@ -29,3 +29,12 @@ try {
 } catch (e) { /* ignore */ }
 
 window.game = new Phaser.Game(config);
+
+// Account/cloud sync: when auth state or synced data changes, refresh the
+// menu (if it's showing) so badges and the account button update.
+Auth.init(() => {
+  const g = window.game;
+  if (!g) return;
+  const menu = g.scene.getScene('Menu');
+  if (menu && menu.scene.isActive()) menu.scene.restart();
+});

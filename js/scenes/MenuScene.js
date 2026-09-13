@@ -42,13 +42,19 @@ class MenuScene extends Phaser.Scene {
     UI.statBadge(this, 14, 76, '🪙', String(Storage.getCoins()), { height: 40, fontSize: 18 });
 
     // buttons
-    UI.button(this, cx, H * 0.55, '▶  Play', () => this.startGame(), { width: 260, height: 62, fontSize: 28 });
-    UI.button(this, cx, H * 0.55 + 68, '👻  Characters', () => this.scene.start('Characters'), { width: 260, height: 52, fontSize: 21 });
-    UI.button(this, cx, H * 0.55 + 128, '🪙  Skins', () => this.scene.start('Skins'), { width: 260, height: 52, fontSize: 21 });
-    UI.button(this, cx, H * 0.55 + 188, '⚙  Settings', () => this.scene.start('Settings'), { width: 260, height: 52, fontSize: 21 });
+    UI.button(this, cx, H * 0.50, '▶  Play', () => this.startGame(), { width: 260, height: 56, fontSize: 27 });
+    UI.button(this, cx, H * 0.50 + 62, '👻  Characters', () => this.scene.start('Characters'), { width: 260, height: 50, fontSize: 21 });
+    UI.button(this, cx, H * 0.50 + 120, '🪙  Skins', () => this.scene.start('Skins'), { width: 260, height: 50, fontSize: 21 });
+    UI.button(this, cx, H * 0.50 + 178, '⚙  Settings', () => this.scene.start('Settings'), { width: 260, height: 50, fontSize: 21 });
+
+    // account: log in to sync across devices
+    const accLabel = Auth.loggedIn() ? ('👤  ' + (Auth.username() || 'Account')) : '👤  Log in';
+    UI.button(this, cx, H * 0.50 + 236, accLabel, () => UI.accountPanel(() => {
+      if (this.scene.isActive()) this.scene.restart();
+    }), { width: 260, height: 46, fontSize: 20, accent: 0x8fe6a0 });
 
     const isTouch = this.sys.game.device.input.touch;
-    this.add.text(cx, H * 0.955, isTouch
+    this.add.text(cx, H * 0.97, isTouch
       ? 'Drag to move  •  tap LOG to drop a log'
       : 'WASD / arrows to move  •  Space to drop a log', {
       fontFamily: 'system-ui, sans-serif', fontSize: '14px', color: '#8a9aa4',

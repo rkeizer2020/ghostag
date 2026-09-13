@@ -821,6 +821,7 @@ class GameScene extends Phaser.Scene {
       const finalScore = Math.floor(this.score);
       const isNew = finalScore > oldBest;
       if (isNew) Storage.setHighscore(finalScore);
+      Auth.queuePush(); // sync best score + coins to the cloud account
       // characters whose unlock threshold this run just crossed
       const newUnlocks = Settings.CHAR_ORDER
         .filter((k) => {

@@ -1,6 +1,70 @@
 // Shared UI helpers used by the menu and settings screens so they match the
 // in-game forest look: a drifting-fog backdrop, styled buttons, a slider.
 const UI = {
+  // ---- Account panel: an HTML overlay for username/password login ----
+  _accountPanel: null,
+  accountPanel(afterChange) {
+    if (this._accountPanel) { this._showAccount(afterChange); return; }
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;background:rgba(6,8,10,0.72);font-family:system-ui,-apple-system,sans-serif;';
+    const inp = 'width:100%;padding:11px;margin:6px 0;border-radius:10px;border:1px solid #3a4652;background:#0f0c14;color:#fff;font-size:15px;box-sizing:border-box;';
+    const btn = 'padding:11px;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;color:#fff;';
+    wrap.innerHTML =
+      '<div style="width:min(360px,90vw);background:#171019;border:2px solid #6fb8ff;border-radius:16px;padding:20px;color:#eaf6ff;box-shadow:0 12px 44px rgba(0,0,0,.55)">' +
+      '<div style="font-size:22px;font-weight:800;text-align:center;color:#bfe6ff">Account</div>' +
+      '<div id="ag-sub" style="text-align:center;color:#9fb0c0;font-size:13px;margin:4px 0 14px">Log in to sync your score & skins to any device</div>' +
+      '<div id="ag-form">' +
+      '<input id="ag-user" placeholder="Username" autocomplete="username" style="' + inp + '">' +
+      '<input id="ag-pass" type="password" placeholder="Password" autocomplete="current-password" style="' + inp + '">' +
+      '<div id="ag-msg" style="min-height:18px;color:#ff9a9a;font-size:13px;text-align:center;margin:6px 0"></div>' +
+      '<div style="display:flex;gap:10px">' +
+      '<button id="ag-login" style="' + btn + 'flex:1;background:#2a6cff">Log in</button>' +
+      '<button id="ag-signup" style="' + btn + 'flex:1;background:#3a2a5e">Sign up</button>' +
+      '</div></div>' +
+      '<div id="ag-in" style="display:none;text-align:center">' +
+      '<div id="ag-who" style="font-size:17px;margin:10px 0;color:#8fe6a0"></div>' +
+      '<button id="ag-logout" style="' + btn + 'width:100%;background:#7a2530">Log out</button>' +
+      '</div>' +
+      '<button id="ag-close" style="' + btn + 'width:100%;margin-top:12px;background:#2a2f36">Close</button>' +
+      '</div>';
+    document.body.appendChild(wrap);
+    this._accountPanel = wrap;
+    const $ = (id) => wrap.querySelector('#' + id);
+    const msg = (t, ok) => { const el = $('ag-msg'); el.textContent = t || ''; el.style.color = ok ? '#8fe6a0' : '#ff9a9a'; };
+
+    const doAuth = async (fn) => {
+      const u = $('ag-user').value, p = $('ag-pass').value;
+      if (!u || !p) { msg('Fill in username and password.'); return; }
+      msg('Please wait…', true);
+      const r = await fn(u, p);
+      if (r.ok) { this._afterChange && this._afterChange(); this._showAccount(); }
+      else msg(r.msg || 'Something went wrong.');
+    };
+    $('ag-login').onclick = () => doAuth((u, p) => Auth.signIn(u, p));
+    $('ag-signup').onclick = () => doAuth((u, p) => Auth.signUp(u, p));
+    $('ag-logout').onclick = async () => { await Auth.signOut(); this._afterChange && this._afterChange(); this._showAccount(); };
+    $('ag-close').onclick = () => { wrap.style.display = 'none'; };
+    wrap.addEventListener('pointerdown', (e) => { if (e.target === wrap) wrap.style.display = 'none'; });
+
+    this._showAccount(afterChange);
+  },
+
+  _showAccount(afterChange) {
+    if (afterChange) this._afterChange = afterChange;
+    const wrap = this._accountPanel;
+    if (!wrap) return;
+    const $ = (id) => wrap.querySelector('#' + id);
+    const inGame = Auth.loggedIn();
+    $('ag-form').style.display = inGame ? 'none' : 'block';
+    $('ag-in').style.display = inGame ? 'block' : 'none';
+    $('ag-sub').textContent = Auth.available()
+      ? (inGame ? 'Your progress is synced.' : 'Log in to sync your score & skins to any device')
+      : 'Cloud login is only available on the website.';
+    if (inGame) $('ag-who').textContent = 'Logged in as ' + (Auth.username() || 'player');
+    const msgEl = $('ag-msg'); if (msgEl) msgEl.textContent = '';
+    wrap.style.display = 'flex';
+  },
+
   // Re-run a static scene's layout when the window size changes, so it keeps
   // filling the screen. Cheap for menu-style scenes; the listener is removed
   // when the scene shuts down.
