@@ -112,6 +112,43 @@ const SFX = {
     this._tone(120, 0.08, 'square', 0.15);
   },
 
+  // Eerie 4-note motif that plays as the Spook closes in. intensity 0..1
+  // brings the notes closer together and a touch louder.
+  spooky(intensity = 0.5) {
+    this._ensure();
+    if (!this.ctx || this._muted) return;
+    const t0 = this.ctx.currentTime;
+    const notes = [466.16, 440.00, 349.23, 311.13]; // A#4, A4, F4, D#4 - foreboding descent
+    const gap = 0.22 - intensity * 0.07;
+    const dur = 0.34;
+    const vol = 0.09 + intensity * 0.09;
+    notes.forEach((f, i) => this._spookyNote(f, t0 + i * gap, dur, vol));
+  },
+
+  _spookyNote(freq, when, dur, vol) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, when);
+    // gentle vibrato for a ghostly waver
+    const lfo = this.ctx.createOscillator();
+    const lfoGain = this.ctx.createGain();
+    lfo.frequency.value = 6;
+    lfoGain.gain.value = freq * 0.013;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(vol, when + 0.06);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    osc.connect(g);
+    g.connect(this.master);
+    osc.start(when);
+    osc.stop(when + dur + 0.05);
+    lfo.start(when);
+    lfo.stop(when + dur + 0.05);
+  },
+
   caught() {
     this._noise(0.25, 0.4);
     this._tone(200, 0.5, 'sawtooth', 0.3, 60);

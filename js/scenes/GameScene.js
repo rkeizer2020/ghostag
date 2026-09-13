@@ -346,7 +346,7 @@ class GameScene extends Phaser.Scene {
     this.boostUntil = this.time.now + GAME.BOOST_DURATION;
     SFX.pickup();
     SFX.boost();
-    this.cameras.main.flash(120, 120, 200, 255);
+    this.cameras.main.flash(90, 24, 46, 74); // soft, dim glow instead of a bright flash
     // only field orbs keep the map stocked; bonus path orbs don't respawn
     if (!wasPath) this.spawnOrb();
   }
@@ -640,10 +640,10 @@ class GameScene extends Phaser.Scene {
     this.sword.setScale(1 + near * 0.25);
     this.sword.setTint(near > 0.05 ? 0xffef99 : 0xffffff);
 
-    // red danger vignette + warning beeps
+    // red danger vignette + spooky melody that recurs a bit faster up close
     this.danger.setAlpha(near * 0.22);
-    if (near > 0.35 && time - this.lastWarnBeep > (260 - near * 180)) {
-      SFX.warn();
+    if (near > 0.35 && time - this.lastWarnBeep > (2200 - near * 900)) {
+      SFX.spooky(near);
       this.lastWarnBeep = time;
     }
   }
@@ -670,7 +670,7 @@ class GameScene extends Phaser.Scene {
     this.invulnUntil = now + GAME.SHIELD_BLOCK_STUN;
     this.knockbackEnemy(90);
     SFX.boost();
-    this.cameras.main.flash(140, 150, 255, 190);
+    this.cameras.main.flash(120, 60, 120, 90);
     if (this.shieldFx) {
       this.tweens.add({ targets: this.shieldFx, scale: 1.8, alpha: 0, duration: 260,
         onComplete: () => { if (this.shieldFx) { this.shieldFx.destroy(); this.shieldFx = null; } } });
@@ -685,7 +685,7 @@ class GameScene extends Phaser.Scene {
     this.invulnUntil = now + 1300;
     this.knockbackEnemy(110);
     SFX.caught();
-    this.cameras.main.flash(160, 255, 90, 90);
+    this.cameras.main.flash(150, 150, 45, 45);
     this.cameras.main.shake(180, 0.01);
     // brief blink to show invulnerability
     this.tweens.add({ targets: this.player, alpha: 0.3, duration: 130, yoyo: true, repeat: 4,
