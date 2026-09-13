@@ -9,6 +9,8 @@ const Textures = {
     this._ghost(scene, 'ghostPurple', { glow: 0x7a3fbf, glow2: 0xb98fe0, body: 0xc79cff, eye: 0x2a1444 });
     this._ghost(scene, 'ghostYellow', { glow: 0xd9a400, glow2: 0xffe680, body: 0xffe066, eye: 0x5a4410 });
     this._ghost(scene, 'ghostBrown', { glow: 0x7a4f28, glow2: 0xc79a6a, body: 0xb98a5e, eye: 0x3a2614 });
+    this._ghost(scene, 'ghostPink', { glow: 0xd94a9a, glow2: 0xffb0e0, body: 0xff8fd0, eye: 0x5a1440 });
+    this._ghost(scene, 'ghostBlack', { glow: 0x5a5a72, glow2: 0x9a9ab4, body: 0x4a4a5a, eye: 0xdfe6f0 });
     // skin bodies
     this._ghost(scene, 'skinEmber', { glow: 0xff5a1a, glow2: 0xffb060, body: 0xff7a3a, eye: 0x4a1000 });
     this._ghost(scene, 'skinFrost', { glow: 0x6fd0ff, glow2: 0xd0f0ff, body: 0xe8f6ff, eye: 0x2a4a5a });
@@ -25,6 +27,8 @@ const Textures = {
     this.spook(scene);
     this.sword(scene);
     this.slash(scene);
+    this.heartArrow(scene);
+    this.pellet(scene);
     this.shield(scene);
     this.orb(scene);
     this.tree(scene);
@@ -72,6 +76,40 @@ const Textures = {
     g.lineStyle(8, 0xbfe6ff, 1);
     g.beginPath(); g.arc(cx, cy, r, -Math.PI / 3, Math.PI / 3, false); g.strokePath();
     g.generateTexture('slash', s, s);
+    g.destroy();
+  },
+
+  // Pink ghost's heart arrow. Drawn pointing toward +x so it can be rotated
+  // to the firing direction in game.
+  heartArrow(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 40, h = 24, cy = h / 2, hx = 30;
+    // shaft
+    g.lineStyle(3, 0xffe0f0, 0.95);
+    g.beginPath(); g.moveTo(3, cy); g.lineTo(24, cy); g.strokePath();
+    // fletching
+    g.fillStyle(0xff8fd0, 1);
+    g.fillTriangle(2, cy, 9, cy - 5, 9, cy + 5);
+    // heart head
+    g.fillStyle(0xff4a8a, 1);
+    g.fillCircle(hx - 3, cy - 3, 5);
+    g.fillCircle(hx + 4, cy - 3, 5);
+    g.fillTriangle(hx - 8, cy - 1, hx + 9, cy - 1, hx + 0.5, cy + 10);
+    // sparkle
+    g.fillStyle(0xffd0e6, 0.9);
+    g.fillCircle(hx - 3, cy - 4, 1.8);
+    g.generateTexture('heartArrow', w, h);
+    g.destroy();
+  },
+
+  // Black ghost's shotgun pellet: a small bright bolt.
+  pellet(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const s = 16, c = s / 2;
+    g.fillStyle(0xfff2b0, 0.4); g.fillCircle(c, c, 7);
+    g.fillStyle(0xffe066, 1); g.fillCircle(c, c, 4.2);
+    g.fillStyle(0xffffff, 1); g.fillCircle(c - 1, c - 1, 1.6);
+    g.generateTexture('pellet', s, s);
     g.destroy();
   },
 

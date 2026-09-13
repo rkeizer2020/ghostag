@@ -22,6 +22,7 @@ class GameScene extends Phaser.Scene {
     this.boostUntil = 0;
     this.slowUntil = 0;
     this.stunUntil = 0;
+    this.fleeUntil = 0;
     this.invulnUntil = 0;
     this.shieldUntil = 0;
     this.phaseUntil = 0;
@@ -95,6 +96,10 @@ class GameScene extends Phaser.Scene {
 
     // the Spook steps on a log -> slowed
     this.physics.add.overlap(this.enemy, this.logs, this.hitLog, null, this);
+
+    // fired projectiles (pink's heart arrow, black's shotgun pellets)
+    this.projectiles = this.physics.add.group({ allowGravity: false });
+    this.physics.add.overlap(this.projectiles, this.enemy, this.hitProjectile, null, this);
 
     // orbs
     this.orbs = this.physics.add.group();
@@ -202,6 +207,14 @@ class GameScene extends Phaser.Scene {
         this.makePath();
         this.abilityReadyAt = now + this.abilityCooldown;
         break;
+      case 'arrow':
+        this.fireArrow();
+        this.abilityReadyAt = now + this.abilityCooldown;
+        break;
+      case 'shotgun':
+        this.fireShotgun();
+        this.abilityReadyAt = now + this.abilityCooldown;
+        break;
       case 'log':
       default:
         this.dropLog();
@@ -246,6 +259,79 @@ class GameScene extends Phaser.Scene {
       this.time.delayedCall(GAME.PATH_LIFESPAN, () => { if (orb.active) orb.destroy(); });
     }
     SFX.click();
+  }
+
+  // Shared spawner for fired projectiles. Flies from the player in `angle`.
+  spawnProjectile(kind, angle, speed, lifespan, tex, tint) {
+    const p = this.projectiles.create(this.player.x, this.player.y, tex);
+    p.kind = kind;
+    p.setDepth(11).setRotation(angle);
+    if (tint != null) p.setTint(tint);
+    p.body.allowGravity = false;
+    p.setBodySize(16, 16);
+    p.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+    // small spark trail behind the shot
+    this.trail.emitParticleAt(this.player.x, this.player.y);
+    this.time.delayedCall(lifespan, () => { if (p.active) p.destroy(); });
+    return p;
+  }
+
+  fireArrow() {
+    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
+    this.spawnProjectile('arrow', ang, GAME.ARROW_SPEED, GAME.ARROW_LIFESPAN, 'heartArrow');
+    SFX.click();
+  }
+
+  fireShotgun() {
+    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
+    this.spawnProjectile('shotgun', ang - GAME.SHOTGUN_SPREAD, GAME.SHOTGUN_SPEED, GAME.SHOTGUN_LIFESPAN, 'pellet');
+    this.spawnProjectile('shotgun', ang + GAME.SHOTGUN_SPREAD, GAME.SHOTGUN_SPEED, GAME.SHOTGUN_LIFESPAN, 'pellet');
+    this.cameras.main.shake(90, 0.005);
+    SFX.slash();
+  }
+
+  hitProjectile(a, b) {
+    const proj = a && a.kind ? a : b;
+    if (!proj || !proj.active) return;
+    const kind = proj.kind;
+    proj.destroy();
+    if (kind === 'arrow') this.arrowHit();
+    else if (kind === 'shotgun') this.shotgunHit();
+  }
+
+  // Pink: the Spook turns tail and flees for a couple of seconds.
+  arrowHit() {
+    const now = this.time.now;
+    if (now < this.stunUntil || now < this.fleeUntil) return; // already reacting
+    this.fleeUntil = now + GAME.ARROW_FLEE_DURATION;
+    this.score += GAME.ARROW_HIT_POINTS;
+    SFX.boost();
+    this.enemy.setTint(0xff8fd0);
+    for (let i = 0; i < 8; i++) {
+      this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-14, 14), this.enemy.y + Phaser.Math.Between(-14, 8));
+    }
+    const txt = this.add.text(this.enemy.x, this.enemy.y - 54, '💘 FLEE! +' + GAME.ARROW_HIT_POINTS, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ff8fd0',
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
+  }
+
+  // Black: a shotgun blast stuns the Spook. Only the first pellet counts.
+  shotgunHit() {
+    const now = this.time.now;
+    if (now < this.stunUntil) return; // already stunned by the first pellet
+    this.stunUntil = now + GAME.SHOTGUN_STUN_DURATION;
+    this.score += GAME.SHOTGUN_HIT_POINTS;
+    this.enemy.setVelocity(0, 0);
+    SFX.caught();
+    this.cameras.main.shake(170, 0.011);
+    for (let i = 0; i < 12; i++) {
+      this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-16, 16), this.enemy.y + Phaser.Math.Between(-16, 8));
+    }
+    const txt = this.add.text(this.enemy.x, this.enemy.y - 54, 'STUNNED! +' + GAME.SHOTGUN_HIT_POINTS, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ffe066',
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
   }
 
   activateShield(now) {
@@ -570,7 +656,7 @@ class GameScene extends Phaser.Scene {
   }
 
   boostTint() {
-    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a }[this.charKey] || 0x9fe0ff;
+    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc }[this.charKey] || 0x9fe0ff;
   }
 
   // Keeps the shield bubble on the player and toggles tree-phasing on/off.
@@ -614,24 +700,29 @@ class GameScene extends Phaser.Scene {
     // direction straight at the player
     const chase = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
 
-    // While escaping, steer off to one side of the chase line (still angled
-    // forward) so the Spook arcs around whatever tree is blocking the way.
+    // Frightened by a heart arrow: run the OTHER way for a bit. Otherwise,
+    // while escaping a tree, steer off to one side of the chase line (still
+    // angled forward) so the Spook arcs around whatever is blocking the way.
+    const fleeing = time < this.fleeUntil;
     let ang = chase;
-    if (time < this.escapeUntil) {
+    if (fleeing) {
+      ang = chase + Math.PI; // flee directly away from the player
+    } else if (time < this.escapeUntil) {
       ang = chase + this.escapeSign * (Math.PI * 0.42);
     }
 
     this.enemy.setVelocity(Math.cos(ang) * speed, Math.sin(ang) * speed);
     this.enemy.setFlipX(this.player.x < this.enemy.x);
 
-    // struggling look while slowed
-    if (slowed) this.enemy.setTint(0x6fd0ff);
+    // tint by current state
+    if (fleeing) this.enemy.setTint(0xff8fd0);
+    else if (slowed) this.enemy.setTint(0x6fd0ff);
     else this.enemy.clearTint();
 
     this.detectStuck(time, dt, speed);
 
     const dist = Phaser.Math.Distance.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
-    if (dist < GAME.CATCH_DISTANCE) this.caught();
+    if (!fleeing && dist < GAME.CATCH_DISTANCE) this.caught();
   }
 
   detectStuck(time, dt, speed) {

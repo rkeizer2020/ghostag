@@ -51,7 +51,7 @@ class CharactersScene extends Phaser.Scene {
   makeCard(key, x, y, w, h) {
     const info = Settings.CHARACTERS[key];
     const unlocked = Settings.isUnlocked(key);
-    const accent = { blue: 0x6fb8ff, red: 0xff6b7a, green: 0x6fe0a0, purple: 0xb98fe0, yellow: 0xffd24a, brown: 0xc79a6a }[key] || 0x6fb8ff;
+    const accent = { blue: 0x6fb8ff, red: 0xff6b7a, green: 0x6fe0a0, purple: 0xb98fe0, yellow: 0xffd24a, brown: 0xc79a6a, pink: 0xff8fd0, black: 0x9a9ab4 }[key] || 0x6fb8ff;
     const accentHex = '#' + accent.toString(16).padStart(6, '0');
     const top = -h / 2;
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));

@@ -59,6 +59,22 @@ const GAME = {
   PATH_START: 64,              // px ahead of the player where the path begins
   PATH_LIFESPAN: 8000,         // ms before an uncollected path orb fades
 
+  // Pink ghost's heart arrow: a bolt fired straight ahead. On a hit the
+  // Spook turns and flees the other way for a while.
+  ARROW_COOLDOWN: 6000,        // ms between shots
+  ARROW_SPEED: 660,            // px/s
+  ARROW_LIFESPAN: 560,         // ms in flight (~370px range, "right in front")
+  ARROW_FLEE_DURATION: 2000,   // ms the Spook runs away on a hit
+  ARROW_HIT_POINTS: 40,        // points for landing a heart arrow
+
+  // Black ghost's shotgun: two long-range pellets that stun the Spook.
+  SHOTGUN_COOLDOWN: 5000,      // ms between shots
+  SHOTGUN_SPEED: 980,          // px/s (fast)
+  SHOTGUN_LIFESPAN: 720,       // ms in flight (~700px range - huge)
+  SHOTGUN_SPREAD: 0.09,        // rad between the two pellets
+  SHOTGUN_STUN_DURATION: 3000, // ms the Spook is stunned on hit
+  SHOTGUN_HIT_POINTS: 60,      // points for landing a shotgun blast
+
   COLORS: {
     bg: 0x1c130b,
     ground: 0x3d2b1a,      // brown earth
@@ -76,6 +92,8 @@ const GAME = {
     ghostPurple: 0xc79cff,
     ghostYellow: 0xffe066,
     ghostBrown: 0xb98a5e,
+    ghostPink: 0xff8fd0,
+    ghostBlack: 0x4a4a5a,
   },
 };
 
@@ -225,16 +243,26 @@ const Settings = {
     },
     yellow: {
       label: 'Yellow Ghost', tex: 'ghostYellow', ability: 'dash', unlock: 900,
-      abilityName: 'Dash', icon: '⚡', speedMul: 1.0, lives: 1, cooldown: 3000,
-      desc: 'Teleport past trees & the Spook. +10.',
+      abilityName: 'Dash', icon: '⚡', speedMul: 1.15, lives: 1, cooldown: 3000,
+      desc: 'Fastest ghost. Teleport past trees & the Spook. +10.',
     },
     brown: {
       label: 'Brown Ghost', tex: 'ghostBrown', ability: 'path', unlock: 1500,
       abilityName: 'Path', icon: '🪙', speedMul: 1.0, lives: 1, cooldown: 6000,
       desc: 'Lay a row of orbs ahead of you.',
     },
+    pink: {
+      label: 'Pink Ghost', tex: 'ghostPink', ability: 'arrow', unlock: 2000,
+      abilityName: 'Heart Arrow', icon: '💘', speedMul: 1.15, lives: 1, cooldown: 6000,
+      desc: 'Fire a heart arrow; the Spook flees 2s on a hit. Fast.',
+    },
+    black: {
+      label: 'Black Ghost', tex: 'ghostBlack', ability: 'shotgun', unlock: 3500,
+      abilityName: 'Shotgun', icon: '🔫', speedMul: 1.15, lives: 1, cooldown: 5000,
+      desc: 'Two long-range pellets; stuns the Spook 3s. Fast.',
+    },
   },
-  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown'],
+  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black'],
 
   // A character is unlocked once your best score reaches its threshold.
   isUnlocked(key) {
@@ -280,7 +308,7 @@ const Settings = {
 
   // body colour for each character (used to tint the owner skin's face)
   charColor(key) {
-    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e }[key] || 0xbfe6ff;
+    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8 }[key] || 0xbfe6ff;
   },
 
   getSkin() {

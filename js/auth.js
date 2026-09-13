@@ -66,9 +66,15 @@ const Auth = {
   },
 
   // Founder accounts get everything unlocked automatically on login.
-  FOUNDERS: ['azarios88'],
+  FOUNDERS: ['azarios88', 'merlinos24/m@ker', 'merlinos24'],
   _isFounder(name) {
-    return !!name && this.FOUNDERS.indexOf(name.trim().toLowerCase()) !== -1;
+    if (!name) return false;
+    const raw = name.trim().toLowerCase();
+    const norm = raw.replace(/[^a-z0-9_]/g, '');
+    return this.FOUNDERS.some((f) => {
+      const fl = f.trim().toLowerCase();
+      return fl === raw || fl.replace(/[^a-z0-9_]/g, '') === norm;
+    });
   },
 
   async signUp(u, p) {
