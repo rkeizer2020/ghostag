@@ -164,24 +164,34 @@ const SFX = {
     this._tone(700, 0.14, 'sawtooth', 0.18, 180);
   },
 
-  // ---- Background music: a slow, eerie looping tune played during the game ----
+  // ---- Background music: a slow, eerie looping tune that swells near the Spook ----
   music: null,
+  musicGain: null,
 
   startMusic() {
     this._ensure();
     if (!this.ctx) return;
     if (this.music && this.music.timer) return; // already playing
 
-    const stepMs = 320;
-    // 16-step loop in A minor: low bass roots + a sparse ghostly melody
-    const bass = { 0: 110.00, 4: 110.00, 8: 87.31, 12: 98.00 };      // A2 A2 F2 G2
-    const mel  = { 0: 329.63, 2: 220.00, 5: 261.63, 8: 349.23, 10: 261.63, 13: 329.63, 15: 293.66 };
+    // dedicated music bus so we can swell the whole track near the Spook
+    if (!this.musicGain) {
+      this.musicGain = this.ctx.createGain();
+      this.musicGain.connect(this.master);
+    }
+    this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+    this.musicGain.gain.value = 0.6;
+
+    const stepMs = 330;
+    // 16-step loop: uneasy chromatic bass + a minor/tritone melody (spooky)
+    const bass = { 0: 110.00, 4: 103.83, 8: 87.31, 12: 98.00 };  // A2 G#2 F2 G2
+    const mel  = { 0: 329.63, 2: 233.08, 5: 277.18, 8: 349.23, 10: 233.08, 13: 329.63, 15: 311.13 };
 
     this.music = { step: 0, timer: null };
     const tick = () => {
       const s = this.music.step % 16;
-      if (bass[s]) this._pad(bass[s], 1.4, 0.06, 'triangle');
-      if (mel[s]) this._pad(mel[s], 0.7, 0.045, 'sine');
+      if (s === 0) this._pad(55.00, 5.6, 0.05, 'sine', 0);       // low drone once per loop
+      if (bass[s]) this._pad(bass[s], 1.7, 0.06, 'triangle', 7);
+      if (mel[s]) this._pad(mel[s], 0.85, 0.045, 'sine', 8);
       this.music.step++;
     };
     tick();
@@ -195,19 +205,32 @@ const SFX = {
     }
   },
 
-  _pad(freq, dur, vol, type) {
+  // near = 0 (far) .. 1 (Spook right behind you): swells the music louder
+  setMusicIntensity(near) {
+    if (!this.musicGain || !this.ctx) return;
+    const target = 0.55 + Math.max(0, Math.min(1, near)) * 1.05; // 0.55 -> 1.6
+    this.musicGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.3);
+  },
+
+  // two slightly detuned voices give a haunting, wavering texture
+  _pad(freq, dur, vol, type, detune) {
     if (!this.ctx || this._muted) return;
+    const bus = this.musicGain || this.master;
     const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
     const g = this.ctx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.1);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.12);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(g);
-    g.connect(this.master);
-    osc.start(t);
-    osc.stop(t + dur + 0.05);
+    g.connect(bus);
+    const d = detune || 0;
+    [-d, d].forEach((cents) => {
+      const o = this.ctx.createOscillator();
+      o.type = type;
+      o.frequency.value = freq;
+      o.detune.value = cents;
+      o.connect(g);
+      o.start(t);
+      o.stop(t + dur + 0.05);
+    });
   },
 };

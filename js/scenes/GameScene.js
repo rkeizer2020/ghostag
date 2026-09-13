@@ -355,8 +355,20 @@ class GameScene extends Phaser.Scene {
     for (let i = 0; i < 5; i++) {
       this.trail.emitParticleAt(ox + Phaser.Math.Between(-8, 8), oy + Phaser.Math.Between(-8, 8));
     }
+    // energy pulse ring around the ghost
+    this.energyPulse(this.player.x, this.player.y);
     // only field orbs keep the map stocked; bonus path orbs don't respawn
     if (!wasPath) this.spawnOrb();
+  }
+
+  energyPulse(x, y) {
+    const color = this.boostTint();
+    const ring = this.add.circle(x, y, 16, 0x000000, 0)
+      .setStrokeStyle(3, color, 0.9).setDepth(11);
+    this.tweens.add({
+      targets: ring, scale: 3.2, alpha: 0, duration: 430, ease: 'Quad.out',
+      onComplete: () => ring.destroy(),
+    });
   }
 
   buildHUD() {
@@ -648,8 +660,9 @@ class GameScene extends Phaser.Scene {
     this.sword.setScale(1 + near * 0.25);
     this.sword.setTint(near > 0.05 ? 0xffef99 : 0xffffff);
 
-    // red danger vignette (audio danger cue is now the background music)
+    // red danger vignette + swell the music louder as the Spook closes in
     this.danger.setAlpha(near * 0.22);
+    SFX.setMusicIntensity(near);
   }
 
   caught() {
