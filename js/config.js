@@ -125,48 +125,54 @@ const Settings = {
   // Playable characters and their special ability.
   CHARACTERS: {
     blue: {
-      label: 'Blue Ghost', tex: 'ghost', ability: 'log',
+      label: 'Blue Ghost', tex: 'ghost', ability: 'log', unlock: 0,
       abilityName: 'Log', icon: '🪵', speedMul: 1.0, lives: 1, cooldown: 5000,
       desc: 'Drop a log; slows the Spook 5s.',
     },
     red: {
-      label: 'Red Ghost', tex: 'ghostRed', ability: 'smash',
+      label: 'Red Ghost', tex: 'ghostRed', ability: 'smash', unlock: 100,
       abilityName: 'Smash', icon: '💥', speedMul: 1.0, lives: 1, cooldown: 6000,
       desc: 'Long forward slash; stuns 3s on hit.',
     },
     green: {
-      label: 'Green Ghost', tex: 'ghostGreen', ability: 'shield',
+      label: 'Green Ghost', tex: 'ghostGreen', ability: 'shield', unlock: 200,
       abilityName: 'Shield', icon: '🛡️', speedMul: 0.85, lives: 1, cooldown: 7500,
       desc: '1s shield; blocks a hit, then boost +100. Bit slower.',
     },
     purple: {
-      label: 'Purple Ghost', tex: 'ghostPurple', ability: 'phase',
+      label: 'Purple Ghost', tex: 'ghostPurple', ability: 'phase', unlock: 500,
       abilityName: 'Phase', icon: '🌀', speedMul: 0.85, lives: 2, cooldown: 5000,
       desc: '2 lives; walk through trees 7.5s. Bit slower.',
     },
     yellow: {
-      label: 'Yellow Ghost', tex: 'ghostYellow', ability: 'dash',
+      label: 'Yellow Ghost', tex: 'ghostYellow', ability: 'dash', unlock: 900,
       abilityName: 'Dash', icon: '⚡', speedMul: 1.0, lives: 1, cooldown: 3000,
       desc: 'Teleport past trees & the Spook. +10.',
     },
     brown: {
-      label: 'Brown Ghost', tex: 'ghostBrown', ability: 'path',
+      label: 'Brown Ghost', tex: 'ghostBrown', ability: 'path', unlock: 1500,
       abilityName: 'Path', icon: '🪙', speedMul: 1.0, lives: 1, cooldown: 6000,
       desc: 'Lay a row of orbs ahead of you.',
     },
   },
   CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown'],
 
+  // A character is unlocked once your best score reaches its threshold.
+  isUnlocked(key) {
+    const c = this.CHARACTERS[key];
+    if (!c) return false;
+    return Storage.getHighscore() >= (c.unlock || 0);
+  },
+
   getCharacter() {
     try {
       const c = localStorage.getItem('tagz.character');
-      return this.CHARACTERS[c] ? c : 'blue';
-    } catch (e) {
-      return 'blue';
-    }
+      if (this.CHARACTERS[c] && this.isUnlocked(c)) return c;
+    } catch (e) { /* ignore */ }
+    return 'blue';
   },
   setCharacter(key) {
-    if (!this.CHARACTERS[key]) return;
+    if (!this.CHARACTERS[key] || !this.isUnlocked(key)) return;
     try { localStorage.setItem('tagz.character', key); } catch (e) { /* ignore */ }
   },
   character() {

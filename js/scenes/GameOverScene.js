@@ -8,6 +8,7 @@ class GameOverScene extends Phaser.Scene {
   init(data) {
     this.finalScore = data.score || 0;
     this.isNew = !!data.isNew;
+    this.newUnlocks = data.newUnlocks || [];
   }
 
   create() {
@@ -38,6 +39,16 @@ class GameOverScene extends Phaser.Scene {
       this.add.text(cx, H * 0.585, 'Best: ' + Storage.getHighscore(), {
         fontFamily: 'system-ui, sans-serif', fontSize: '18px', color: '#ffd54a',
       }).setOrigin(0.5).setDepth(3);
+    }
+
+    // celebrate any characters unlocked this run
+    if (this.newUnlocks.length) {
+      const msg = '🎉 Unlocked: ' + this.newUnlocks.join(', ') + '!';
+      const u = this.add.text(cx, H * 0.645, msg, {
+        fontFamily: 'system-ui, sans-serif', fontSize: '18px', fontStyle: 'bold', color: '#8fe6a0',
+        align: 'center', wordWrap: { width: W - 60 },
+      }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
+      this.tweens.add({ targets: u, scale: { from: 1, to: 1.08 }, duration: 600, yoyo: true, repeat: -1 });
     }
 
     // buttons appear after a short delay so the death tap doesn't hit them

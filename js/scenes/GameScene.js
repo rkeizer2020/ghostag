@@ -776,10 +776,18 @@ class GameScene extends Phaser.Scene {
     }
 
     this.time.delayedCall(1000, () => {
-      const best = Storage.getHighscore();
-      const isNew = Math.floor(this.score) > best;
-      if (isNew) Storage.setHighscore(Math.floor(this.score));
-      this.scene.start('GameOver', { score: Math.floor(this.score), isNew });
+      const oldBest = Storage.getHighscore();
+      const finalScore = Math.floor(this.score);
+      const isNew = finalScore > oldBest;
+      if (isNew) Storage.setHighscore(finalScore);
+      // characters whose unlock threshold this run just crossed
+      const newUnlocks = Settings.CHAR_ORDER
+        .filter((k) => {
+          const u = Settings.CHARACTERS[k].unlock || 0;
+          return u > 0 && u > oldBest && u <= finalScore;
+        })
+        .map((k) => Settings.CHARACTERS[k].label);
+      this.scene.start('GameOver', { score: finalScore, isNew, newUnlocks });
     });
   }
 }
