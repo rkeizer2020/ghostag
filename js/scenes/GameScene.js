@@ -81,6 +81,12 @@ class GameScene extends Phaser.Scene {
     if (this.skin.hat) {
       this.hat = this.add.image(this.player.x, this.player.y, this.skin.hat).setDepth(12);
     }
+    // owner skin: coloured face patch (in the character's colour) over gold body
+    this.faceFx = null;
+    if (this.skin.kind === 'owner') {
+      this.faceFx = this.add.image(this.player.x, this.player.y, 'ownerFace')
+        .setDepth(11).setScale(0.8).setTint(Settings.charColor(this.charKey));
+    }
 
     // collisions with trees (player collider is toggled off while phasing)
     this.playerTreeCollider = this.physics.add.collider(this.player, this.trees);
@@ -556,6 +562,10 @@ class GameScene extends Phaser.Scene {
       this.hat.setPosition(this.player.x, this.player.y - this.player.displayHeight * 0.42);
       this.hat.setFlipX(this.player.flipX);
     }
+    // owner face patch follows the ghost
+    if (this.faceFx) {
+      this.faceFx.setPosition(this.player.x, this.player.y - this.player.displayHeight * 0.125);
+    }
   }
 
   boostTint() {
@@ -785,6 +795,7 @@ class GameScene extends Phaser.Scene {
   splitGhost(px, py) {
     this.player.setVisible(false);
     if (this.hat) this.hat.setVisible(false);
+    if (this.faceFx) this.faceFx.setVisible(false);
 
     // two halves of the ghost fly apart (left and right)
     const leftHalf = this.add.image(px, py, this.playerTex).setDepth(12).setCrop(0, 0, 24, 56);

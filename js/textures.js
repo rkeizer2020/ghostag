@@ -17,8 +17,11 @@ const Textures = {
     this._ghost(scene, 'skinNeutral', { glow: 0x9fb0c0, glow2: 0xd8e0e8, body: 0xdfe6ee, eye: 0x2a3440 });
     this.skinPumpkin(scene);
     this.skinSkull(scene);
+    this.skinGold(scene);
+    this.ownerFace(scene);
     this.hatCrown(scene);
     this.hatWitch(scene);
+    this.hatMoney(scene);
     this.spook(scene);
     this.sword(scene);
     this.slash(scene);
@@ -137,6 +140,55 @@ const Textures = {
     [cx - 5, cx - 1, cx + 3].forEach((x) => g.fillRect(x, 35, 1.6, 5));
     g.generateTexture('skinSkull', w, h);
     g.destroy();
+  },
+
+  // Faceless gold ghost body for the owner "Rich" skin.
+  skinGold(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56;
+    this._ghostBody(g, w, h, { glow: 0xffd54a, glow2: 0xffe27a, body: 0xf0c24a });
+    // warm rim light
+    g.lineStyle(2, 0xfff2b0, 0.6);
+    g.strokeCircle(w / 2, 22, 16);
+    g.generateTexture('skinGold', w, h);
+    g.destroy();
+  },
+
+  // White face patch with dark eyes; tinted in-game to the character's colour.
+  ownerFace(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 34, h = 28, cx = w / 2, cy = h / 2;
+    g.fillStyle(0xffffff, 1);
+    g.fillEllipse(cx, cy, 30, 24);
+    g.fillStyle(0x1a1a1a, 1);
+    g.fillCircle(cx - 7, cy, 3.4);
+    g.fillCircle(cx + 7, cy, 3.4);
+    g.generateTexture('ownerFace', w, h);
+    g.destroy();
+  },
+
+  // Gold top hat with a green band and a green $ (owner skin accessory).
+  hatMoney(scene) {
+    const w = 46, h = 46;
+    const canvas = scene.textures.createCanvas('hatMoney', w, h);
+    const ctx = canvas.getContext();
+    const cx = w / 2, by = h - 8;
+    const cylW = w * 0.6, cylH = h * 0.62;
+    ctx.fillStyle = '#c9962a';
+    ctx.beginPath(); ctx.ellipse(cx, by, w * 0.46, 6, 0, 0, 7); ctx.fill();
+    const grad = ctx.createLinearGradient(cx - cylW / 2, 0, cx + cylW / 2, 0);
+    grad.addColorStop(0, '#b8860b'); grad.addColorStop(0.5, '#ffe27a'); grad.addColorStop(1, '#c9962a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(cx - cylW / 2, by - cylH, cylW, cylH);
+    ctx.fillStyle = '#ffe27a';
+    ctx.beginPath(); ctx.ellipse(cx, by - cylH, cylW / 2, 4, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#0e5a2a';
+    ctx.fillRect(cx - cylW / 2, by - 11, cylW, 8);
+    ctx.fillStyle = '#2fd06a';
+    ctx.font = 'bold ' + Math.round(cylH * 0.5) + 'px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('$', cx, by - cylH * 0.62);
+    canvas.refresh();
   },
 
   hatCrown(scene) {

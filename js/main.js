@@ -18,4 +18,14 @@ const config = {
   scene: [BootScene, MenuScene, SettingsScene, CharactersScene, SkinsScene, GameScene, GameOverScene],
 };
 
+// Secret owner unlock: visiting with ?owner=ghostagking grants (and equips)
+// the exclusive Rich skin on this device.
+try {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('owner') === 'ghostagking') {
+    localStorage.setItem('tagz.owner', '1');
+    localStorage.setItem('tagz.skin', 'owner');
+  }
+} catch (e) { /* ignore */ }
+
 window.game = new Phaser.Game(config);

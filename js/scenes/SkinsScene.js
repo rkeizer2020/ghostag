@@ -19,7 +19,8 @@ class SkinsScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ffd54a',
     }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
 
-    const keys = Settings.SKIN_ORDER;
+    // the owner skin only appears once unlocked with the secret link
+    const keys = Settings.SKIN_ORDER.filter((id) => id !== 'owner' || Storage.isOwnerUnlocked());
     const n = keys.length;
     const cols = W >= H ? 3 : 2;
     const rows = Math.ceil(n / cols);
@@ -70,6 +71,11 @@ class SkinsScene extends Phaser.Scene {
     const gy = top + h * 0.32;
     const ghost = this.add.image(0, gy, previewTex).setScale(gscale);
     container.add(ghost);
+    if (skin.kind === 'owner') {
+      const face = this.add.image(0, gy - ghost.displayHeight * 0.125, 'ownerFace')
+        .setScale(gscale * 0.8).setTint(Settings.charColor(Settings.getCharacter()));
+      container.add(face);
+    }
     if (skin.hat) {
       const hat = this.add.image(0, gy - ghost.displayHeight * 0.40, skin.hat).setScale(gscale);
       container.add(hat);

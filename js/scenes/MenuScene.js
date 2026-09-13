@@ -16,6 +16,11 @@ class MenuScene extends Phaser.Scene {
     const ghost = this.add.image(cx - 70, H * 0.34, decorTex).setScale(1.5).setDepth(1);
     const spook = this.add.image(cx + 70, H * 0.34, 'spook').setScale(1.35).setDepth(1);
     const sword = this.add.image(cx + 70, H * 0.34 - 46, 'sword').setScale(1.15).setDepth(2);
+    if (skin.kind === 'owner') {
+      const face = this.add.image(cx - 70, H * 0.34 - ghost.displayHeight * 0.125, 'ownerFace')
+        .setScale(1.2).setDepth(2).setTint(Settings.charColor(Settings.getCharacter()));
+      this.tweens.add({ targets: face, y: '-=12', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
     if (skin.hat) {
       const hat = this.add.image(cx - 70, H * 0.34 - ghost.displayHeight * 0.42, skin.hat).setScale(1.4).setDepth(2);
       this.tweens.add({ targets: hat, y: '-=12', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });

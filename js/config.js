@@ -124,7 +124,15 @@ const Storage = {
     }
   },
   isSkinOwned(id) {
+    if (id === 'owner') return this.isOwnerUnlocked();
     return id === 'classic' || this.getOwnedSkins().includes(id);
+  },
+  isOwnerUnlocked() {
+    try {
+      return localStorage.getItem('tagz.owner') === '1';
+    } catch (e) {
+      return false;
+    }
   },
   addSkin(id) {
     try {
@@ -232,8 +240,15 @@ const Settings = {
     crown:   { name: 'Royal',   cost: 300, tex: 'skinNeutral', hat: 'hatCrown', trail: 0xffd54a },
     witch:   { name: 'Witch',   cost: 300, tex: 'skinNeutral', hat: 'hatWitch', trail: 0xb98fe0 },
     rainbow: { name: 'Rainbow', cost: 500, tex: 'skinWhite', trail: 0xffffff, rainbow: true },
+    // owner-only: gold "rich" look with the face in the character's colour
+    owner:   { name: 'Rich', cost: 0, kind: 'owner', tex: 'skinGold', hat: 'hatMoney', trail: 0xffd54a },
   },
-  SKIN_ORDER: ['classic', 'ember', 'frost', 'toxic', 'pumpkin', 'skull', 'crown', 'witch', 'rainbow'],
+  SKIN_ORDER: ['classic', 'ember', 'frost', 'toxic', 'pumpkin', 'skull', 'crown', 'witch', 'rainbow', 'owner'],
+
+  // body colour for each character (used to tint the owner skin's face)
+  charColor(key) {
+    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e }[key] || 0xbfe6ff;
+  },
 
   getSkin() {
     try {
