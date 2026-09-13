@@ -65,6 +65,12 @@ const Auth = {
     return u.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') + '@ghostag.play';
   },
 
+  // Founder accounts get everything unlocked automatically on login.
+  FOUNDERS: ['azarios88'],
+  _isFounder(name) {
+    return !!name && this.FOUNDERS.indexOf(name.trim().toLowerCase()) !== -1;
+  },
+
   async signUp(u, p) {
     if (!this.client) return { ok: false, msg: 'Cloud not available here.' };
     if (u.trim().length < 3) return { ok: false, msg: 'Username needs 3+ letters.' };
@@ -152,7 +158,6 @@ const Auth = {
     let merged;
     if (!row) {
       merged = local;
-      try { await this.client.from('saves').insert({ id, username: uname, ...this._row(merged) }); } catch (e) { /* ignore */ }
     } else {
       merged = {
         highscore: Math.max(local.highscore, row.highscore || 0),
@@ -161,8 +166,21 @@ const Auth = {
         equipped_char: row.equipped_char || local.equipped_char,
         equipped_skin: row.equipped_skin || local.equipped_skin,
       };
-      try { await this.client.from('saves').update(this._row(merged)).eq('id', id); } catch (e) { /* ignore */ }
     }
+
+    // founder accounts: grant everything
+    const effName = uname || this.username();
+    if (this._isFounder(effName)) {
+      merged.skins = Settings.SKIN_ORDER.join(','); // all skins incl. owner
+      merged.highscore = Math.max(merged.highscore, 100000);
+      merged.coins = Math.max(merged.coins, 100000);
+    }
+
+    try {
+      if (!row) await this.client.from('saves').insert({ id, username: effName, ...this._row(merged) });
+      else await this.client.from('saves').update(this._row(merged)).eq('id', id);
+    } catch (e) { /* ignore */ }
+
     this._writeLocal(merged);
     this.onChange();
   },
