@@ -81,7 +81,8 @@ class GameScene extends Phaser.Scene {
     // cosmetic hat overlay (some skins) that follows the player
     this.hat = null;
     if (this.skin.hat) {
-      this.hat = this.add.image(this.player.x, this.player.y, this.skin.hat).setDepth(12);
+      // bottom-anchored so the hat sits ABOVE the head, never over the face
+      this.hat = this.add.image(this.player.x, this.player.y, this.skin.hat).setOrigin(0.5, 1).setDepth(12);
     }
     // owner skin: coloured face patch (in the character's colour) over gold body
     this.faceFx = null;
@@ -644,9 +645,9 @@ class GameScene extends Phaser.Scene {
       this.player.clearTint();
     }
 
-    // hat overlay follows the ghost
+    // hat overlay follows the ghost (bottom edge rests just above the head)
     if (this.hat) {
-      this.hat.setPosition(this.player.x, this.player.y - this.player.displayHeight * 0.42);
+      this.hat.setPosition(this.player.x, this.player.y - this.player.displayHeight * 0.34);
       this.hat.setFlipX(this.player.flipX);
     }
     // owner face patch follows the ghost

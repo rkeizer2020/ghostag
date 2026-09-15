@@ -22,7 +22,7 @@ class MenuScene extends Phaser.Scene {
       this.tweens.add({ targets: face, y: '-=12', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
     if (skin.hat) {
-      const hat = this.add.image(cx - 70, H * 0.34 - ghost.displayHeight * 0.42, skin.hat).setScale(1.4).setDepth(2);
+      const hat = this.add.image(cx - 70, H * 0.34 - ghost.displayHeight * 0.34, skin.hat).setOrigin(0.5, 1).setScale(1.4).setDepth(2);
       this.tweens.add({ targets: hat, y: '-=12', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
     this.tweens.add({ targets: ghost, y: '-=12', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });

@@ -17,13 +17,23 @@ const Textures = {
     this._ghost(scene, 'skinToxic', { glow: 0x3fbf2a, glow2: 0x9fff6a, body: 0x7fe04a, eye: 0x143a10 });
     this._ghost(scene, 'skinWhite', { glow: 0xffffff, glow2: 0xffffff, body: 0xffffff, eye: 0x333333 });
     this._ghost(scene, 'skinNeutral', { glow: 0x9fb0c0, glow2: 0xd8e0e8, body: 0xdfe6ee, eye: 0x2a3440 });
+    this._ghost(scene, 'skinDevil', { glow: 0xff2010, glow2: 0xff7050, body: 0xd41818, eye: 0xffe066 });
+    this._ghost(scene, 'skinSmurf', { glow: 0x2f7fd9, glow2: 0x8fd0ff, body: 0x3fa0ff, eye: 0x14314a });
     this.skinPumpkin(scene);
     this.skinSkull(scene);
     this.skinGold(scene);
+    this.skinGalaxy(scene);
+    this.skinNeon(scene);
+    this.skinDiamond(scene);
+    this.skinWizard(scene);
+    this.skinWizardGnome(scene);
     this.ownerFace(scene);
     this.hatCrown(scene);
     this.hatWitch(scene);
     this.hatMoney(scene);
+    this.hatHalo(scene);
+    this.hatHorns(scene);
+    this.hatGnome(scene);
     this.spook(scene);
     this.sword(scene);
     this.slash(scene);
@@ -189,6 +199,136 @@ const Textures = {
     g.lineStyle(2, 0xfff2b0, 0.6);
     g.strokeCircle(w / 2, 22, 16);
     g.generateTexture('skinGold', w, h);
+    g.destroy();
+  },
+
+  // Deep-space body with nebula tints and a scatter of stars.
+  skinGalaxy(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    this._ghostBody(g, w, h, { glow: 0x6a3fbf, glow2: 0xb98fe0, body: 0x2a1a4a });
+    g.fillStyle(0x7a3fbf, 0.5); g.fillCircle(cx - 6, 26, 7);
+    g.fillStyle(0x3f6fbf, 0.4); g.fillCircle(cx + 7, 34, 6);
+    g.fillStyle(0xffffff, 0.95);
+    [[cx - 9, 16, 1.6], [cx + 9, 18, 1.3], [cx - 4, 32, 1.2], [cx + 4, 36, 1.5], [cx - 11, 36, 1], [cx + 11, 30, 1.2]]
+      .forEach((s) => g.fillCircle(s[0], s[1], s[2]));
+    g.fillStyle(0xdfe8ff, 1);
+    g.fillCircle(cx - 6, 22, 3); g.fillCircle(cx + 6, 22, 3);
+    g.generateTexture('skinGalaxy', w, h);
+    g.destroy();
+  },
+
+  // Dark body with glowing neon outlines.
+  skinNeon(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    this._ghostBody(g, w, h, { glow: 0xff2fd0, glow2: 0x2ffff0, body: 0x12122a });
+    g.lineStyle(2.5, 0x2ffff0, 0.95); g.strokeCircle(cx, 22, 16);
+    g.lineStyle(2, 0xff2fd0, 0.85);
+    g.beginPath();
+    g.moveTo(cx - 14, 44); g.lineTo(cx - 6, 50); g.lineTo(cx + 2, 44); g.lineTo(cx + 10, 50); g.lineTo(cx + 14, 44);
+    g.strokePath();
+    g.fillStyle(0x2ffff0, 1); g.fillCircle(cx - 6, 22, 3); g.fillCircle(cx + 6, 22, 3);
+    g.fillStyle(0xffffff, 1); g.fillCircle(cx - 6, 21, 1); g.fillCircle(cx + 6, 21, 1);
+    g.generateTexture('skinNeon', w, h);
+    g.destroy();
+  },
+
+  // Icy crystal body with facet lines and sparkles.
+  skinDiamond(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    this._ghostBody(g, w, h, { glow: 0x7fd0ff, glow2: 0xd8f4ff, body: 0xbfe8ff });
+    g.lineStyle(1.4, 0xffffff, 0.7);
+    g.beginPath(); g.moveTo(cx, 10); g.lineTo(cx - 12, 26); g.strokePath();
+    g.beginPath(); g.moveTo(cx, 10); g.lineTo(cx + 12, 26); g.strokePath();
+    g.beginPath(); g.moveTo(cx - 12, 26); g.lineTo(cx, 40); g.lineTo(cx + 12, 26); g.strokePath();
+    g.fillStyle(0xffffff, 0.95);
+    g.fillCircle(cx - 8, 16, 1.6); g.fillCircle(cx + 9, 30, 1.4); g.fillCircle(cx + 3, 14, 1.2);
+    g.fillStyle(0x2a5a7a, 1);
+    g.fillCircle(cx - 6, 22, 3); g.fillCircle(cx + 6, 22, 3);
+    g.generateTexture('skinDiamond', w, h);
+    g.destroy();
+  },
+
+  // Round glasses, a lightning scar and a striped scarf (the "boy wizard" look).
+  _wizardFace(g, cx, o) {
+    // eyes
+    g.fillStyle(o.eye, 1);
+    g.fillCircle(cx - 6, 22, 3); g.fillCircle(cx + 6, 22, 3);
+    // round glasses
+    g.lineStyle(1.6, 0x1a1a1a, 1);
+    g.strokeCircle(cx - 6, 22, 5); g.strokeCircle(cx + 6, 22, 5);
+    g.beginPath(); g.moveTo(cx - 1, 22); g.lineTo(cx + 1, 22); g.strokePath();
+    // lightning scar on the forehead
+    g.lineStyle(1.6, o.scar, 1);
+    g.beginPath();
+    g.moveTo(cx - 10, 12); g.lineTo(cx - 8, 15); g.lineTo(cx - 11, 16); g.lineTo(cx - 9, 19);
+    g.strokePath();
+    // striped scarf across the neck
+    g.fillStyle(o.scarf1, 1); g.fillRect(cx - 16, 37, 32, 5);
+    g.fillStyle(o.scarf2, 1);
+    [cx - 13, cx - 3, cx + 7].forEach((x) => g.fillRect(x, 37, 4, 5));
+    // dangling end
+    g.fillStyle(o.scarf1, 1); g.fillRect(cx + 8, 41, 5, 9);
+    g.fillStyle(o.scarf2, 1); g.fillRect(cx + 8, 45, 5, 3);
+  },
+
+  skinWizard(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    this._ghostBody(g, w, h, { glow: 0xc9a24a, glow2: 0xffe27a, body: 0xf0e2c4 });
+    this._wizardFace(g, cx, { eye: 0x2a2a2a, scar: 0x8a1a1a, scarf1: 0x9a1a1a, scarf2: 0xffd54a });
+    g.generateTexture('skinWizard', w, h);
+    g.destroy();
+  },
+
+  // Blue-gnome body wearing the wizard's glasses, scar and scarf (worn with the white cap).
+  skinWizardGnome(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    this._ghostBody(g, w, h, { glow: 0x2f7fd9, glow2: 0x8fd0ff, body: 0x3fa0ff });
+    this._wizardFace(g, cx, { eye: 0x14314a, scar: 0x0e2a44, scarf1: 0x9a1a1a, scarf2: 0xffd54a });
+    g.generateTexture('skinWizardGnome', w, h);
+    g.destroy();
+  },
+
+  // Floppy white cap (worn by the Blue Gnome / Wizard Gnome skins).
+  hatGnome(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 40, h = 36, cx = w / 2;
+    g.fillStyle(0xffffff, 1);
+    g.fillEllipse(cx, 28, 30, 9);          // brim
+    g.fillTriangle(cx - 11, 28, cx + 9, 28, cx + 6, 6); // floppy cone
+    g.fillCircle(cx + 6, 6, 4);            // rounded tip
+    g.fillStyle(0xd8e4f0, 0.55);
+    g.fillTriangle(cx - 1, 28, cx + 9, 28, cx + 6, 6);  // soft shade
+    g.generateTexture('hatGnome', w, h);
+    g.destroy();
+  },
+
+  // Golden halo (Angel skin).
+  hatHalo(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 46, h = 22, cx = w / 2, cy = h / 2;
+    g.fillStyle(0xfff2a0, 0.22); g.fillEllipse(cx, cy, 40, 16);
+    g.lineStyle(5, 0xffe066, 1); g.strokeEllipse(cx, cy, 34, 12);
+    g.lineStyle(2, 0xfff6c0, 0.9); g.strokeEllipse(cx, cy, 34, 12);
+    g.generateTexture('hatHalo', w, h);
+    g.destroy();
+  },
+
+  // Two red horns (Devil skin).
+  hatHorns(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 46, h = 30, cx = w / 2;
+    g.fillStyle(0x8a1410, 1);
+    g.fillTriangle(cx - 15, 28, cx - 5, 28, cx - 13, 4);
+    g.fillTriangle(cx + 5, 28, cx + 15, 28, cx + 13, 4);
+    g.fillStyle(0xff5a44, 0.7);
+    g.fillTriangle(cx - 13, 26, cx - 8, 26, cx - 12, 8);
+    g.fillTriangle(cx + 8, 26, cx + 13, 26, cx + 12, 8);
+    g.generateTexture('hatHorns', w, h);
     g.destroy();
   },
 

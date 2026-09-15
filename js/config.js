@@ -301,10 +301,20 @@ const Settings = {
     crown:   { name: 'Royal',   cost: 300, tex: 'skinNeutral', hat: 'hatCrown', trail: 0xffd54a },
     witch:   { name: 'Witch',   cost: 300, tex: 'skinNeutral', hat: 'hatWitch', trail: 0xb98fe0 },
     rainbow: { name: 'Rainbow', cost: 500, tex: 'skinWhite', trail: 0xffffff, rainbow: true },
+    // premium cosmetics
+    galaxy:  { name: 'Galaxy',  cost: 650,  tex: 'skinGalaxy',  trail: 0xb98fe0 },
+    neon:    { name: 'Neon',    cost: 800,  tex: 'skinNeon',    trail: 0x2ffff0 },
+    angel:   { name: 'Angel',   cost: 900,  tex: 'skinWhite',   hat: 'hatHalo',  trail: 0xfff0b0 },
+    devil:   { name: 'Devil',   cost: 900,  tex: 'skinDevil',   hat: 'hatHorns', trail: 0xff3020 },
+    diamond: { name: 'Diamond', cost: 1200, tex: 'skinDiamond', trail: 0xbfefff },
+    // themed (original designs - not affiliated with any brand)
+    gnome:    { name: 'Blue Gnome',   cost: 700,  tex: 'skinSmurf',       hat: 'hatGnome', trail: 0x5ab0ff },
+    sorcerer: { name: 'Sorcerer',     cost: 850,  tex: 'skinWizard',      trail: 0xffd54a },
+    wizgnome: { name: 'Wizard Gnome', cost: 1500, tex: 'skinWizardGnome', hat: 'hatGnome', trail: 0x9fd2ff },
     // owner-only: gold "rich" look with the face in the character's colour
     owner:   { name: 'Rich', cost: 0, kind: 'owner', tex: 'skinGold', hat: 'hatMoney', trail: 0xffd54a },
   },
-  SKIN_ORDER: ['classic', 'ember', 'frost', 'toxic', 'pumpkin', 'skull', 'crown', 'witch', 'rainbow', 'owner'],
+  SKIN_ORDER: ['classic', 'ember', 'frost', 'toxic', 'pumpkin', 'skull', 'crown', 'witch', 'rainbow', 'galaxy', 'neon', 'angel', 'devil', 'diamond', 'gnome', 'sorcerer', 'wizgnome', 'owner'],
 
   // body colour for each character (used to tint the owner skin's face)
   charColor(key) {

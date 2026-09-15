@@ -22,7 +22,10 @@ class SkinsScene extends Phaser.Scene {
     // the owner skin only appears once unlocked with the secret link
     const keys = Settings.SKIN_ORDER.filter((id) => id !== 'owner' || Storage.isOwnerUnlocked());
     const n = keys.length;
-    const cols = W >= H ? 3 : 2;
+    // pick columns so we stay around 4 rows - keeps cards tall enough to read
+    const cols = W >= H
+      ? Math.min(5, Math.max(3, Math.ceil(n / 4)))
+      : Math.min(3, Math.max(2, Math.ceil(n / 6)));
     const rows = Math.ceil(n / cols);
     const gapX = 12, gapY = 12;
 
@@ -67,8 +70,8 @@ class SkinsScene extends Phaser.Scene {
 
     // preview: the skin's ghost look (classic uses your character's colour)
     const previewTex = (skin.kind === 'default') ? Settings.character().tex : skin.tex;
-    const gscale = clamp(h * 0.0055, 0.8, 1.2);
-    const gy = top + h * 0.32;
+    const gscale = clamp(h * 0.005, 0.62, 1.15);
+    const gy = top + h * 0.30;
     const ghost = this.add.image(0, gy, previewTex).setScale(gscale);
     container.add(ghost);
     if (skin.kind === 'owner') {
@@ -77,7 +80,7 @@ class SkinsScene extends Phaser.Scene {
       container.add(face);
     }
     if (skin.hat) {
-      const hat = this.add.image(0, gy - ghost.displayHeight * 0.40, skin.hat).setScale(gscale);
+      const hat = this.add.image(0, gy - ghost.displayHeight * 0.34, skin.hat).setOrigin(0.5, 1).setScale(gscale);
       container.add(hat);
     }
     if (skin.rainbow) {
@@ -85,8 +88,8 @@ class SkinsScene extends Phaser.Scene {
       ghost.setTint(0xff9a9a);
     }
 
-    container.add(this.add.text(0, top + h * 0.58, skin.name, {
-      fontFamily: 'system-ui, sans-serif', fontSize: clamp(h * 0.085, 13, 17) + 'px', fontStyle: 'bold', color: '#eaf6ff',
+    container.add(this.add.text(0, top + h * 0.60, skin.name, {
+      fontFamily: 'system-ui, sans-serif', fontSize: clamp(h * 0.08, 12, 16) + 'px', fontStyle: 'bold', color: '#eaf6ff',
     }).setOrigin(0.5));
 
     const btnH = clamp(h * 0.18, 34, 44);
@@ -120,6 +123,7 @@ class SkinsScene extends Phaser.Scene {
       const owned = Storage.isSkinOwned(id);
       const selected = id === current;
       const card = this.cards[id];
+      if (!card) return; // e.g. the owner skin card isn't shown when locked
       card.draw(selected);
       card.btn.setActiveState(selected);
       if (owned) {
