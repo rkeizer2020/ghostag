@@ -98,6 +98,10 @@ class GameScene extends Phaser.Scene {
     // the Spook steps on a log -> slowed
     this.physics.add.overlap(this.enemy, this.logs, this.hitLog, null, this);
 
+    // dropped mud pools (Magma ability 1) that slow the Spook on contact
+    this.mudpools = this.physics.add.group({ allowGravity: false, immovable: true });
+    this.physics.add.overlap(this.enemy, this.mudpools, this.hitMud, null, this);
+
     // fired projectiles (pink's heart arrow, black's shotgun pellets)
     this.projectiles = this.physics.add.group({ allowGravity: false });
     this.physics.add.overlap(this.projectiles, this.enemy, this.hitProjectile, null, this);
@@ -115,6 +119,11 @@ class GameScene extends Phaser.Scene {
     this.wasd = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' });
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.spaceKey.on('down', () => this.useAbility());
+    // dual-ability characters (Magma): Shift swaps between the two abilities
+    this.dualMode = 'mud';                 // current mode for the 'dual' ability
+    this.dualReady = { mud: 0, slide: 0 }; // per-mode cooldown timers
+    this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+    this.shiftKey.on('down', () => this.switchDualMode());
     this.joystick = null;
     if (this.sys.game.device.input.touch) {
       this.joystick = new VirtualJoystick(this);
@@ -186,6 +195,21 @@ class GameScene extends Phaser.Scene {
   useAbility() {
     if (this.gameOver) return;
     const now = this.time.now;
+
+    // dual ability (Magma): each mode has its own cooldown
+    if (this.character.ability === 'dual') {
+      if (now < this.dualReady[this.dualMode]) return;
+      if (this.dualMode === 'mud') {
+        this.dropMud();
+        this.dualReady.mud = now + GAME.MUD_COOLDOWN;
+      } else {
+        this.fireSlide(now);
+        this.dualReady.slide = now + GAME.SLIDE_COOLDOWN;
+      }
+      this.updateLogHud();
+      return;
+    }
+
     if (now < this.abilityReadyAt) return;
 
     switch (this.character.ability) {
@@ -335,6 +359,107 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
   }
 
+  // ---- Magma ghost: dual ability (Shift to switch mud <-> slide) ----
+  switchDualMode() {
+    if (this.gameOver || this.character.ability !== 'dual') return;
+    this.dualMode = (this.dualMode === 'mud') ? 'slide' : 'mud';
+    SFX.click();
+    this.floatText(this.dualMode === 'mud' ? '🟤 MUD' : '🔥 SLIDE', 0xff8a3a);
+    this.updateLogHud();
+  }
+
+  // Mud pool trap: slows the Spook and scores when it walks through.
+  dropMud() {
+    const mud = this.mudpools.create(this.player.x, this.player.y, 'mud');
+    mud.setDepth(4);
+    mud.setBodySize(72, 30);
+    mud.setImmovable(true);
+    mud.body.allowGravity = false;
+    mud.setScale(0.4).setAlpha(0.96);
+    this.tweens.add({ targets: mud, scale: 1, duration: 180, ease: 'Back.out' });
+    SFX.click();
+    this.time.delayedCall(GAME.MUD_LIFESPAN - 1500, () => {
+      if (mud.active) this.tweens.add({ targets: mud, alpha: 0.15, duration: 1500 });
+    });
+    this.time.delayedCall(GAME.MUD_LIFESPAN, () => { if (mud.active) mud.destroy(); });
+  }
+
+  hitMud(enemy, mud) {
+    if (!mud.active) return;
+    mud.destroy();
+    this.slowUntil = this.time.now + GAME.MUD_SLOW_DURATION;
+    this.score += GAME.MUD_HIT_POINTS;
+    SFX.boost();
+    for (let i = 0; i < 8; i++) {
+      this.trail.emitParticleAt(enemy.x + Phaser.Math.Between(-12, 12), enemy.y + Phaser.Math.Between(-6, 12));
+    }
+    const txt = this.add.text(enemy.x, enemy.y - 50, 'STUCK! +' + GAME.MUD_HIT_POINTS, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '18px', fontStyle: 'bold', color: '#c9a26a',
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
+  }
+
+  // Fire slide: a fast mid-range dash that burns any trees on its path.
+  fireSlide(now) {
+    const fromX = this.player.x, fromY = this.player.y;
+    const toX = Phaser.Math.Clamp(fromX + this.faceDir.x * GAME.SLIDE_RANGE, 20, GAME.WORLD_WIDTH - 20);
+    const toY = Phaser.Math.Clamp(fromY + this.faceDir.y * GAME.SLIDE_RANGE, 20, GAME.WORLD_HEIGHT - 20);
+
+    this.score += GAME.SLIDE_POINTS;
+    this.invulnUntil = now + GAME.SLIDE_INVULN;
+    SFX.boost();
+    this.cameras.main.shake(120, 0.005);
+
+    // pass through trees during the slide
+    this.playerTreeCollider.active = false;
+
+    // burn trees close to the slide path
+    this.burnTreesAlong(fromX, fromY, toX, toY);
+
+    // glide the player across, leaving a fiery trail
+    this.player.setVelocity(0, 0);
+    this.tweens.add({
+      targets: this.player, x: toX, y: toY, duration: GAME.SLIDE_DURATION, ease: 'Quad.out',
+      onUpdate: () => {
+        const p = this.trail.emitParticleAt(this.player.x, this.player.y);
+        if (p && p.setTint) p.setTint(0xff7a2a);
+      },
+      onComplete: () => {
+        // restore tree collision unless the purple phase is active
+        if (!(this.charKey === 'purple' && this.phasing)) this.playerTreeCollider.active = true;
+      },
+    });
+  }
+
+  burnTreesAlong(x1, y1, x2, y2) {
+    const r = GAME.SLIDE_BURN_RADIUS;
+    const toBurn = [];
+    this.trees.children.iterate((t) => {
+      if (!t) return;
+      if (this.distToSegment(t.x, t.y, x1, y1, x2, y2) <= r) toBurn.push(t);
+    });
+    toBurn.forEach((t) => {
+      const tx = t.x, ty = t.y;
+      t.destroy();
+      // fiery burst where the tree stood
+      const flame = this.add.image(tx, ty, 'spark').setTint(0xff6a1a).setScale(3).setDepth(9);
+      this.tweens.add({ targets: flame, scale: 6, alpha: 0, duration: 420, onComplete: () => flame.destroy() });
+      for (let i = 0; i < 10; i++) {
+        const p = this.trail.emitParticleAt(tx + Phaser.Math.Between(-16, 16), ty + Phaser.Math.Between(-20, 10));
+        if (p && p.setTint) p.setTint(Phaser.Math.RND.pick([0xff7a2a, 0xffb020, 0xff3a10]));
+      }
+    });
+  }
+
+  // Shortest distance from point (px,py) to the segment (x1,y1)-(x2,y2).
+  distToSegment(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 ? ((px - x1) * dx + (py - y1) * dy) / len2 : 0;
+    t = Phaser.Math.Clamp(t, 0, 1);
+    return Phaser.Math.Distance.Between(px, py, x1 + t * dx, y1 + t * dy);
+  }
+
   activateShield(now) {
     this.shieldUntil = now + GAME.SHIELD_DURATION;
     if (this.shieldFx) this.shieldFx.destroy();
@@ -450,7 +575,10 @@ class GameScene extends Phaser.Scene {
     const wasPath = orb.isPath;
     const ox = orb.x, oy = orb.y;
     orb.destroy();
-    this.score += GAME.ORB_POINTS;
+    // Brown ghost earns double points from orbs
+    const orbMult = (this.charKey === 'brown') ? GAME.BROWN_ORB_MULTIPLIER : 1;
+    this.score += GAME.ORB_POINTS * orbMult;
+    if (orbMult > 1) this.floatText('+' + (GAME.ORB_POINTS * orbMult), 0xffd54a);
     this.runCoins += GAME.ORB_COINS;
     Storage.addCoins(GAME.ORB_COINS);
     if (this.coinsText) this.coinsText.setText('🪙 ' + this.runCoins);
@@ -528,6 +656,17 @@ class GameScene extends Phaser.Scene {
         if (event) event.stopPropagation();
         this.useAbility();
       });
+      // dual characters get a second button to switch abilities
+      if (this.character.ability === 'dual') {
+        this.switchBtn = this.add.text(W - 20, H - 78, '🔄 SWITCH', {
+          fontFamily: 'system-ui, sans-serif', fontSize: '18px', fontStyle: 'bold', color: '#ffffff',
+          backgroundColor: '#3a1e1e', padding: { x: 14, y: 10 },
+        }).setOrigin(1, 1).setScrollFactor(0).setDepth(2000).setInteractive({ useHandCursor: true });
+        this.switchBtn.on('pointerdown', (p, x, y, event) => {
+          if (event) event.stopPropagation();
+          this.switchDualMode();
+        });
+      }
     }
 
     // keep the HUD anchored to the corners when the window resizes
@@ -543,11 +682,23 @@ class GameScene extends Phaser.Scene {
     if (this.danger) this.danger.setDisplaySize(W, H).setPosition(0, 0);
     if (this.logHud) this.logHud.setPosition(16, H - 34);
     if (this.logBtn) this.logBtn.setPosition(W - 20, H - 20);
+    if (this.switchBtn) this.switchBtn.setPosition(W - 20, H - 78);
   }
 
   updateLogHud() {
     if (!this.logHud) return;
     const now = this.time.now;
+
+    // dual ability (Magma): show the current mode + its own cooldown
+    if (this.character.ability === 'dual') {
+      const isMud = this.dualMode === 'mud';
+      const modeName = isMud ? '🟤 Mud' : '🔥 Slide';
+      const ready = now >= this.dualReady[this.dualMode];
+      this.logHud.setText('🔥 ' + modeName + (ready ? ' ready (space)' : ' ...') + '  ·  shift: swap');
+      this.logHud.setColor(ready ? '#ffb070' : '#6b5a44');
+      return;
+    }
+
     const phasingNow = this.character.ability === 'phase' && now < this.phaseUntil;
     const ready = now >= this.abilityReadyAt;
     const name = this.character.abilityName;
@@ -657,7 +808,7 @@ class GameScene extends Phaser.Scene {
   }
 
   boostTint() {
-    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc }[this.charKey] || 0x9fe0ff;
+    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a }[this.charKey] || 0x9fe0ff;
   }
 
   // Keeps the shield bubble on the player and toggles tree-phasing on/off.

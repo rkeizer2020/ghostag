@@ -73,6 +73,24 @@ const GAME = {
   SHOTGUN_LIFESPAN: 720,       // ms in flight (~700px range - huge)
   SHOTGUN_SPREAD: 0.09,        // rad between the two pellets
   SHOTGUN_STUN_DURATION: 3000, // ms the Spook is stunned on hit
+
+  // Magma ghost, ability 1: a mud pool trap. The Spook is slowed on contact.
+  MUD_COOLDOWN: 5000,          // ms between drops
+  MUD_LIFESPAN: 10000,         // ms the pool stays before fading
+  MUD_SLOW_DURATION: 5000,     // ms the Spook stays slowed
+  MUD_SLOW_FACTOR: 0.4,        // enemy speed multiplier while slowed
+  MUD_HIT_POINTS: 80,          // points when the Spook walks through it
+
+  // Magma ghost, ability 2: a fast fire slide that burns trees on its path.
+  SLIDE_COOLDOWN: 4000,        // ms between slides
+  SLIDE_RANGE: 260,            // mid-range dash distance
+  SLIDE_DURATION: 260,         // ms the slide takes
+  SLIDE_INVULN: 500,           // ms of safety during/after the slide
+  SLIDE_POINTS: 30,            // points per slide
+  SLIDE_BURN_RADIUS: 46,       // trees within this of the path are burned
+
+  // Brown ghost: orbs are worth double points.
+  BROWN_ORB_MULTIPLIER: 2,
   SHOTGUN_HIT_POINTS: 60,      // points for landing a shotgun blast
 
   COLORS: {
@@ -94,6 +112,7 @@ const GAME = {
     ghostBrown: 0xb98a5e,
     ghostPink: 0xff8fd0,
     ghostBlack: 0x4a4a5a,
+    ghostMagma: 0x9a1a1a,
   },
 };
 
@@ -249,7 +268,7 @@ const Settings = {
     brown: {
       label: 'Brown Ghost', tex: 'ghostBrown', ability: 'path', unlock: 1500,
       abilityName: 'Path', icon: '🪙', speedMul: 1.0, lives: 1, cooldown: 6000,
-      desc: 'Lay a row of orbs ahead of you.',
+      desc: 'Lay a row of orbs ahead. Orbs are worth DOUBLE points!',
     },
     pink: {
       label: 'Pink Ghost', tex: 'ghostPink', ability: 'arrow', unlock: 2000,
@@ -261,8 +280,14 @@ const Settings = {
       abilityName: 'Shotgun', icon: '🔫', speedMul: 1.15, lives: 1, cooldown: 5000,
       desc: 'Two long-range pellets; stuns the Spook 3s. Fast.',
     },
+    magma: {
+      label: 'Magma Ghost', tex: 'ghostMagma', ability: 'dual', unlock: 5000,
+      abilityName: 'Mud / Slide', icon: '🔥', speedMul: 1.0, lives: 1,
+      // per-mode cooldowns live in GAME.MUD_COOLDOWN / GAME.SLIDE_COOLDOWN
+      desc: 'Shift swaps abilities: mud trap (slow, +80) or a fire slide through trees (+30).',
+    },
   },
-  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black'],
+  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma'],
 
   // A character is unlocked once your best score reaches its threshold.
   isUnlocked(key) {
@@ -318,7 +343,7 @@ const Settings = {
 
   // body colour for each character (used to tint the owner skin's face)
   charColor(key) {
-    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8 }[key] || 0xbfe6ff;
+    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a }[key] || 0xbfe6ff;
   },
 
   getSkin() {
