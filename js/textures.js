@@ -12,6 +12,7 @@ const Textures = {
     this._ghost(scene, 'ghostPink', { glow: 0xd94a9a, glow2: 0xffb0e0, body: 0xff8fd0, eye: 0x5a1440 });
     this._ghost(scene, 'ghostBlack', { glow: 0x5a5a72, glow2: 0x9a9ab4, body: 0x4a4a5a, eye: 0xdfe6f0 });
     this.ghostMagma(scene);
+    this.ghostForest(scene);
     // skin bodies
     this._ghost(scene, 'skinEmber', { glow: 0xff5a1a, glow2: 0xffb060, body: 0xff7a3a, eye: 0x4a1000 });
     this._ghost(scene, 'skinFrost', { glow: 0x6fd0ff, glow2: 0xd0f0ff, body: 0xe8f6ff, eye: 0x2a4a5a });
@@ -106,6 +107,34 @@ const Textures = {
     g.fillStyle(0xffb020, 1); g.fillCircle(cx - 6, 21, 3); g.fillCircle(cx + 6, 21, 3);
     g.fillStyle(0xfff0c0, 1); g.fillCircle(cx - 6, 20, 1); g.fillCircle(cx + 6, 20, 1);
     g.generateTexture('ghostMagma', w, h);
+    g.destroy();
+  },
+
+  // Green-and-brown "forest" ghost: leafy green head, brown trunk-like base.
+  ghostForest(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    // green glow
+    g.fillStyle(0x3fbf5a, 0.18); g.fillCircle(cx, h / 2, 26);
+    g.fillStyle(0x7fe090, 0.26); g.fillCircle(cx, h / 2, 20);
+    // brown lower body (trunk) + wavy bottom
+    g.fillStyle(0x7a5230, 1);
+    g.fillRect(cx - 16, 33, 32, 9);
+    g.fillTriangle(cx - 16, 42, cx - 8, 42, cx - 12, 52);
+    g.fillTriangle(cx - 8, 42, cx, 42, cx - 4, 52);
+    g.fillTriangle(cx, 42, cx + 8, 42, cx + 4, 52);
+    g.fillTriangle(cx + 8, 42, cx + 16, 42, cx + 12, 52);
+    g.fillStyle(0x5f3f24, 1); g.fillRect(cx - 16, 33, 5, 9); // bark shade
+    // green upper body (foliage)
+    g.fillStyle(0x4a9e4a, 1);
+    g.fillCircle(cx, 22, 16);
+    g.fillRect(cx - 16, 22, 32, 13);
+    // leafy highlights
+    g.fillStyle(0x6fce6a, 0.85); g.fillCircle(cx - 7, 16, 5); g.fillCircle(cx + 6, 14, 4);
+    // eyes + shine
+    g.fillStyle(0x143a14, 1); g.fillCircle(cx - 6, 22, 3); g.fillCircle(cx + 6, 22, 3);
+    g.fillStyle(0xffffff, 0.6); g.fillCircle(cx - 5, 13, 3);
+    g.generateTexture('ghostForest', w, h);
     g.destroy();
   },
 

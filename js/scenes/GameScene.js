@@ -1,3 +1,11 @@
+// Display info for each dual-ability mode (icon / label / accent colour).
+const DUAL_INFO = {
+  mud:   { icon: '🟤', label: 'Mud',   color: 0xc9a26a },
+  slide: { icon: '🔥', label: 'Slide', color: 0xff8a3a },
+  chop:  { icon: '🪓', label: 'Chop',  color: 0x8fe6a0 },
+  grow:  { icon: '🌲', label: 'Grow',  color: 0x6fce6a },
+};
+
 class GameScene extends Phaser.Scene {
   constructor() {
     super('Game');
@@ -119,9 +127,11 @@ class GameScene extends Phaser.Scene {
     this.wasd = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' });
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.spaceKey.on('down', () => this.useAbility());
-    // dual-ability characters (Magma): Shift swaps between the two abilities
-    this.dualMode = 'mud';                 // current mode for the 'dual' ability
-    this.dualReady = { mud: 0, slide: 0 }; // per-mode cooldown timers
+    // dual-ability characters (Magma, Forest): Shift swaps between abilities
+    this.dualModes = this.character.modes || [];
+    this.dualMode = this.dualModes[0] || null;
+    this.dualReady = {};                    // per-mode cooldown timers
+    this.dualModes.forEach((m) => { this.dualReady[m] = 0; });
     this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
     this.shiftKey.on('down', () => this.switchDualMode());
     this.joystick = null;
@@ -196,16 +206,11 @@ class GameScene extends Phaser.Scene {
     if (this.gameOver) return;
     const now = this.time.now;
 
-    // dual ability (Magma): each mode has its own cooldown
+    // dual ability (Magma, Forest): each mode has its own cooldown
     if (this.character.ability === 'dual') {
-      if (now < this.dualReady[this.dualMode]) return;
-      if (this.dualMode === 'mud') {
-        this.dropMud();
-        this.dualReady.mud = now + GAME.MUD_COOLDOWN;
-      } else {
-        this.fireSlide(now);
-        this.dualReady.slide = now + GAME.SLIDE_COOLDOWN;
-      }
+      if (!this.dualMode || now < (this.dualReady[this.dualMode] || 0)) return;
+      const cd = this.runDualMode(this.dualMode, now);
+      this.dualReady[this.dualMode] = now + cd;
       this.updateLogHud();
       return;
     }
@@ -359,13 +364,85 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
   }
 
-  // ---- Magma ghost: dual ability (Shift to switch mud <-> slide) ----
+  // ---- Dual abilities (Shift to switch); each mode has its own cooldown ----
+  // Run one dual mode and return its cooldown in ms.
+  runDualMode(mode, now) {
+    switch (mode) {
+      case 'mud':   this.dropMud();       return GAME.MUD_COOLDOWN;
+      case 'slide': this.fireSlide(now);  return GAME.SLIDE_COOLDOWN;
+      case 'chop':  this.chopTree();      return GAME.CHOP_COOLDOWN;
+      case 'grow':  this.growTrees();     return GAME.GROW_COOLDOWN;
+      default:      return 2000;
+    }
+  }
+
   switchDualMode() {
-    if (this.gameOver || this.character.ability !== 'dual') return;
-    this.dualMode = (this.dualMode === 'mud') ? 'slide' : 'mud';
+    if (this.gameOver || this.character.ability !== 'dual' || this.dualModes.length < 2) return;
+    const i = this.dualModes.indexOf(this.dualMode);
+    this.dualMode = this.dualModes[(i + 1) % this.dualModes.length];
+    const info = DUAL_INFO[this.dualMode] || { icon: '', label: this.dualMode, color: 0xffffff };
     SFX.click();
-    this.floatText(this.dualMode === 'mud' ? '🟤 MUD' : '🔥 SLIDE', 0xff8a3a);
+    this.floatText(info.icon + ' ' + info.label.toUpperCase(), info.color);
     this.updateLogHud();
+  }
+
+  // ---- Forest ghost: chop a tree for orbs / grow a wall of trees ----
+  chopTree() {
+    // nearest tree to the player (chops anywhere on the map)
+    let nearest = null, best = Infinity;
+    this.trees.children.iterate((t) => {
+      if (!t) return;
+      const d = Phaser.Math.Distance.Between(t.x, t.y, this.player.x, this.player.y);
+      if (d < best) { best = d; nearest = t; }
+    });
+    let ox = this.player.x, oy = this.player.y;
+    if (nearest) {
+      ox = nearest.x; oy = nearest.y;
+      const chip = this.add.image(ox, oy, 'log').setScale(0.5).setDepth(9);
+      this.tweens.add({ targets: chip, scale: 0, angle: 140, alpha: 0, duration: 420, onComplete: () => chip.destroy() });
+      nearest.destroy();
+    }
+    for (let i = 0; i < 10; i++) {
+      this.trail.emitParticleAt(ox + Phaser.Math.Between(-16, 16), oy + Phaser.Math.Between(-16, 16));
+    }
+    // scatter bonus orbs where the tree stood
+    for (let i = 0; i < GAME.CHOP_ORBS; i++) {
+      const a = (i / GAME.CHOP_ORBS) * Math.PI * 2;
+      const x = Phaser.Math.Clamp(ox + Math.cos(a) * 42, 30, GAME.WORLD_WIDTH - 30);
+      const y = Phaser.Math.Clamp(oy + Math.sin(a) * 42, 30, GAME.WORLD_HEIGHT - 30);
+      const orb = this.orbs.create(x, y, 'orb');
+      orb.setCircle(8, 6, 6);
+      orb.setDepth(6);
+      orb.isPath = true; // bonus orb: doesn't respawn a field orb
+      orb.setScale(0.4);
+      this.tweens.add({ targets: orb, scale: { from: 0.9, to: 1.15 }, duration: 600, yoyo: true, repeat: -1 });
+      this.time.delayedCall(GAME.PATH_LIFESPAN, () => { if (orb.active) orb.destroy(); });
+    }
+    SFX.slash();
+    this.floatText('🪓 +5 orbs', 0x8fe6a0);
+  }
+
+  growTrees() {
+    // behind the player = opposite the facing direction; spread sideways
+    const bx = -this.faceDir.x, by = -this.faceDir.y;
+    const perpX = -this.faceDir.y, perpY = this.faceDir.x;
+    for (let i = 0; i < GAME.GROW_TREES; i++) {
+      const off = (i - (GAME.GROW_TREES - 1) / 2) * GAME.GROW_SPREAD;
+      const x = Phaser.Math.Clamp(this.player.x + bx * GAME.GROW_DIST + perpX * off, 60, GAME.WORLD_WIDTH - 60);
+      const y = Phaser.Math.Clamp(this.player.y + by * GAME.GROW_DIST + perpY * off, 60, GAME.WORLD_HEIGHT - 60);
+      const t = this.trees.create(x, y, 'tree');
+      t.setDepth(5 + y / GAME.WORLD_HEIGHT);
+      t.body.setSize(20, 24, true);
+      t.body.setOffset((t.width - 20) / 2, t.height - 30);
+      t.refreshBody();
+      t.setAlpha(0.2);
+      this.tweens.add({ targets: t, alpha: 1, duration: 300 });
+      for (let k = 0; k < 5; k++) {
+        this.trail.emitParticleAt(x + Phaser.Math.Between(-10, 10), y + Phaser.Math.Between(-10, 10));
+      }
+    }
+    SFX.click();
+    this.floatText('🌲 wall!', 0x6fce6a);
   }
 
   // Mud pool trap: slows the Spook and scores when it walks through.
@@ -689,13 +766,13 @@ class GameScene extends Phaser.Scene {
     if (!this.logHud) return;
     const now = this.time.now;
 
-    // dual ability (Magma): show the current mode + its own cooldown
-    if (this.character.ability === 'dual') {
-      const isMud = this.dualMode === 'mud';
-      const modeName = isMud ? '🟤 Mud' : '🔥 Slide';
-      const ready = now >= this.dualReady[this.dualMode];
-      this.logHud.setText('🔥 ' + modeName + (ready ? ' ready (space)' : ' ...') + '  ·  shift: swap');
-      this.logHud.setColor(ready ? '#ffb070' : '#6b5a44');
+    // dual ability (Magma, Forest): show the current mode + its own cooldown
+    if (this.character.ability === 'dual' && this.dualMode) {
+      const info = DUAL_INFO[this.dualMode] || { icon: '', label: this.dualMode };
+      const ready = now >= (this.dualReady[this.dualMode] || 0);
+      this.logHud.setText(this.character.icon + ' ' + info.icon + ' ' + info.label
+        + (ready ? ' ready (space)' : ' ...') + '  ·  shift: swap');
+      this.logHud.setColor(ready ? '#d8e6b0' : '#6b5a44');
       return;
     }
 
@@ -755,7 +832,11 @@ class GameScene extends Phaser.Scene {
     this.updateAbilityVisuals(time);
 
     const boosting = time < this.boostUntil;
-    const speed = (boosting ? GAME.PLAYER_BOOST_SPEED : GAME.PLAYER_SPEED) * this.charSpeedMul;
+    // some characters (Forest) get a bigger speed multiplier while boosted
+    const boostMul = this.character.boostSpeedMul || this.charSpeedMul;
+    const speed = boosting
+      ? GAME.PLAYER_BOOST_SPEED * boostMul
+      : GAME.PLAYER_SPEED * this.charSpeedMul;
 
     let vx = 0, vy = 0;
     if (this.cursors.left.isDown || this.wasd.left.isDown) vx -= 1;
@@ -808,7 +889,7 @@ class GameScene extends Phaser.Scene {
   }
 
   boostTint() {
-    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a }[this.charKey] || 0x9fe0ff;
+    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce }[this.charKey] || 0x9fe0ff;
   }
 
   // Keeps the shield bubble on the player and toggles tree-phasing on/off.

@@ -91,6 +91,17 @@ const GAME = {
 
   // Brown ghost: orbs are worth double points.
   BROWN_ORB_MULTIPLIER: 2,
+
+  // Forest ghost, ability 1: chop the nearest tree for a burst of orbs.
+  CHOP_COOLDOWN: 7500,         // ms between chops
+  CHOP_ORBS: 5,                // bonus orbs dropped by a chopped tree
+  CHOP_RANGE: 999999,          // chops the nearest tree anywhere on the map
+
+  // Forest ghost, ability 2: grow a wall of trees behind you.
+  GROW_COOLDOWN: 8000,         // ms between growths
+  GROW_TREES: 3,               // trees grown per use
+  GROW_DIST: 72,               // px behind the player where the wall appears
+  GROW_SPREAD: 66,             // px between grown trees
   SHOTGUN_HIT_POINTS: 60,      // points for landing a shotgun blast
 
   COLORS: {
@@ -113,6 +124,7 @@ const GAME = {
     ghostPink: 0xff8fd0,
     ghostBlack: 0x4a4a5a,
     ghostMagma: 0x9a1a1a,
+    ghostForest: 0x4a9e4a,
   },
 };
 
@@ -283,11 +295,19 @@ const Settings = {
     magma: {
       label: 'Magma Ghost', tex: 'ghostMagma', ability: 'dual', unlock: 5000,
       abilityName: 'Mud / Slide', icon: '🔥', speedMul: 1.0, lives: 1,
+      modes: ['mud', 'slide'],
       // per-mode cooldowns live in GAME.MUD_COOLDOWN / GAME.SLIDE_COOLDOWN
       desc: 'Shift swaps abilities: mud trap (slow, +80) or a fire slide through trees (+30).',
     },
+    forest: {
+      label: 'Forest Ghost', tex: 'ghostForest', ability: 'dual', unlock: 6500,
+      abilityName: 'Chop / Grow', icon: '🌲', speedMul: 0.85, boostSpeedMul: 1.15, lives: 1,
+      modes: ['chop', 'grow'],
+      // cooldowns: GAME.CHOP_COOLDOWN / GAME.GROW_COOLDOWN
+      desc: 'Shift swaps: chop a tree for 5 orbs, or grow 3 trees behind you. Extra-fast on pickups.',
+    },
   },
-  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma'],
+  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest'],
 
   // A character is unlocked once your best score reaches its threshold.
   isUnlocked(key) {
@@ -343,7 +363,7 @@ const Settings = {
 
   // body colour for each character (used to tint the owner skin's face)
   charColor(key) {
-    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a }[key] || 0xbfe6ff;
+    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0 }[key] || 0xbfe6ff;
   },
 
   getSkin() {
