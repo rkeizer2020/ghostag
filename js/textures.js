@@ -51,34 +51,44 @@ const Textures = {
     this.ground(scene);
     this.fog(scene);
     this.particle(scene);
+    this.vignette(scene);
+    this.firefly(scene);
+    this.glow(scene);
+    this.shadowBlob(scene);
   },
 
   _ghost(scene, key, c) {
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
-    const w = 48, h = 56;
-    // soft glow
-    g.fillStyle(c.glow, 0.18);
-    g.fillCircle(w / 2, h / 2, 26);
-    g.fillStyle(c.glow2, 0.28);
-    g.fillCircle(w / 2, h / 2, 20);
-    // body
-    g.fillStyle(c.body, 1);
-    g.fillCircle(w / 2, 22, 16);
-    g.fillRect(w / 2 - 16, 22, 32, 20);
-    // wavy bottom
-    g.fillTriangle(w / 2 - 16, 42, w / 2 - 8, 42, w / 2 - 12, 52);
-    g.fillTriangle(w / 2 - 8, 42, w / 2, 42, w / 2 - 4, 52);
-    g.fillTriangle(w / 2, 42, w / 2 + 8, 42, w / 2 + 4, 52);
-    g.fillTriangle(w / 2 + 8, 42, w / 2 + 16, 42, w / 2 + 12, 52);
-    // highlight
-    g.fillStyle(0xffffff, 0.85);
-    g.fillCircle(w / 2 - 5, 18, 5);
-    // eyes
+    const w = 48, h = 56, cx = w / 2;
+    // layered soft glow (fake bloom)
+    g.fillStyle(c.glow, 0.10); g.fillCircle(cx, h / 2, 27);
+    g.fillStyle(c.glow, 0.16); g.fillCircle(cx, h / 2, 22);
+    g.fillStyle(c.glow2, 0.30); g.fillCircle(cx, 24, 18);
+    this._ghostShape(g, w, h, c.body);
+    // soft volume shading toward the bottom
+    g.fillStyle(0x000000, 0.10); g.fillEllipse(cx, 41, 30, 15);
+    // glossy highlights
+    g.fillStyle(0xffffff, 0.9); g.fillCircle(cx - 6, 15, 5.5);
+    g.fillStyle(0xffffff, 0.5); g.fillCircle(cx + 4, 18, 2.4);
+    // eyes with a white glint
     g.fillStyle(c.eye, 1);
-    g.fillCircle(w / 2 - 6, 22, 3);
-    g.fillCircle(w / 2 + 6, 22, 3);
+    g.fillCircle(cx - 6, 22, 3.4); g.fillCircle(cx + 6, 22, 3.4);
+    g.fillStyle(0xffffff, 0.95);
+    g.fillCircle(cx - 7, 21, 1.15); g.fillCircle(cx + 5, 21, 1.15);
     g.generateTexture(key, w, h);
     g.destroy();
+  },
+
+  // Shared ghost silhouette (rounded head + body + wavy bottom).
+  _ghostShape(g, w, h, body) {
+    const cx = w / 2;
+    g.fillStyle(body, 1);
+    g.fillCircle(cx, 22, 16);
+    g.fillRect(cx - 16, 22, 32, 20);
+    g.fillTriangle(cx - 16, 42, cx - 8, 42, cx - 12, 52);
+    g.fillTriangle(cx - 8, 42, cx, 42, cx - 4, 52);
+    g.fillTriangle(cx, 42, cx + 8, 42, cx + 4, 52);
+    g.fillTriangle(cx + 8, 42, cx + 16, 42, cx + 12, 52);
   },
 
   // Red-and-black "magma" ghost: red head, dark body, glowing cracks and eyes.
@@ -270,19 +280,13 @@ const Textures = {
 
   // Ghost body helper without eyes (for skins that draw their own face).
   _ghostBody(g, w, h, c) {
-    g.fillStyle(c.glow, 0.18);
-    g.fillCircle(w / 2, h / 2, 26);
-    g.fillStyle(c.glow2, 0.28);
-    g.fillCircle(w / 2, h / 2, 20);
-    g.fillStyle(c.body, 1);
-    g.fillCircle(w / 2, 22, 16);
-    g.fillRect(w / 2 - 16, 22, 32, 20);
-    g.fillTriangle(w / 2 - 16, 42, w / 2 - 8, 42, w / 2 - 12, 52);
-    g.fillTriangle(w / 2 - 8, 42, w / 2, 42, w / 2 - 4, 52);
-    g.fillTriangle(w / 2, 42, w / 2 + 8, 42, w / 2 + 4, 52);
-    g.fillTriangle(w / 2 + 8, 42, w / 2 + 16, 42, w / 2 + 12, 52);
-    g.fillStyle(0xffffff, 0.5);
-    g.fillCircle(w / 2 - 5, 16, 4);
+    const cx = w / 2;
+    g.fillStyle(c.glow, 0.10); g.fillCircle(cx, h / 2, 27);
+    g.fillStyle(c.glow, 0.16); g.fillCircle(cx, h / 2, 22);
+    g.fillStyle(c.glow2, 0.30); g.fillCircle(cx, 24, 18);
+    this._ghostShape(g, w, h, c.body);
+    g.fillStyle(0x000000, 0.10); g.fillEllipse(cx, 41, 30, 15);
+    g.fillStyle(0xffffff, 0.55); g.fillCircle(cx - 5, 16, 4);
   },
 
   skinPumpkin(scene) {
@@ -539,32 +543,37 @@ const Textures = {
   },
 
   spook(scene) {
-    const g = scene.make.graphics({ x: 0, y: 0, add: false });
-    const w = 60, h = 68;
-    // faint cold aura (helps it melt into the blue fog)
-    g.fillStyle(0x2f5a7a, 0.12);
-    g.fillCircle(w / 2, h / 2, 30);
-    // body (dark blue - hard to see in the fog)
-    g.fillStyle(0x1e3a52, 1);
-    g.fillCircle(w / 2, 26, 20);
-    g.fillRect(w / 2 - 20, 26, 40, 26);
-    // ragged bottom
-    for (let i = 0; i < 5; i++) {
-      const x = w / 2 - 20 + i * 8;
-      g.fillTriangle(x, 52, x + 8, 52, x + 4, 64);
+    const w = 60, h = 68, cx = w / 2;
+    const canvas = scene.textures.createCanvas('spook', w, h);
+    const ctx = canvas.getContext();
+    // cold aura so it melts into the blue fog
+    let rg = ctx.createRadialGradient(cx, h / 2, 4, cx, h / 2, 30);
+    rg.addColorStop(0, 'rgba(60,110,150,0.30)'); rg.addColorStop(1, 'rgba(40,80,120,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
+    // body: rounded top dome + ragged bottom, with a top-lit gradient
+    const bg = ctx.createLinearGradient(0, 6, 0, h);
+    bg.addColorStop(0, '#31597c'); bg.addColorStop(1, '#0f2334');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.arc(cx, 26, 20, Math.PI, 2 * Math.PI); // top dome (ends at right)
+    ctx.lineTo(cx + 20, 52);
+    const n = 5, span = 40;
+    for (let i = 0; i < n; i++) {
+      ctx.lineTo(cx + 20 - (i + 0.5) * (span / n), 64); // down to a tip
+      ctx.lineTo(cx + 20 - (i + 1) * (span / n), 52);   // back up
     }
-    // darker shading
-    g.fillStyle(0x152a3d, 1);
-    g.fillRect(w / 2 - 20, 40, 40, 12);
-    // dim, pale eyes (no more red - stealthier)
-    g.fillStyle(0x8fb8d8, 0.85);
-    g.fillCircle(w / 2 - 8, 24, 3.5);
-    g.fillCircle(w / 2 + 8, 24, 3.5);
-    g.fillStyle(0x22384a, 1);
-    g.fillCircle(w / 2 - 8, 25, 1.6);
-    g.fillCircle(w / 2 + 8, 25, 1.6);
-    g.generateTexture('spook', w, h);
-    g.destroy();
+    ctx.closePath(); ctx.fill();
+    // lower shading
+    ctx.fillStyle = 'rgba(0,0,0,0.20)'; ctx.fillRect(cx - 20, 43, 40, 10);
+    // glowing pale eyes
+    [-8, 8].forEach((dx) => {
+      const eg = ctx.createRadialGradient(cx + dx, 24, 0, cx + dx, 24, 6);
+      eg.addColorStop(0, 'rgba(207,234,255,0.95)'); eg.addColorStop(1, 'rgba(140,190,220,0)');
+      ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(cx + dx, 24, 6, 0, 7); ctx.fill();
+      ctx.fillStyle = '#e6f2ff'; ctx.beginPath(); ctx.arc(cx + dx, 24, 2.4, 0, 7); ctx.fill();
+      ctx.fillStyle = '#20344a'; ctx.beginPath(); ctx.arc(cx + dx, 25, 1.2, 0, 7); ctx.fill();
+    });
+    canvas.refresh();
   },
 
   sword(scene) {
@@ -591,49 +600,60 @@ const Textures = {
   },
 
   orb(scene) {
-    const g = scene.make.graphics({ x: 0, y: 0, add: false });
-    const s = 28;
-    g.fillStyle(0xffd54a, 0.25);
-    g.fillCircle(s / 2, s / 2, 13);
-    g.fillStyle(0xffd54a, 1);
-    g.fillCircle(s / 2, s / 2, 8);
-    g.fillStyle(0xfff3b0, 1);
-    g.fillCircle(s / 2 - 2, s / 2 - 2, 3);
-    g.generateTexture('orb', s, s);
-    g.destroy();
+    const s = 28, c = s / 2;
+    const canvas = scene.textures.createCanvas('orb', s, s);
+    const ctx = canvas.getContext();
+    // outer glow
+    let rg = ctx.createRadialGradient(c, c, 0, c, c, c);
+    rg.addColorStop(0, 'rgba(255,232,130,0.95)');
+    rg.addColorStop(0.4, 'rgba(255,200,60,0.5)');
+    rg.addColorStop(1, 'rgba(255,180,40,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, s, s);
+    // core gem
+    rg = ctx.createRadialGradient(c - 2, c - 2, 1, c, c, 7.5);
+    rg.addColorStop(0, '#fff7cf'); rg.addColorStop(0.55, '#ffd54a'); rg.addColorStop(1, '#dc9a1e');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(c, c, 7.5, 0, 7); ctx.fill();
+    // sparkle
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.beginPath(); ctx.arc(c - 2.2, c - 2.2, 1.9, 0, 7); ctx.fill();
+    canvas.refresh();
   },
 
   tree(scene) {
-    const g = scene.make.graphics({ x: 0, y: 0, add: false });
-    const w = 76, h = 96;
-    const cx = w / 2;
-    // shadow
-    g.fillStyle(0x000000, 0.28);
-    g.fillEllipse(cx, h - 8, 52, 16);
-    // trunk
-    g.fillStyle(0x4a3320, 1);
-    g.fillRect(cx - 6, 58, 12, 30);
-    g.fillStyle(0x3a2718, 1);
-    g.fillRect(cx - 6, 58, 4, 30);
-    // pine foliage (three stacked triangles)
-    const green = 0x2f6b3a, dark = 0x255730, light = 0x3c8248;
-    g.fillStyle(dark, 1);
-    g.fillTriangle(cx, 4, cx - 30, 44, cx + 30, 44);
-    g.fillStyle(green, 1);
-    g.fillTriangle(cx, 2, cx - 28, 42, cx + 28, 42);
-    g.fillStyle(green, 1);
-    g.fillTriangle(cx, 24, cx - 32, 66, cx + 32, 66);
-    // highlights
-    g.fillStyle(light, 0.7);
-    g.fillTriangle(cx, 6, cx - 10, 40, cx + 2, 40);
-    g.fillTriangle(cx, 28, cx - 12, 62, cx + 2, 62);
-    // snowy/misty flecks
-    g.fillStyle(0xbfe6ff, 0.15);
-    for (let i = 0; i < 8; i++) {
-      g.fillCircle(cx + Phaser.Math.Between(-24, 24), Phaser.Math.Between(20, 62), 1.5);
+    const w = 76, h = 96, cx = w / 2;
+    const canvas = scene.textures.createCanvas('tree', w, h);
+    const ctx = canvas.getContext();
+    // ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath(); ctx.ellipse(cx, h - 8, 26, 8, 0, 0, 7); ctx.fill();
+    // trunk with a rounded gradient
+    const tg = ctx.createLinearGradient(cx - 6, 0, cx + 6, 0);
+    tg.addColorStop(0, '#33230f'); tg.addColorStop(0.5, '#5b3d22'); tg.addColorStop(1, '#33230f');
+    ctx.fillStyle = tg; ctx.fillRect(cx - 6, 58, 12, 30);
+    // three foliage tiers, each with a top-lit vertical gradient + rounded base
+    const tier = (tipY, baseY, half, top, bot) => {
+      const fg = ctx.createLinearGradient(0, tipY, 0, baseY);
+      fg.addColorStop(0, top); fg.addColorStop(1, bot);
+      ctx.fillStyle = fg;
+      ctx.beginPath();
+      ctx.moveTo(cx, tipY);
+      ctx.lineTo(cx + half, baseY);
+      ctx.quadraticCurveTo(cx, baseY + 7, cx - half, baseY);
+      ctx.closePath(); ctx.fill();
+    };
+    tier(24, 70, 32, '#4f9c54', '#265f31'); // bottom
+    tier(12, 50, 27, '#5aa860', '#2b6636'); // middle
+    tier(2, 34, 21, '#69bd6c', '#316f3b');  // top
+    // left-side sheen
+    ctx.fillStyle = 'rgba(180,240,180,0.18)';
+    ctx.beginPath(); ctx.moveTo(cx - 3, 6); ctx.lineTo(cx - 14, 40); ctx.lineTo(cx - 2, 38); ctx.closePath(); ctx.fill();
+    // a few misty flecks
+    ctx.fillStyle = 'rgba(191,230,255,0.16)';
+    for (let i = 0; i < 7; i++) {
+      const x = cx + (Math.random() * 44 - 22), y = 16 + Math.random() * 46;
+      ctx.beginPath(); ctx.arc(x, y, 1.4, 0, 7); ctx.fill();
     }
-    g.generateTexture('tree', w, h);
-    g.destroy();
+    canvas.refresh();
   },
 
   log(scene) {
@@ -663,26 +683,27 @@ const Textures = {
   },
 
   ground(scene) {
-    const g = scene.make.graphics({ x: 0, y: 0, add: false });
     const s = 128;
-    // brown earth
-    g.fillStyle(0x3d2b1a, 1);
-    g.fillRect(0, 0, s, s);
-    // dirt patches (lighter and darker soil)
-    for (let i = 0; i < 10; i++) {
-      g.fillStyle(Phaser.Math.RND.pick([0x4a3420, 0x342414, 0x453018]), 0.5);
-      g.fillCircle(Phaser.Math.Between(0, s), Phaser.Math.Between(0, s), Phaser.Math.Between(10, 26));
+    const canvas = scene.textures.createCanvas('ground', s, s);
+    const ctx = canvas.getContext();
+    // flat base earth (flat so 128px tiles have no visible seam)
+    ctx.fillStyle = '#3b2a18'; ctx.fillRect(0, 0, s, s);
+    // soft dirt blotches (feathered radial gradients)
+    for (let i = 0; i < 9; i++) {
+      const x = Math.random() * s, y = Math.random() * s, r = 14 + Math.random() * 24;
+      const rg = ctx.createRadialGradient(x, y, 0, x, y, r);
+      const dark = Math.random() < 0.5;
+      rg.addColorStop(0, dark ? 'rgba(28,18,9,0.5)' : 'rgba(82,60,34,0.5)');
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
     }
-    // pebbles / soil specks
-    for (let i = 0; i < 60; i++) {
-      const x = Phaser.Math.Between(0, s);
-      const y = Phaser.Math.Between(0, s);
-      const a = Phaser.Math.FloatBetween(0.06, 0.16);
-      g.fillStyle(Phaser.Math.RND.pick([0x5a4028, 0x2a1c10, 0x6b4d2e]), a);
-      g.fillRect(x, y, 2, 2);
+    // pebbles + faint mossy specks
+    for (let i = 0; i < 90; i++) {
+      const x = Math.random() * s, y = Math.random() * s;
+      ctx.fillStyle = Math.random() < 0.25 ? 'rgba(96,124,64,0.22)' : 'rgba(96,74,46,0.28)';
+      ctx.fillRect(x, y, 2, 2);
     }
-    g.generateTexture('ground', s, s);
-    g.destroy();
+    canvas.refresh();
   },
 
   fog(scene) {
@@ -705,5 +726,56 @@ const Textures = {
     g.fillCircle(4, 4, 4);
     g.generateTexture('spark', 8, 8);
     g.destroy();
+  },
+
+  // Soft radial darkening used as a screen vignette.
+  vignette(scene) {
+    const s = 512, c = s / 2;
+    const canvas = scene.textures.createCanvas('vignette', s, s);
+    const ctx = canvas.getContext();
+    const rg = ctx.createRadialGradient(c, c, s * 0.30, c, c, s * 0.62);
+    rg.addColorStop(0, 'rgba(0,0,0,0)');
+    rg.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, s, s);
+    canvas.refresh();
+  },
+
+  // Soft glowing dot for drifting fireflies / ambient motes.
+  firefly(scene) {
+    const s = 16, c = s / 2;
+    const canvas = scene.textures.createCanvas('firefly', s, s);
+    const ctx = canvas.getContext();
+    const rg = ctx.createRadialGradient(c, c, 0, c, c, c);
+    rg.addColorStop(0, 'rgba(210,240,255,0.95)');
+    rg.addColorStop(0.4, 'rgba(150,210,255,0.5)');
+    rg.addColorStop(1, 'rgba(150,210,255,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, s, s);
+    canvas.refresh();
+  },
+
+  // Soft white radial glow, tinted in-game (behind the player, pickups, etc.).
+  glow(scene) {
+    const s = 128, c = s / 2;
+    const canvas = scene.textures.createCanvas('glow', s, s);
+    const ctx = canvas.getContext();
+    const rg = ctx.createRadialGradient(c, c, 0, c, c, c);
+    rg.addColorStop(0, 'rgba(255,255,255,0.55)');
+    rg.addColorStop(0.5, 'rgba(255,255,255,0.16)');
+    rg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, s, s);
+    canvas.refresh();
+  },
+
+  // Soft squashed shadow blob placed under entities for depth.
+  shadowBlob(scene) {
+    const w = 64, h = 32;
+    const canvas = scene.textures.createCanvas('shadowBlob', w, h);
+    const ctx = canvas.getContext();
+    ctx.translate(w / 2, h / 2); ctx.scale(1, 0.5);
+    const rg = ctx.createRadialGradient(0, 0, 0, 0, 0, w / 2);
+    rg.addColorStop(0, 'rgba(0,0,0,0.45)');
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(0, 0, w / 2, 0, 7); ctx.fill();
+    canvas.refresh();
   },
 };

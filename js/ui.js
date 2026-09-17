@@ -263,6 +263,18 @@ const UI = {
 
     // subtle darkening so text stays legible over the fog
     scene.add.rectangle(0, 0, W, H, 0x120a04, 0.3).setOrigin(0).setScrollFactor(0).setDepth(-12);
+
+    // a few drifting fireflies for atmosphere
+    for (let i = 0; i < 8; i++) {
+      const f = scene.add.image(Phaser.Math.Between(0, W), Phaser.Math.Between(0, H), 'firefly')
+        .setScrollFactor(0).setDepth(-13).setBlendMode(Phaser.BlendModes.ADD)
+        .setScale(Phaser.Math.FloatBetween(0.5, 1.1)).setAlpha(0);
+      scene.tweens.add({ targets: f, alpha: { from: 0.1, to: 0.7 }, duration: Phaser.Math.Between(1400, 2800), yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 1500) });
+      scene.tweens.add({ targets: f, y: f.y - Phaser.Math.Between(20, 60), x: f.x + Phaser.Math.Between(-30, 30), duration: Phaser.Math.Between(5000, 9000), yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+
+    // soft vignette to frame the screen
+    scene.add.image(0, 0, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(-11).setDisplaySize(W, H);
   },
 
   // A rounded, glowing button. Returns the container.

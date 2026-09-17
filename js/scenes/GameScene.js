@@ -102,6 +102,9 @@ class GameScene extends Phaser.Scene {
         .setDepth(11).setScale(0.8).setTint(Settings.charColor(this.charKey));
     }
 
+    // atmosphere: shadows, a glow around the ghost, and drifting fireflies
+    this.createAtmosphere();
+
     // collisions with trees (player collider is toggled off while phasing)
     this.playerTreeCollider = this.physics.add.collider(this.player, this.trees);
     this.physics.add.collider(this.enemy, this.trees);
@@ -156,6 +159,29 @@ class GameScene extends Phaser.Scene {
     // background music for the chase; stops when the scene ends
     SFX.startMusic();
     this.events.once('shutdown', () => SFX.stopMusic());
+  }
+
+  createAtmosphere() {
+    const WW = GAME.WORLD_WIDTH, WH = GAME.WORLD_HEIGHT;
+    // soft shadows under the player and the Spook
+    this.playerShadow = this.add.image(this.player.x, this.player.y + 22, 'shadowBlob').setDepth(9).setAlpha(0.5);
+    this.enemyShadow = this.add.image(this.enemy.x, this.enemy.y + 26, 'shadowBlob').setDepth(9).setAlpha(0.5).setScale(1.15);
+    // a gentle glow that follows the ghost, tinted by the skin's trail colour
+    this.playerGlow = this.add.image(this.player.x, this.player.y, 'glow')
+      .setDepth(9).setBlendMode(Phaser.BlendModes.ADD)
+      .setTint(this.skin.trail || 0x6fb8ff).setAlpha(0.5).setScale(0.9);
+    this.tweens.add({
+      targets: this.playerGlow, alpha: { from: 0.35, to: 0.6 }, scale: { from: 0.85, to: 1.0 },
+      duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+    });
+    // drifting fireflies scattered through the forest
+    for (let i = 0; i < 16; i++) {
+      const f = this.add.image(Phaser.Math.Between(0, WW), Phaser.Math.Between(0, WH), 'firefly')
+        .setDepth(8).setBlendMode(Phaser.BlendModes.ADD)
+        .setScale(Phaser.Math.FloatBetween(0.5, 1.1)).setAlpha(0);
+      this.tweens.add({ targets: f, alpha: { from: 0.15, to: 0.8 }, duration: Phaser.Math.Between(1200, 2600), yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 1500) });
+      this.tweens.add({ targets: f, x: f.x + Phaser.Math.Between(-70, 70), y: f.y + Phaser.Math.Between(-50, 50), duration: Phaser.Math.Between(5000, 9000), yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
   }
 
   createFog() {
@@ -764,6 +790,10 @@ class GameScene extends Phaser.Scene {
       this.toggleMute();
     });
 
+    // atmospheric vignette: soft darkening at the screen edges
+    this.vignette = this.add.image(0, 0, 'vignette')
+      .setOrigin(0).setScrollFactor(0).setDepth(900).setDisplaySize(W, this.scale.height);
+
     // danger vignette (screen edge glow when the spook is close)
     this.danger = this.add.rectangle(0, 0, W, this.scale.height, 0xff2b2b)
       .setOrigin(0).setScrollFactor(0).setDepth(1500).setAlpha(0);
@@ -809,6 +839,7 @@ class GameScene extends Phaser.Scene {
   layoutHud() {
     const W = this.scale.width, H = this.scale.height;
     if (this.muteBtn) this.muteBtn.setPosition(W - 16, 14);
+    if (this.vignette) this.vignette.setDisplaySize(W, H).setPosition(0, 0);
     if (this.danger) this.danger.setDisplaySize(W, H).setPosition(0, 0);
     if (this.logHud) this.logHud.setPosition(16, H - 34);
     if (this.logBtn) this.logBtn.setPosition(W - 20, H - 20);
@@ -939,6 +970,10 @@ class GameScene extends Phaser.Scene {
       this.trail.emitParticleAt(this.player.x, this.player.y);
     }
 
+    // shadow + glow follow the ghost
+    if (this.playerShadow) this.playerShadow.setPosition(this.player.x, this.player.y + 22);
+    if (this.playerGlow) this.playerGlow.setPosition(this.player.x, this.player.y);
+
     // hat overlay follows the ghost (bottom edge rests just above the head)
     if (this.hat) {
       this.hat.setPosition(this.player.x, this.player.y - this.player.displayHeight * 0.34);
@@ -978,6 +1013,7 @@ class GameScene extends Phaser.Scene {
   }
 
   handleEnemy(time, dt) {
+    if (this.enemyShadow) this.enemyShadow.setPosition(this.enemy.x, this.enemy.y + 26);
     // stunned: frozen and helpless (cannot move or catch)
     if (time < this.stunUntil) {
       this.enemy.setVelocity(0, 0);
@@ -1183,6 +1219,8 @@ class GameScene extends Phaser.Scene {
     this.player.setVisible(false);
     if (this.hat) this.hat.setVisible(false);
     if (this.faceFx) this.faceFx.setVisible(false);
+    if (this.playerGlow) this.playerGlow.setVisible(false);
+    if (this.playerShadow) this.playerShadow.setVisible(false);
 
     // two halves of the ghost fly apart (left and right)
     const leftHalf = this.add.image(px, py, this.playerTex).setDepth(12).setCrop(0, 0, 24, 56);
