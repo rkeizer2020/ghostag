@@ -107,6 +107,10 @@ const UI = {
       '<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">' +
       '<select id="adm-skin" style="' + sel + '">' + skinOpts + '</select><button id="adm-skinbtn" style="' + btn + 'background:#2a6cff">Equip</button>' +
       '</div>' +
+      '<div style="font-weight:700;color:#bfe6ff;margin:14px 0 4px">Players (all accounts)</div>' +
+      '<button id="adm-load" style="' + btn + 'width:100%;background:#2a6cff">🌐 Load all players</button>' +
+      '<div id="adm-phint" style="color:#9fb0c0;font-size:11px;margin:5px 0">Needs the website, an admin login, and the Supabase admin rules applied.</div>' +
+      '<div id="adm-players" style="margin-top:6px;display:flex;flex-direction:column;gap:6px"></div>' +
       '<div style="font-weight:700;color:#ff9a9a;margin:14px 0 4px">Danger</div>' +
       '<button id="adm-wipe" style="' + btn + 'width:100%;background:#7a2530">Reset ALL my data</button>' +
       '<button id="adm-close" style="' + btn + 'width:100%;margin-top:12px;background:#2a2f36">Close</button>' +
@@ -158,6 +162,45 @@ const UI = {
       Settings.setSkin(id);
       sync('Equipped skin ' + (s ? s.name : id) + '.');
     };
+    // ---- cross-player admin list ----
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const allRegularSkins = () => Settings.SKIN_ORDER
+      .filter((id) => { const s = Settings.SKINS[id]; return id !== 'classic' && s.kind !== 'owner' && s.kind !== 'founder'; })
+      .join(',');
+    const rowBtn = 'padding:5px 8px;border:none;border-radius:7px;font-weight:700;font-size:11px;cursor:pointer;color:#fff;';
+    const renderPlayers = async () => {
+      const list = $('adm-players');
+      list.innerHTML = '<div style="color:#9fb0c0;font-size:12px;text-align:center">Loading…</div>';
+      const r = await Auth.adminListPlayers();
+      if (!r.ok) { list.innerHTML = '<div style="color:#ff9a9a;font-size:12px;text-align:center">' + esc(r.msg || 'Could not load players.') + '</div>'; return; }
+      if (!r.rows.length) { list.innerHTML = '<div style="color:#9fb0c0;font-size:12px;text-align:center">No players returned (admin rules may not be enabled in Supabase yet).</div>'; return; }
+      list.innerHTML = '';
+      r.rows.forEach((p) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'background:#0f0c14;border:1px solid #2a3340;border-radius:9px;padding:8px';
+        row.innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:6px">'
+          + '<b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.username || '(no name)') + '</b>'
+          + '<span style="color:#ffd54a;white-space:nowrap">⭐' + (p.highscore || 0) + ' · 🪙' + (p.coins || 0) + '</span></div>';
+        const bar = document.createElement('div');
+        bar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
+        const act = async (fn) => { const rr = await fn(); if (!rr.ok) msg(rr.msg || 'Failed'); await renderPlayers(); };
+        const mk = (label, bg, fn) => { const b = document.createElement('button'); b.textContent = label; b.style.cssText = rowBtn + 'background:' + bg; b.onclick = () => { b.disabled = true; act(fn); }; bar.appendChild(b); };
+        mk('Score 0', '#7a2530', () => Auth.adminUpdatePlayer(p.id, { highscore: 0 }));
+        mk('+10k 🪙', '#3a2a5e', () => Auth.adminUpdatePlayer(p.id, { coins: (p.coins || 0) + 10000 }));
+        mk('All skins', '#2a6cff', () => Auth.adminUpdatePlayer(p.id, { skins: allRegularSkins() }));
+        mk('Max unlock', '#2a6cff', () => Auth.adminUpdatePlayer(p.id, { highscore: 100000 }));
+        // delete with a two-tap confirm
+        const del = document.createElement('button');
+        del.textContent = 'Delete'; del.style.cssText = rowBtn + 'background:#5a1620';
+        let armed = false;
+        del.onclick = () => { if (!armed) { armed = true; del.textContent = 'Sure?'; return; } del.disabled = true; act(() => Auth.adminDeletePlayer(p.id)); };
+        bar.appendChild(del);
+        row.appendChild(bar);
+        list.appendChild(row);
+      });
+    };
+    $('adm-load').onclick = () => renderPlayers();
+
     $('adm-wipe').onclick = () => {
       if (!wrap._confirm) { wrap._confirm = true; msg('Tap "Reset ALL my data" again to confirm.'); return; }
       try { Object.keys(localStorage).filter((k) => k.indexOf('tagz.') === 0).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* ignore */ }

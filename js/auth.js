@@ -209,6 +209,40 @@ const Auth = {
     this.onChange();
   },
 
+  // ---- Cross-player admin (requires the Supabase admin RLS policies) ----
+  // These only succeed for accounts listed in the `admins` table server-side;
+  // for everyone else RLS silently limits results to their own row.
+  async adminListPlayers() {
+    if (!this.client) return { ok: false, msg: 'Cloud admin only works on the website while logged in.', rows: [] };
+    try {
+      const { data, error } = await this.client.from('saves')
+        .select('id,username,highscore,coins,skins,updated_at')
+        .order('highscore', { ascending: false })
+        .limit(300);
+      if (error) return { ok: false, msg: error.message, rows: [] };
+      return { ok: true, rows: data || [] };
+    } catch (e) { return { ok: false, msg: String(e && e.message || e), rows: [] }; }
+  },
+
+  async adminUpdatePlayer(id, patch) {
+    if (!this.client) return { ok: false, msg: 'Cloud not available here.' };
+    try {
+      const { error } = await this.client.from('saves')
+        .update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+      if (error) return { ok: false, msg: error.message };
+      return { ok: true };
+    } catch (e) { return { ok: false, msg: String(e && e.message || e) }; }
+  },
+
+  async adminDeletePlayer(id) {
+    if (!this.client) return { ok: false, msg: 'Cloud not available here.' };
+    try {
+      const { error } = await this.client.from('saves').delete().eq('id', id);
+      if (error) return { ok: false, msg: error.message };
+      return { ok: true };
+    } catch (e) { return { ok: false, msg: String(e && e.message || e) }; }
+  },
+
   // Debounced push of the current local state to the cloud.
   queuePush() {
     if (!this.client || !this.user) return;
