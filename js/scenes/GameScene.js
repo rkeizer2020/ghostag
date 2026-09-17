@@ -442,7 +442,7 @@ class GameScene extends Phaser.Scene {
       }
     }
     SFX.click();
-    this.floatText('🌲 wall!', 0x6fce6a);
+    this.floatText('🌲 tree!', 0x6fce6a);
   }
 
   // Mud pool trap: slows the Spook and scores when it walks through.

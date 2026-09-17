@@ -99,7 +99,7 @@ const GAME = {
 
   // Forest ghost, ability 2: grow a wall of trees behind you.
   GROW_COOLDOWN: 8000,         // ms between growths
-  GROW_TREES: 3,               // trees grown per use
+  GROW_TREES: 1,               // trees grown per use
   GROW_DIST: 72,               // px behind the player where the wall appears
   GROW_SPREAD: 66,             // px between grown trees
   SHOTGUN_HIT_POINTS: 60,      // points for landing a shotgun blast
@@ -304,7 +304,7 @@ const Settings = {
       abilityName: 'Chop / Grow', icon: '🌲', speedMul: 0.85, boostSpeedMul: 1.15, lives: 1,
       modes: ['chop', 'grow'],
       // cooldowns: GAME.CHOP_COOLDOWN / GAME.GROW_COOLDOWN
-      desc: 'Shift swaps: chop a tree for 5 orbs, or grow 3 trees behind you. Extra-fast on pickups.',
+      desc: 'Shift swaps: chop a tree for 5 orbs, or grow a tree behind you. Extra-fast on pickups.',
     },
   },
   CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest'],
