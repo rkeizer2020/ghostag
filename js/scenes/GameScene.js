@@ -1,9 +1,11 @@
 // Display info for each dual-ability mode (icon / label / accent colour).
 const DUAL_INFO = {
-  mud:   { icon: '🟤', label: 'Mud',   color: 0xc9a26a },
-  slide: { icon: '🔥', label: 'Slide', color: 0xff8a3a },
-  chop:  { icon: '🪓', label: 'Chop',  color: 0x8fe6a0 },
-  grow:  { icon: '🌲', label: 'Grow',  color: 0x6fce6a },
+  mud:    { icon: '🟤', label: 'Mud',    color: 0xc9a26a },
+  slide:  { icon: '🔥', label: 'Slide',  color: 0xff8a3a },
+  chop:   { icon: '🪓', label: 'Chop',   color: 0x8fe6a0 },
+  grow:   { icon: '🌲', label: 'Grow',   color: 0x6fce6a },
+  sprint: { icon: '💨', label: 'Sprint', color: 0x8fd0ff },
+  taser:  { icon: '⚡', label: 'Taser',  color: 0xffe066 },
 };
 
 class GameScene extends Phaser.Scene {
@@ -31,6 +33,7 @@ class GameScene extends Phaser.Scene {
     this.slowUntil = 0;
     this.stunUntil = 0;
     this.fleeUntil = 0;
+    this.sprintUntil = 0;
     this.invulnUntil = 0;
     this.shieldUntil = 0;
     this.phaseUntil = 0;
@@ -372,6 +375,9 @@ class GameScene extends Phaser.Scene {
       case 'slide': this.fireSlide(now);  return GAME.SLIDE_COOLDOWN;
       case 'chop':  this.chopTree();      return GAME.CHOP_COOLDOWN;
       case 'grow':  this.growTrees();     return GAME.GROW_COOLDOWN;
+      // Volt's sprint: cooldown starts only AFTER the 3s effect ends
+      case 'sprint': this.startSprint(now); return GAME.SPRINT_DURATION + GAME.SPRINT_COOLDOWN;
+      case 'taser':  this.taser();         return GAME.TASER_COOLDOWN;
       default:      return 2000;
     }
   }
@@ -443,6 +449,43 @@ class GameScene extends Phaser.Scene {
     }
     SFX.click();
     this.floatText('🌲 tree!', 0x6fce6a);
+  }
+
+  // ---- Volt ghost: speed sprint / short-range taser ----
+  startSprint(now) {
+    this.sprintUntil = now + GAME.SPRINT_DURATION;
+    SFX.boost();
+    this.floatText('💨 SPRINT x' + GAME.SPRINT_MULT + '!', 0x8fd0ff);
+  }
+
+  taser() {
+    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
+    const zx = this.player.x + this.faceDir.x * 42;
+    const zy = this.player.y + this.faceDir.y * 42;
+    const fx = this.add.image(zx, zy, 'zap').setRotation(ang).setDepth(12).setScale(0.8).setAlpha(0.95);
+    this.tweens.add({ targets: fx, scale: 1.3, alpha: 0, duration: 220, onComplete: () => fx.destroy() });
+    this.cameras.main.shake(80, 0.004);
+    SFX.slash();
+
+    // hit test: enemy within the short range and inside the forward cone
+    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.enemy.x, this.enemy.y);
+    if (dist <= GAME.TASER_RANGE && this.time.now >= this.stunUntil) {
+      const toEnemy = Phaser.Math.Angle.Between(this.player.x, this.player.y, this.enemy.x, this.enemy.y);
+      const diff = Math.abs(Phaser.Math.Angle.Wrap(toEnemy - ang));
+      if (diff <= GAME.TASER_ARC / 2) {
+        this.stunUntil = this.time.now + GAME.TASER_STUN_DURATION;
+        this.score += GAME.TASER_POINTS;
+        this.enemy.setVelocity(0, 0);
+        SFX.caught();
+        for (let i = 0; i < 10; i++) {
+          this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-14, 14), this.enemy.y + Phaser.Math.Between(-14, 8));
+        }
+        const txt = this.add.text(this.enemy.x, this.enemy.y - 54, '⚡ ZAP! +' + GAME.TASER_POINTS, {
+          fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ffe066',
+        }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+        this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
+      }
+    }
   }
 
   // Mud pool trap: slows the Spook and scores when it walks through.
@@ -834,9 +877,12 @@ class GameScene extends Phaser.Scene {
     const boosting = time < this.boostUntil;
     // some characters (Forest) get a bigger speed multiplier while boosted
     const boostMul = this.character.boostSpeedMul || this.charSpeedMul;
-    const speed = boosting
+    let speed = boosting
       ? GAME.PLAYER_BOOST_SPEED * boostMul
       : GAME.PLAYER_SPEED * this.charSpeedMul;
+    // Volt's sprint: a short burst of 3x speed
+    const sprinting = time < this.sprintUntil;
+    if (sprinting) speed *= GAME.SPRINT_MULT;
 
     let vx = 0, vy = 0;
     if (this.cursors.left.isDown || this.wasd.left.isDown) vx -= 1;
@@ -877,6 +923,12 @@ class GameScene extends Phaser.Scene {
       this.player.clearTint();
     }
 
+    // sprint leaves a strong streak of sparks
+    if (sprinting && v.lengthSq() > 0) {
+      this.trail.emitParticleAt(this.player.x, this.player.y + 8);
+      this.trail.emitParticleAt(this.player.x, this.player.y);
+    }
+
     // hat overlay follows the ghost (bottom edge rests just above the head)
     if (this.hat) {
       this.hat.setPosition(this.player.x, this.player.y - this.player.displayHeight * 0.34);
@@ -889,7 +941,7 @@ class GameScene extends Phaser.Scene {
   }
 
   boostTint() {
-    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce }[this.charKey] || 0x9fe0ff;
+    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce, volt: 0xd0ecff }[this.charKey] || 0x9fe0ff;
   }
 
   // Keeps the shield bubble on the player and toggles tree-phasing on/off.

@@ -102,6 +102,18 @@ const GAME = {
   GROW_TREES: 1,               // trees grown per use
   GROW_DIST: 72,               // px behind the player where the wall appears
   GROW_SPREAD: 66,             // px between grown trees
+
+  // Volt ghost, ability 1: a short burst of 3x speed.
+  SPRINT_MULT: 3,              // speed multiplier while sprinting
+  SPRINT_DURATION: 3000,       // ms the sprint lasts
+  SPRINT_COOLDOWN: 7500,       // ms cooldown AFTER the sprint ends
+
+  // Volt ghost, ability 2: a short-range taser that stuns the Spook.
+  TASER_COOLDOWN: 7500,        // ms between zaps
+  TASER_RANGE: 110,            // shorter reach than the smash
+  TASER_ARC: Math.PI * 0.6,    // width of the forward cone (~108 degrees)
+  TASER_STUN_DURATION: 2000,   // ms the Spook is stunned
+  TASER_POINTS: 50,            // points for landing a taser
   SHOTGUN_HIT_POINTS: 60,      // points for landing a shotgun blast
 
   COLORS: {
@@ -125,6 +137,7 @@ const GAME = {
     ghostBlack: 0x4a4a5a,
     ghostMagma: 0x9a1a1a,
     ghostForest: 0x4a9e4a,
+    ghostVolt: 0x4aa8ff,
   },
 };
 
@@ -306,8 +319,15 @@ const Settings = {
       // cooldowns: GAME.CHOP_COOLDOWN / GAME.GROW_COOLDOWN
       desc: 'Shift swaps: chop a tree for 5 orbs, or grow a tree behind you. Extra-fast on pickups.',
     },
+    volt: {
+      label: 'Volt Ghost', tex: 'ghostVolt', ability: 'dual', unlock: 8000,
+      abilityName: 'Sprint / Taser', icon: '⚡', speedMul: 1.15, lives: 1,
+      modes: ['sprint', 'taser'],
+      // cooldowns: GAME.SPRINT_* / GAME.TASER_COOLDOWN
+      desc: 'Shift swaps: a 3x speed sprint (3s), or a short taser that stuns the Spook 2s. Fast.',
+    },
   },
-  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest'],
+  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt'],
 
   // A character is unlocked once your best score reaches its threshold.
   isUnlocked(key) {
@@ -363,7 +383,7 @@ const Settings = {
 
   // body colour for each character (used to tint the owner skin's face)
   charColor(key) {
-    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0 }[key] || 0xbfe6ff;
+    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff }[key] || 0xbfe6ff;
   },
 
   getSkin() {

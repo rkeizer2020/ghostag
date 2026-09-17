@@ -13,6 +13,7 @@ const Textures = {
     this._ghost(scene, 'ghostBlack', { glow: 0x5a5a72, glow2: 0x9a9ab4, body: 0x4a4a5a, eye: 0xdfe6f0 });
     this.ghostMagma(scene);
     this.ghostForest(scene);
+    this.ghostVolt(scene);
     // skin bodies
     this._ghost(scene, 'skinEmber', { glow: 0xff5a1a, glow2: 0xffb060, body: 0xff7a3a, eye: 0x4a1000 });
     this._ghost(scene, 'skinFrost', { glow: 0x6fd0ff, glow2: 0xd0f0ff, body: 0xe8f6ff, eye: 0x2a4a5a });
@@ -41,6 +42,7 @@ const Textures = {
     this.slash(scene);
     this.heartArrow(scene);
     this.pellet(scene);
+    this.zap(scene);
     this.mud(scene);
     this.shield(scene);
     this.orb(scene);
@@ -135,6 +137,53 @@ const Textures = {
     g.fillStyle(0x143a14, 1); g.fillCircle(cx - 6, 22, 3); g.fillCircle(cx + 6, 22, 3);
     g.fillStyle(0xffffff, 0.6); g.fillCircle(cx - 5, 13, 3);
     g.generateTexture('ghostForest', w, h);
+    g.destroy();
+  },
+
+  // Blue-and-yellow "volt" ghost: blue body with a yellow lightning bolt.
+  ghostVolt(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    // blue glow
+    g.fillStyle(0x3f8fd9, 0.18); g.fillCircle(cx, h / 2, 26);
+    g.fillStyle(0x8fd0ff, 0.28); g.fillCircle(cx, h / 2, 20);
+    // blue body
+    g.fillStyle(0x4aa8ff, 1);
+    g.fillCircle(cx, 22, 16);
+    g.fillRect(cx - 16, 22, 32, 20);
+    g.fillTriangle(cx - 16, 42, cx - 8, 42, cx - 12, 52);
+    g.fillTriangle(cx - 8, 42, cx, 42, cx - 4, 52);
+    g.fillTriangle(cx, 42, cx + 8, 42, cx + 4, 52);
+    g.fillTriangle(cx + 8, 42, cx + 16, 42, cx + 12, 52);
+    // yellow lightning bolt on the belly
+    g.fillStyle(0xffe066, 1);
+    g.fillPoints([
+      { x: cx + 3, y: 27 }, { x: cx - 6, y: 37 }, { x: cx - 1, y: 37 },
+      { x: cx - 4, y: 46 }, { x: cx + 7, y: 34 }, { x: cx + 1, y: 34 },
+    ], true);
+    // highlight + eyes
+    g.fillStyle(0xffffff, 0.85); g.fillCircle(cx - 5, 16, 4);
+    g.fillStyle(0x143050, 1); g.fillCircle(cx - 6, 21, 3); g.fillCircle(cx + 6, 21, 3);
+    g.fillStyle(0xffe066, 0.9); g.fillCircle(cx - 6, 20, 1); g.fillCircle(cx + 6, 20, 1);
+    g.generateTexture('ghostVolt', w, h);
+    g.destroy();
+  },
+
+  // Taser bolt for the Volt ghost. Points toward +x for in-game rotation.
+  zap(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 84, h = 48, cy = h / 2;
+    const pts = [[4, cy], [24, cy - 12], [34, cy + 6], [54, cy - 8], [74, cy + 4]];
+    g.lineStyle(5, 0xfff176, 0.95);
+    g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+    pts.slice(1).forEach((p) => g.lineTo(p[0], p[1])); g.strokePath();
+    g.lineStyle(2, 0xffffff, 1);
+    g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+    pts.slice(1).forEach((p) => g.lineTo(p[0], p[1])); g.strokePath();
+    // a small branch
+    g.lineStyle(2, 0x9fd0ff, 0.85);
+    g.beginPath(); g.moveTo(34, cy + 6); g.lineTo(44, cy + 18); g.strokePath();
+    g.generateTexture('zap', w, h);
     g.destroy();
   },
 
