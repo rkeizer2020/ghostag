@@ -1192,26 +1192,42 @@ class GameScene extends Phaser.Scene {
     this.physics.pause();
     SFX.caught();
 
-    const finalScore = Math.floor(this.score);
     const px = this.player.x, py = this.player.y;
 
-    // position the spook right over the victim, sword raised
-    this.enemy.setPosition(px, py - 30);
-    this.sword.setPosition(px, py - 74).setAngle(0).setScale(1.4).setTint(0xffffff);
+    // the Spook looms over the victim and raises its blade with a wind-up
+    this.enemy.setPosition(px, py - 34);
+    this.enemy.setDepth(1560);
     this.cameras.main.stopFollow();
+    this.sword.setPosition(px + 24, py - 88).setAngle(-56).setScale(1.55).setTint(0xffffff).setDepth(1600);
 
-    // 1) sword slashes down through the ghost
+    // 1) anticipation: lift a touch higher, then slash
     this.tweens.add({
-      targets: this.sword,
-      y: py + 20,
-      angle: 6,
-      duration: 140,
-      ease: 'Quad.in',
-      onComplete: () => {
-        this.cameras.main.shake(200, 0.02);
-        this.cameras.main.flash(150, 255, 80, 80);
-        this.splitGhost(px, py);
-      },
+      targets: this.sword, x: px + 32, y: py - 100, angle: -66, duration: 160, ease: 'Back.out',
+      onComplete: () => this.swingSword(px, py),
+    });
+  }
+
+  // 2) fast diagonal slash with a bright motion streak
+  swingSword(px, py) {
+    SFX.slash();
+    const streak = this.add.image(px, py - 6, 'slash')
+      .setDepth(1590).setRotation(-Math.PI / 4).setScale(0.25, 0.95).setAlpha(0).setTint(0xffffff);
+    this.tweens.add({ targets: streak, alpha: { from: 0.95, to: 0 }, scaleX: 2.4, duration: 230, ease: 'Quad.out', onComplete: () => streak.destroy() });
+    this.tweens.add({
+      targets: this.sword, x: px - 28, y: py + 28, angle: 42, duration: 95, ease: 'Quad.in',
+      onComplete: () => this.impactSlice(px, py),
+    });
+  }
+
+  // 3) impact: hit-stop flash, a clean cut line, then the ghost falls apart
+  impactSlice(px, py) {
+    this.cameras.main.flash(70, 255, 255, 255);
+    this.cameras.main.shake(240, 0.022);
+    const cut = this.add.rectangle(px, py, 82, 4, 0xffffff).setDepth(1610).setAngle(-32).setAlpha(0.95);
+    this.tweens.add({ targets: cut, alpha: 0, scaleX: 1.5, duration: 210, onComplete: () => cut.destroy() });
+    this.time.delayedCall(70, () => {
+      this.cameras.main.flash(140, 255, 80, 80);
+      this.splitGhost(px, py);
     });
   }
 
@@ -1222,23 +1238,34 @@ class GameScene extends Phaser.Scene {
     if (this.playerGlow) this.playerGlow.setVisible(false);
     if (this.playerShadow) this.playerShadow.setVisible(false);
 
-    // two halves of the ghost fly apart (left and right)
-    const leftHalf = this.add.image(px, py, this.playerTex).setDepth(12).setCrop(0, 0, 24, 56);
-    const rightHalf = this.add.image(px, py, this.playerTex).setDepth(12).setCrop(24, 0, 24, 56);
+    const tint = this.skin.trail || 0x9fd0ff;
 
+    // two halves of the ghost, split along the diagonal cut
+    const leftHalf = this.add.image(px, py, this.playerTex).setDepth(1580).setCrop(0, 0, 24, 56);
+    const rightHalf = this.add.image(px, py, this.playerTex).setDepth(1580).setCrop(24, 0, 24, 56);
+
+    // stage 1: the halves pop apart along the cut, stage 2: tumble and fade
     this.tweens.add({
-      targets: leftHalf, x: px - 70, y: py + 40, angle: -90, alpha: 0,
-      duration: 900, ease: 'Quad.out',
+      targets: leftHalf, x: px - 12, y: py - 6, duration: 90, ease: 'Quad.out',
+      onComplete: () => this.tweens.add({ targets: leftHalf, x: px - 84, y: py + 74, angle: -120, alpha: 0, duration: 820, ease: 'Quad.in' }),
     });
     this.tweens.add({
-      targets: rightHalf, x: px + 70, y: py + 40, angle: 90, alpha: 0,
-      duration: 900, ease: 'Quad.out',
+      targets: rightHalf, x: px + 12, y: py + 6, duration: 90, ease: 'Quad.out',
+      onComplete: () => this.tweens.add({ targets: rightHalf, x: px + 84, y: py + 82, angle: 120, alpha: 0, duration: 820, ease: 'Quad.in' }),
     });
 
-    // little wisp particles
-    this.trail.setDepth(13);
-    for (let i = 0; i < 16; i++) {
-      this.trail.emitParticleAt(px + Phaser.Math.Between(-10, 10), py + Phaser.Math.Between(-10, 10));
+    // a burst of wisps in the ghost's colour
+    this.trail.setDepth(1585);
+    for (let i = 0; i < 20; i++) {
+      const p = this.trail.emitParticleAt(px + Phaser.Math.Between(-12, 12), py + Phaser.Math.Between(-12, 12));
+      if (p && p.setTint) p.setTint(tint);
+    }
+    // bright shard streaks flying along the cut
+    for (let i = 0; i < 6; i++) {
+      const a = -Math.PI / 4 + Phaser.Math.FloatBetween(-0.55, 0.55);
+      const dist = Phaser.Math.Between(40, 95);
+      const shard = this.add.rectangle(px, py, Phaser.Math.Between(6, 14), 2, 0xffffff).setDepth(1586).setRotation(a).setAlpha(0.9);
+      this.tweens.add({ targets: shard, x: px + Math.cos(a) * dist, y: py + Math.sin(a) * dist, alpha: 0, duration: Phaser.Math.Between(300, 520), ease: 'Quad.out', onComplete: () => shard.destroy() });
     }
 
     this.time.delayedCall(1000, () => {
