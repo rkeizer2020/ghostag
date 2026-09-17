@@ -66,7 +66,7 @@ const Auth = {
   },
 
   // Founder accounts get everything unlocked automatically on login.
-  FOUNDERS: ['azarios88', 'merlinos24/m@ker', 'merlinos24'],
+  FOUNDERS: ['azarios88', 'merlinos24/m@ker', 'merlinos24', 'roemer.schreuder', 'roemerschreuder', 'roemer'],
   _isFounder(name) {
     if (!name) return false;
     const raw = name.trim().toLowerCase();
