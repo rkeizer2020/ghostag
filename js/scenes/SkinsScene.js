@@ -19,8 +19,12 @@ class SkinsScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ffd54a',
     }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
 
-    // the owner skin only appears once unlocked with the secret link
-    const keys = Settings.SKIN_ORDER.filter((id) => id !== 'owner' || Storage.isOwnerUnlocked());
+    // owner / founder skins only appear in the shop for those who have them
+    const keys = Settings.SKIN_ORDER.filter((id) => {
+      if (id === 'owner') return Storage.isOwnerUnlocked();
+      if (id === 'wizgnome') return Storage.isFounderUnlocked();
+      return true;
+    });
     const n = keys.length;
     // pick columns so we stay around 4 rows - keeps cards tall enough to read
     const cols = W >= H

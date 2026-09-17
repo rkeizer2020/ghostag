@@ -24,6 +24,7 @@ try {
   const params = new URLSearchParams(window.location.search);
   if (params.get('owner') === 'ghostagking') {
     localStorage.setItem('tagz.owner', '1');
+    localStorage.setItem('tagz.founder', '1'); // owner link also grants founder cosmetics
     localStorage.setItem('tagz.skin', 'owner');
   }
 } catch (e) { /* ignore */ }

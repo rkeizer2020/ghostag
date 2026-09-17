@@ -310,13 +310,13 @@ class GameScene extends Phaser.Scene {
   }
 
   fireArrow() {
-    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
+    const ang = this.aimAngle();
     this.spawnProjectile('arrow', ang, GAME.ARROW_SPEED, GAME.ARROW_LIFESPAN, 'heartArrow');
     SFX.click();
   }
 
   fireShotgun() {
-    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
+    const ang = this.aimAngle();
     this.spawnProjectile('shotgun', ang - GAME.SHOTGUN_SPREAD, GAME.SHOTGUN_SPEED, GAME.SHOTGUN_LIFESPAN, 'pellet');
     this.spawnProjectile('shotgun', ang + GAME.SHOTGUN_SPREAD, GAME.SHOTGUN_SPEED, GAME.SHOTGUN_LIFESPAN, 'pellet');
     this.cameras.main.shake(90, 0.005);
@@ -459,9 +459,9 @@ class GameScene extends Phaser.Scene {
   }
 
   taser() {
-    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
-    const zx = this.player.x + this.faceDir.x * 42;
-    const zy = this.player.y + this.faceDir.y * 42;
+    const ang = this.aimAngle();
+    const zx = this.player.x + Math.cos(ang) * 42;
+    const zy = this.player.y + Math.sin(ang) * 42;
     const fx = this.add.image(zx, zy, 'zap').setRotation(ang).setDepth(12).setScale(0.8).setAlpha(0.95);
     this.tweens.add({ targets: fx, scale: 1.3, alpha: 0, duration: 220, onComplete: () => fx.destroy() });
     this.cameras.main.shake(80, 0.004);
@@ -598,8 +598,18 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: txt, y: txt.y - 26, alpha: 0, duration: 800, onComplete: () => txt.destroy() });
   }
 
+  // Direction an offensive ability fires: normally your facing, but when the
+  // Spook is close it auto-aims at the Spook so point-blank hits always land.
+  aimAngle() {
+    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.enemy.x, this.enemy.y);
+    if (dist <= GAME.AUTO_AIM_RANGE) {
+      return Phaser.Math.Angle.Between(this.player.x, this.player.y, this.enemy.x, this.enemy.y);
+    }
+    return Math.atan2(this.faceDir.y, this.faceDir.x);
+  }
+
   smash() {
-    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
+    const ang = this.aimAngle();
     const cos = Math.cos(ang), sin = Math.sin(ang);
 
     // slash visual sweeping in front of the player

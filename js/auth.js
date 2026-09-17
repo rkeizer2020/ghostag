@@ -189,12 +189,15 @@ const Auth = {
       };
     }
 
-    // founder accounts: grant every skin, coins, and unlock all characters
+    // founder accounts: grant every skin, coins, unlock all characters, and
+    // the founder-exclusive cosmetics (Wizard Gnome)
     const effName = uname || this.username();
     if (this._isFounder(effName)) {
       merged.skins = Settings.SKIN_ORDER.join(','); // all skins incl. owner
       merged.coins = Math.max(merged.coins, 100000);
       Storage.setAllCharsUnlocked();
+      Storage.setFounderUnlocked();
+      try { localStorage.setItem('tagz.owner', '1'); } catch (e) { /* ignore */ }
     }
 
     try {

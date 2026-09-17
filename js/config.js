@@ -18,6 +18,11 @@ const GAME = {
   CATCH_DISTANCE: 34,      // distance at which you get caught
   WARN_DISTANCE: 200,      // distance at which the sword starts trembling
 
+  // Offensive abilities auto-aim at the Spook when it's this close, so a
+  // point-blank Space press always connects instead of firing where you last
+  // moved (which is usually AWAY from the chasing Spook).
+  AUTO_AIM_RANGE: 175,
+
   ORB_COUNT: 20,
   ORB_POINTS: 10,
   ORB_COINS: 2,            // coins earned per orb (kept between runs)
@@ -218,6 +223,7 @@ const Storage = {
   },
   isSkinOwned(id) {
     if (id === 'owner') return this.isOwnerUnlocked();
+    if (id === 'wizgnome') return this.isFounderUnlocked(); // founder-exclusive
     return id === 'classic' || this.getOwnedSkins().includes(id);
   },
   isOwnerUnlocked() {
@@ -226,6 +232,18 @@ const Storage = {
     } catch (e) {
       return false;
     }
+  },
+  // Founder accounts (merlinos24, azarios88) only: unlocks founder-exclusive
+  // cosmetics like the Wizard Gnome skin.
+  isFounderUnlocked() {
+    try {
+      return localStorage.getItem('tagz.founder') === '1';
+    } catch (e) {
+      return false;
+    }
+  },
+  setFounderUnlocked() {
+    try { localStorage.setItem('tagz.founder', '1'); } catch (e) { /* ignore */ }
   },
   addSkin(id) {
     try {
@@ -375,7 +393,8 @@ const Settings = {
     // themed (original designs - not affiliated with any brand)
     gnome:    { name: 'Blue Gnome',   cost: 700,  tex: 'skinSmurf',       hat: 'hatGnome', trail: 0x5ab0ff },
     sorcerer: { name: 'Sorcerer',     cost: 850,  tex: 'skinWizard',      trail: 0xffd54a },
-    wizgnome: { name: 'Wizard Gnome', cost: 1500, tex: 'skinWizardGnome', hat: 'hatGnome', trail: 0x9fd2ff },
+    // founder-exclusive: not in the shop, only merlinos24 / azarios88
+    wizgnome: { name: 'Wizard Gnome', cost: 0, kind: 'founder', tex: 'skinWizardGnome', hat: 'hatGnome', trail: 0x9fd2ff },
     // owner-only: gold "rich" look with the face in the character's colour
     owner:   { name: 'Rich', cost: 0, kind: 'owner', tex: 'skinGold', hat: 'hatMoney', trail: 0xffd54a },
   },
@@ -404,6 +423,8 @@ const Settings = {
     const s = this.SKINS[id];
     if (!s) return false;
     if (Storage.isSkinOwned(id)) return true;
+    // owner/founder skins can never be bought with coins
+    if (s.kind === 'owner' || s.kind === 'founder') return false;
     if (Storage.getCoins() < (s.cost || 0)) return false;
     Storage.addCoins(-(s.cost || 0));
     Storage.addSkin(id);
