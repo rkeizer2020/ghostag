@@ -338,7 +338,7 @@ const Settings = {
       desc: 'Shift swaps: chop a tree for 5 orbs, or grow a tree behind you. Extra-fast on pickups.',
     },
     volt: {
-      label: 'Volt Ghost', tex: 'ghostVolt', ability: 'dual', unlock: 8000,
+      label: 'Volt Ghost', tex: 'ghostVolt', ability: 'dual', unlock: 10000,
       abilityName: 'Sprint / Taser', icon: '⚡', speedMul: 1.15, lives: 1,
       modes: ['sprint', 'taser'],
       // cooldowns: GAME.SPRINT_* / GAME.TASER_COOLDOWN
