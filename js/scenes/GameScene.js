@@ -1198,23 +1198,25 @@ class GameScene extends Phaser.Scene {
     this.enemy.setPosition(px, py - 34);
     this.enemy.setDepth(1560);
     this.cameras.main.stopFollow();
-    this.sword.setPosition(px + 24, py - 88).setAngle(-56).setScale(1.55).setTint(0xffffff).setDepth(1600);
+    // blade points DOWN (angle ~180) so the edge — not the hilt — does the cut
+    this.sword.setPosition(px + 22, py - 84).setAngle(150).setScale(1.55).setTint(0xffffff).setDepth(1600);
 
-    // 1) anticipation: lift a touch higher, then slash
+    // 1) anticipation: raise the blade up-right, then slash down through
     this.tweens.add({
-      targets: this.sword, x: px + 32, y: py - 100, angle: -66, duration: 160, ease: 'Back.out',
+      targets: this.sword, x: px + 32, y: py - 98, angle: 152, duration: 160, ease: 'Back.out',
       onComplete: () => this.swingSword(px, py),
     });
   }
 
-  // 2) fast diagonal slash with a bright motion streak
+  // 2) fast diagonal slash (blade-first) with a bright motion streak
   swingSword(px, py) {
     SFX.slash();
     const streak = this.add.image(px, py - 6, 'slash')
       .setDepth(1590).setRotation(-Math.PI / 4).setScale(0.25, 0.95).setAlpha(0).setTint(0xffffff);
     this.tweens.add({ targets: streak, alpha: { from: 0.95, to: 0 }, scaleX: 2.4, duration: 230, ease: 'Quad.out', onComplete: () => streak.destroy() });
+    // end with the blade lying ACROSS the ghost (hilt stays up high, out of it)
     this.tweens.add({
-      targets: this.sword, x: px - 28, y: py + 28, angle: 42, duration: 95, ease: 'Quad.in',
+      targets: this.sword, x: px - 8, y: py - 14, angle: 196, duration: 95, ease: 'Quad.in',
       onComplete: () => this.impactSlice(px, py),
     });
   }
