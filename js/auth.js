@@ -126,6 +126,9 @@ const Auth = {
     if (Storage.isOwnerUnlocked() && !skins.includes('owner')) skins.push('owner');
     return {
       highscore: Storage.bestOverall(),
+      hs_easy: Storage.getHighscore('easy'),
+      hs_normal: Storage.getHighscore('normal'),
+      hs_hard: Storage.getHighscore('hard'),
       coins: Storage.getCoins(),
       skins: skins.join(','),
       equipped_char: Settings.getCharacter(),
@@ -135,8 +138,12 @@ const Auth = {
 
   _writeLocal(m) {
     try {
-      // We only carry the overall best in the cloud. On a fresh device with no
-      // local scores yet, seed it into the Normal slot so the player sees it.
+      // apply the merged per-difficulty bests
+      ['easy', 'normal', 'hard'].forEach((d) => {
+        const v = m['hs_' + d];
+        if (v != null) Storage.setHighscore(v, d);
+      });
+      // legacy fallback: a cloud row with only the overall best (pre-migration)
       const cloudHs = m.highscore || 0;
       if (Storage.bestOverall() === 0 && cloudHs > 0) Storage.setHighscore(cloudHs, 'normal');
       localStorage.setItem('tagz.coins', String(m.coins || 0));
@@ -155,13 +162,54 @@ const Auth = {
     return Array.from(set).join(',');
   },
 
-  _row(m) {
+  _row(m, includeDiff) {
     // stamp the current reset generation into the skins list
     const skins = this._union(m.skins, this._resetToken());
-    return {
+    const row = {
       highscore: m.highscore, coins: m.coins, skins,
       equipped_char: m.equipped_char, equipped_skin: m.equipped_skin, updated_at: new Date().toISOString(),
     };
+    if (includeDiff !== false) {
+      row.hs_easy = m.hs_easy || 0;
+      row.hs_normal = m.hs_normal || 0;
+      row.hs_hard = m.hs_hard || 0;
+    }
+    return row;
+  },
+
+  // Insert or update a save row. If the per-difficulty columns don't exist yet
+  // (leaderboard SQL not run), retry without them so scores still save.
+  async _pushRow(id, merged, isInsert, uname) {
+    const attempt = (includeDiff) => {
+      const row = this._row(merged, includeDiff);
+      return isInsert
+        ? this.client.from('saves').insert({ id, username: uname, ...row })
+        : this.client.from('saves').update(row).eq('id', id);
+    };
+    let res = await attempt(true);
+    if (res && res.error && /hs_(easy|normal|hard)|column/i.test(res.error.message || '')) {
+      res = await attempt(false);
+    }
+    return res;
+  },
+
+  // Read the top players per difficulty from the public `leaderboard` view.
+  async fetchLeaderboard(limit) {
+    limit = limit || 15;
+    if (!this.client) return { ok: false, msg: 'The leaderboard needs the website (and a connection).', boards: {} };
+    const cols = { easy: 'hs_easy', normal: 'hs_normal', hard: 'hs_hard' };
+    const boards = {};
+    try {
+      for (const d of Object.keys(cols)) {
+        const col = cols[d];
+        const { data, error } = await this.client.from('leaderboard')
+          .select('username,' + col).order(col, { ascending: false }).limit(limit);
+        if (error) return { ok: false, msg: error.message, boards: {} };
+        boards[d] = (data || []).filter((r) => (r[col] || 0) > 0)
+          .map((r) => ({ username: r.username, score: r[col] || 0 }));
+      }
+      return { ok: true, boards };
+    } catch (e) { return { ok: false, msg: String(e && e.message || e), boards: {} }; }
   },
 
   async _createOrMerge(uname) {
@@ -180,8 +228,12 @@ const Auth = {
       // If the cloud row predates this reset generation, drop its old high
       // score so the one-time wipe sticks across devices.
       const cloudReset = String(row.skins || '').split(',').indexOf(this._resetToken()) !== -1;
+      const mx = (a, b) => (cloudReset ? Math.max(a, b || 0) : a);
       merged = {
-        highscore: cloudReset ? Math.max(local.highscore, row.highscore || 0) : local.highscore,
+        highscore: mx(local.highscore, row.highscore),
+        hs_easy: mx(local.hs_easy, row.hs_easy),
+        hs_normal: mx(local.hs_normal, row.hs_normal),
+        hs_hard: mx(local.hs_hard, row.hs_hard),
         coins: Math.max(local.coins, row.coins || 0),
         skins: this._union(local.skins, row.skins),
         equipped_char: row.equipped_char || local.equipped_char,
@@ -200,10 +252,7 @@ const Auth = {
       try { localStorage.setItem('tagz.owner', '1'); } catch (e) { /* ignore */ }
     }
 
-    try {
-      if (!row) await this.client.from('saves').insert({ id, username: effName, ...this._row(merged) });
-      else await this.client.from('saves').update(this._row(merged)).eq('id', id);
-    } catch (e) { /* ignore */ }
+    try { await this._pushRow(id, merged, !row, effName); } catch (e) { /* ignore */ }
 
     this._writeLocal(merged);
     this.onChange();
@@ -249,7 +298,7 @@ const Auth = {
     clearTimeout(this._pushTimer);
     this._pushTimer = setTimeout(() => {
       const l = this._readLocal();
-      try { this.client.from('saves').update(this._row(l)).eq('id', this.user.id); } catch (e) { /* ignore */ }
+      try { this._pushRow(this.user.id, l, false); } catch (e) { /* ignore */ }
     }, 700);
   },
 };

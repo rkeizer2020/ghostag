@@ -61,6 +61,17 @@ class MenuScene extends Phaser.Scene {
       align: 'center', wordWrap: { width: W - 60 },
     }).setOrigin(0.5).setDepth(3);
 
+    // leaderboard: open the global top-players screen (everyone)
+    const lb = this.add.text(14, 118, '🏆 Leaderboard', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '15px', fontStyle: 'bold', color: '#171019',
+      backgroundColor: '#ffd54a', padding: { x: 10, y: 6 },
+    }).setScrollFactor(0).setDepth(2000).setInteractive({ useHandCursor: true });
+    lb.on('pointerdown', (p, x, y, event) => {
+      if (event) event.stopPropagation();
+      SFX.click();
+      this.scene.start('Leaderboard');
+    });
+
     // admin tools: only the founder/admin accounts see this button
     if (Storage.isFounderUnlocked()) {
       const ab = this.add.text(W - 16, 60, '🛠 Admin', {
