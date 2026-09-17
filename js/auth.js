@@ -138,14 +138,11 @@ const Auth = {
 
   _writeLocal(m) {
     try {
-      // apply the merged per-difficulty bests
+      // apply the merged per-difficulty bests (source of truth for scores)
       ['easy', 'normal', 'hard'].forEach((d) => {
         const v = m['hs_' + d];
         if (v != null) Storage.setHighscore(v, d);
       });
-      // legacy fallback: a cloud row with only the overall best (pre-migration)
-      const cloudHs = m.highscore || 0;
-      if (Storage.bestOverall() === 0 && cloudHs > 0) Storage.setHighscore(cloudHs, 'normal');
       localStorage.setItem('tagz.coins', String(m.coins || 0));
       const token = this._resetToken();
       const skins = String(m.skins || '').split(',').filter(Boolean).filter((s) => s !== token);

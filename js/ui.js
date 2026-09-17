@@ -185,7 +185,7 @@ const UI = {
         bar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
         const act = async (fn) => { const rr = await fn(); if (!rr.ok) msg(rr.msg || 'Failed'); await renderPlayers(); };
         const mk = (label, bg, fn) => { const b = document.createElement('button'); b.textContent = label; b.style.cssText = rowBtn + 'background:' + bg; b.onclick = () => { b.disabled = true; act(fn); }; bar.appendChild(b); };
-        mk('Score 0', '#7a2530', () => Auth.adminUpdatePlayer(p.id, { highscore: 0 }));
+        mk('Score 0', '#7a2530', () => Auth.adminUpdatePlayer(p.id, { highscore: 0, hs_easy: 0, hs_normal: 0, hs_hard: 0 }));
         mk('+10k 🪙', '#3a2a5e', () => Auth.adminUpdatePlayer(p.id, { coins: (p.coins || 0) + 10000 }));
         mk('All skins', '#2a6cff', () => Auth.adminUpdatePlayer(p.id, { skins: allRegularSkins() }));
         mk('Max unlock', '#2a6cff', () => Auth.adminUpdatePlayer(p.id, { highscore: 100000 }));

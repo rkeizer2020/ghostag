@@ -149,6 +149,8 @@ const GAME = {
 const Storage = {
   // Bump to wipe everyone's high scores once (applied on load / next login).
   RESET_ID: '2',
+  // Bump to wipe ONLY the Normal board once (keeps Easy & Hard).
+  NORMAL_RESET_ID: '1',
 
   _hsKey(d) { return 'tagz.hs.' + d; },
 
@@ -183,6 +185,11 @@ const Storage = {
         localStorage.removeItem('tagz.highscore'); // old single score
         this.setAllHighscores({ easy: 0, normal: 0, hard: 0 });
         localStorage.setItem('tagz.resetId', this.RESET_ID);
+      }
+      // one-time wipe of ONLY the Normal board (Easy & Hard are kept)
+      if (localStorage.getItem('tagz.normalResetId') !== this.NORMAL_RESET_ID) {
+        this.setHighscore(0, 'normal');
+        localStorage.setItem('tagz.normalResetId', this.NORMAL_RESET_ID);
       }
     } catch (e) { /* ignore */ }
   },
