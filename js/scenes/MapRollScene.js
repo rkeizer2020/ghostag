@@ -68,8 +68,16 @@ class MapRollScene extends Phaser.Scene {
     this.input.keyboard.once('keydown-SPACE', () => this.finishNow());
     this.input.keyboard.once('keydown-ENTER', () => this.finishNow());
 
+    // Safety net: no matter what happens with the animation timers, the game
+    // always starts within this window, so the roll can never freeze forever.
+    this.time.delayedCall(4500, () => this.launch());
+
     this.startRoll();
     UI.restartOnResize(this);
+  }
+
+  _sfx(name) {
+    try { if (SFX && SFX[name]) SFX[name](); } catch (e) { /* audio is non-critical */ }
   }
 
   // Build a sequence that steps through the maps in order and lands on `chosen`,
@@ -77,7 +85,7 @@ class MapRollScene extends Phaser.Scene {
   startRoll() {
     const order = Biomes.ORDER;
     const n = order.length;
-    const chosenIdx = order.indexOf(this.chosen.key);
+    const chosenIdx = Math.max(0, order.indexOf(this.chosen.key));
     const steps = 15; // total flips before the final reveal
     // offset so the last flip lands exactly on the chosen map
     const startOff = ((chosenIdx - (steps - 1)) % n + n * 10) % n;
@@ -86,16 +94,23 @@ class MapRollScene extends Phaser.Scene {
     for (let i = 0; i < steps; i++) this.seq.push(order[(startOff + i) % n]);
 
     this.step = 0;
-    this.tick();
+    this.scheduleTick(0);
+  }
+
+  // Schedule the next flip. Kept separate + guarded so one bad frame can never
+  // break the chain (the reveal still happens on the last step).
+  scheduleTick(delay) {
+    this.time.delayedCall(delay, () => this.tick());
   }
 
   tick() {
-    if (this.done) return;
-    const key = this.seq[this.step];
-    const biome = Biomes.LIST[key];
-    const last = this.step === this.seq.length - 1;
-    this._drawCard(biome, last);
-    if (SFX && SFX.click) SFX.click();
+    if (this.done || !this.scene.isActive()) return;
+    const last = this.step >= this.seq.length - 1;
+    try {
+      const biome = Biomes.LIST[this.seq[this.step]] || this.chosen;
+      this._drawCard(biome, last);
+      this._sfx('click');
+    } catch (e) { /* drawing hiccup shouldn't stop the roll */ }
 
     if (last) { this.reveal(); return; }
 
@@ -103,26 +118,34 @@ class MapRollScene extends Phaser.Scene {
     const t = this.step / (this.seq.length - 1);
     const delay = 55 + Math.pow(t, 2.2) * 300; // ~55ms -> ~355ms
     this.step++;
-    this.time.delayedCall(delay, () => this.tick());
+    this.scheduleTick(delay);
   }
 
   // Immediate skip: land on the chosen map and reveal right away.
   finishNow() {
     if (this.done) return;
-    this.done = true;
-    this._drawCard(this.chosen, true);
+    try { this._drawCard(this.chosen, true); } catch (e) { /* ignore */ }
     this.reveal();
   }
 
   reveal() {
+    if (this.done) return;
     this.done = true;
-    if (SFX && SFX.boost) SFX.boost();
-    // little pop on the card
-    this.tweens.add({ targets: [this.nameText], scale: { from: 1.25, to: 1 }, duration: 260, ease: 'Back.out' });
-    this.cameras.main.flash(180, 255, 255, 255);
-    this.add.text(this.scale.width / 2, this.scale.height * 0.84, 'GO!', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '30px', fontStyle: 'bold', color: '#ffd54a',
-    }).setOrigin(0.5).setDepth(8).setShadow(0, 2, '#000', 5);
-    this.time.delayedCall(650, () => this.scene.start('Game'));
+    this._sfx('boost');
+    try {
+      this.tweens.add({ targets: [this.nameText], scale: { from: 1.25, to: 1 }, duration: 260, ease: 'Back.out' });
+      this.cameras.main.flash(180, 255, 255, 255);
+      this.add.text(this.scale.width / 2, this.scale.height * 0.84, 'GO!', {
+        fontFamily: 'system-ui, sans-serif', fontSize: '30px', fontStyle: 'bold', color: '#ffd54a',
+      }).setOrigin(0.5).setDepth(8).setShadow(0, 2, '#000', 5);
+    } catch (e) { /* visuals are non-critical */ }
+    this.time.delayedCall(650, () => this.launch());
+  }
+
+  // Single, idempotent path into the game (guards against double scene.start).
+  launch() {
+    if (this.launched) return;
+    this.launched = true;
+    this.scene.start('Game');
   }
 }
