@@ -188,7 +188,7 @@ const UI = {
         mk('Score 0', '#7a2530', () => Auth.adminUpdatePlayer(p.id, { highscore: 0, hs_easy: 0, hs_normal: 0, hs_hard: 0 }));
         mk('+10k 🪙', '#3a2a5e', () => Auth.adminUpdatePlayer(p.id, { coins: (p.coins || 0) + 10000 }));
         mk('All skins', '#2a6cff', () => Auth.adminUpdatePlayer(p.id, { skins: allRegularSkins() }));
-        mk('Max unlock', '#2a6cff', () => Auth.adminUpdatePlayer(p.id, { highscore: 100000 }));
+        mk('Unlock all', '#2a6cff', () => Auth.adminUpdatePlayer(p.id, { unlockall: true }));
         // delete with a two-tap confirm
         const del = document.createElement('button');
         del.textContent = 'Delete'; del.style.cssText = rowBtn + 'background:#5a1620';

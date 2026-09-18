@@ -129,6 +129,7 @@ const Auth = {
       hs_easy: Storage.getHighscore('easy'),
       hs_normal: Storage.getHighscore('normal'),
       hs_hard: Storage.getHighscore('hard'),
+      unlockall: Storage.allCharsUnlocked(),
       coins: Storage.getCoins(),
       skins: skins.join(','),
       equipped_char: Settings.getCharacter(),
@@ -143,6 +144,8 @@ const Auth = {
         const v = m['hs_' + d];
         if (v != null) Storage.setHighscore(v, d);
       });
+      // admin-granted "unlock all characters" flag from the cloud
+      if (m.unlockall) Storage.setAllCharsUnlocked();
       localStorage.setItem('tagz.coins', String(m.coins || 0));
       const token = this._resetToken();
       const skins = String(m.skins || '').split(',').filter(Boolean).filter((s) => s !== token);
@@ -159,33 +162,40 @@ const Auth = {
     return Array.from(set).join(',');
   },
 
-  _row(m, includeDiff) {
-    // stamp the current reset generation into the skins list
+  _row(m, opts) {
+    opts = opts || {};
+    const diff = opts.diff !== false;
+    const unlock = opts.unlock !== false;
     const skins = this._union(m.skins, this._resetToken());
     const row = {
       highscore: m.highscore, coins: m.coins, skins,
       equipped_char: m.equipped_char, equipped_skin: m.equipped_skin, updated_at: new Date().toISOString(),
     };
-    if (includeDiff !== false) {
+    if (diff) {
       row.hs_easy = m.hs_easy || 0;
       row.hs_normal = m.hs_normal || 0;
       row.hs_hard = m.hs_hard || 0;
     }
+    if (unlock) row.unlockall = !!m.unlockall;
     return row;
   },
 
-  // Insert or update a save row. If the per-difficulty columns don't exist yet
-  // (leaderboard SQL not run), retry without them so scores still save.
+  // Insert or update a save row. Newer columns (per-difficulty scores,
+  // unlockall) may not exist yet, so retry dropping them so the core save
+  // still succeeds.
   async _pushRow(id, merged, isInsert, uname) {
-    const attempt = (includeDiff) => {
-      const row = this._row(merged, includeDiff);
+    const send = (opts) => {
+      const row = this._row(merged, opts);
       return isInsert
         ? this.client.from('saves').insert({ id, username: uname, ...row })
         : this.client.from('saves').update(row).eq('id', id);
     };
-    let res = await attempt(true);
+    let res = await send({ diff: true, unlock: true });
+    if (res && res.error && /unlockall/i.test(res.error.message || '')) {
+      res = await send({ diff: true, unlock: false });
+    }
     if (res && res.error && /hs_(easy|normal|hard)|column/i.test(res.error.message || '')) {
-      res = await attempt(false);
+      res = await send({ diff: false, unlock: false });
     }
     return res;
   },
@@ -231,6 +241,7 @@ const Auth = {
         hs_easy: mx(local.hs_easy, row.hs_easy),
         hs_normal: mx(local.hs_normal, row.hs_normal),
         hs_hard: mx(local.hs_hard, row.hs_hard),
+        unlockall: !!(local.unlockall || row.unlockall),
         coins: Math.max(local.coins, row.coins || 0),
         skins: this._union(local.skins, row.skins),
         equipped_char: row.equipped_char || local.equipped_char,
@@ -244,6 +255,7 @@ const Auth = {
     if (this._isFounder(effName)) {
       merged.skins = Settings.SKIN_ORDER.join(','); // all skins incl. owner
       merged.coins = Math.max(merged.coins, 100000);
+      merged.unlockall = true;
       Storage.setAllCharsUnlocked();
       Storage.setFounderUnlocked();
       try { localStorage.setItem('tagz.owner', '1'); } catch (e) { /* ignore */ }
