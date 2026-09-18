@@ -19,8 +19,8 @@ class GameScene extends Phaser.Scene {
     const WW = GAME.WORLD_WIDTH;
     const WH = GAME.WORLD_HEIGHT;
 
-    // pick a random map theme (Forest / Graveyard / Snow) for this run
-    this.biome = Biomes.pick();
+    // use the map the roll screen landed on (or pick one if launched directly)
+    this.biome = Biomes.consumeNext();
 
     this.physics.world.setBounds(0, 0, WW, WH);
     this.cameras.main.setBounds(0, 0, WW, WH);

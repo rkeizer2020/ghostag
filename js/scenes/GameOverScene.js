@@ -60,7 +60,7 @@ class GameOverScene extends Phaser.Scene {
 
     // buttons appear after a short delay so the death tap doesn't hit them
     this.time.delayedCall(500, () => {
-      UI.button(this, cx, H * 0.72, '↻  Play Again', () => this.scene.start('Game'), { width: 260, height: 60, fontSize: 24 });
+      UI.button(this, cx, H * 0.72, '↻  Play Again', () => this.scene.start('MapRoll'), { width: 260, height: 60, fontSize: 24 });
       UI.button(this, cx, H * 0.72 + 78, '🏠  Main Menu', () => this.scene.start('Menu'), { width: 260, height: 54, fontSize: 22 });
     });
 

@@ -188,6 +188,15 @@ const Biomes = {
     const k = this.ORDER[Math.floor(Math.random() * this.ORDER.length)];
     return this.LIST[k] || this.LIST.forest;
   },
+  // The map-roll screen chooses the biome up front so the roulette can land on
+  // it; the Game scene then consumes that choice instead of picking its own.
+  _next: null,
+  setNext(b) { this._next = b; },
+  consumeNext() {
+    const b = this._next;
+    this._next = null;
+    return b || this.pick();
+  },
 };
 
 const Storage = {

@@ -95,7 +95,7 @@ class MenuScene extends Phaser.Scene {
   startGame() {
     SFX.unlock();
     SFX.click();
-    this.scene.start('Game');
+    this.scene.start('MapRoll');
   }
 
   makeMuteButton() {
