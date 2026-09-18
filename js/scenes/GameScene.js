@@ -584,13 +584,16 @@ class GameScene extends Phaser.Scene {
     l.setCollideWorldBounds(true);
     l.body.onWorldBounds = false;
     l.setVelocity(Math.cos(ang) * GAME.LASER_SPEED, Math.sin(ang) * GAME.LASER_SPEED);
+    l.isLaser = true; // marker so the overlap callback can tell it from the Spook
     l.bornAt = this.time.now;
     SFX.slash();
     // safety cap so a laser that somehow never lands can't live forever
     this.time.delayedCall(GAME.LASER_MAX_LIFE, () => { if (l.active) l.destroy(); });
   }
 
-  hitLaser(laser, enemy) {
+  hitLaser(a, b) {
+    // Phaser may pass (laser, enemy) or (enemy, laser) — pick the laser out.
+    const laser = (a && a.isLaser) ? a : b;
     if (!laser || !laser.active) return;
     const now = this.time.now;
     laser.destroy();
