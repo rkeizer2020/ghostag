@@ -19,12 +19,15 @@ class GameScene extends Phaser.Scene {
     const WW = GAME.WORLD_WIDTH;
     const WH = GAME.WORLD_HEIGHT;
 
+    // pick a random map theme (Forest / Graveyard / Snow) for this run
+    this.biome = Biomes.pick();
+
     this.physics.world.setBounds(0, 0, WW, WH);
     this.cameras.main.setBounds(0, 0, WW, WH);
-    this.cameras.main.setBackgroundColor(GAME.COLORS.bg);
+    this.cameras.main.setBackgroundColor(this.biome.bg);
 
-    // tiled forest floor
-    this.add.tileSprite(0, 0, WW, WH, 'ground').setOrigin(0).setDepth(-10);
+    // tiled floor for the chosen biome
+    this.add.tileSprite(0, 0, WW, WH, this.biome.ground).setOrigin(0).setDepth(-10);
     this.createFog();
 
     // state
@@ -162,6 +165,7 @@ class GameScene extends Phaser.Scene {
     });
 
     this.buildHUD();
+    this.announceBiome();
 
     this.input.keyboard.on('keydown-M', () => this.toggleMute());
     this.input.keyboard.on('keydown-P', () => this.togglePause());
@@ -169,6 +173,20 @@ class GameScene extends Phaser.Scene {
     // background music for the chase; stops when the scene ends
     SFX.startMusic();
     this.events.once('shutdown', () => SFX.stopMusic());
+  }
+
+  // Brief centred banner naming the randomly-chosen map for this run.
+  announceBiome() {
+    const W = this.scale.width;
+    const label = (this.biome.icon || '') + '  ' + (this.biome.label || 'Forest');
+    const txt = this.add.text(W / 2, 74, label, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '30px', fontStyle: 'bold', color: '#ffffff',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(60).setAlpha(0).setShadow(0, 3, '#000', 8);
+    this.tweens.add({
+      targets: txt, alpha: { from: 0, to: 1 }, y: 84, duration: 400, ease: 'Back.out',
+      hold: 1400, yoyo: true,
+      onComplete: () => txt.destroy(),
+    });
   }
 
   createAtmosphere() {
@@ -184,13 +202,25 @@ class GameScene extends Phaser.Scene {
       targets: this.playerGlow, alpha: { from: 0.35, to: 0.6 }, scale: { from: 0.85, to: 1.0 },
       duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
-    // drifting fireflies scattered through the forest
+    // drifting motes, tinted for the biome (fireflies / spirit wisps / snow glints)
+    const moteTint = this.biome.firefly || 0xbfe6ff;
     for (let i = 0; i < 16; i++) {
       const f = this.add.image(Phaser.Math.Between(0, WW), Phaser.Math.Between(0, WH), 'firefly')
-        .setDepth(8).setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(8).setBlendMode(Phaser.BlendModes.ADD).setTint(moteTint)
         .setScale(Phaser.Math.FloatBetween(0.5, 1.1)).setAlpha(0);
       this.tweens.add({ targets: f, alpha: { from: 0.15, to: 0.8 }, duration: Phaser.Math.Between(1200, 2600), yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 1500) });
       this.tweens.add({ targets: f, x: f.x + Phaser.Math.Between(-70, 70), y: f.y + Phaser.Math.Between(-50, 50), duration: Phaser.Math.Between(5000, 9000), yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+
+    // Snow biome: gentle falling snowflakes drifting down the whole map
+    if (this.biome.snowfall) {
+      this.snow = this.add.particles(0, 0, 'firefly', {
+        x: { min: 0, max: WW }, y: { min: -20, max: WH },
+        quantity: 2, frequency: 90, lifespan: 6000,
+        speedY: { min: 30, max: 70 }, speedX: { min: -18, max: 18 },
+        scale: { min: 0.12, max: 0.3 }, alpha: { start: 0.9, end: 0.3 },
+        tint: 0xffffff, blendMode: Phaser.BlendModes.SCREEN, depth: 8,
+      });
     }
   }
 
@@ -200,7 +230,7 @@ class GameScene extends Phaser.Scene {
     const WW = GAME.WORLD_WIDTH, WH = GAME.WORLD_HEIGHT;
     for (let i = 0; i < 11; i++) {
       const puff = this.add.image(
-        Phaser.Math.Between(0, WW), Phaser.Math.Between(0, WH), 'fog'
+        Phaser.Math.Between(0, WW), Phaser.Math.Between(0, WH), this.biome.fog
       );
       puff.setScale(Phaser.Math.FloatBetween(2.0, 3.8));
       puff.setAlpha(Phaser.Math.FloatBetween(0.30, 0.5));
@@ -232,7 +262,7 @@ class GameScene extends Phaser.Scene {
     // sort by y so nearer trees overlap farther ones naturally
     spots.sort((a, b) => a.y - b.y);
     spots.forEach((s) => {
-      const t = this.trees.create(s.x, s.y, 'tree');
+      const t = this.trees.create(s.x, s.y, this.biome.tree);
       t.setDepth(5 + s.y / GAME.WORLD_HEIGHT); // depth by row
       // collision only around the trunk, so you can brush past the canopy
       t.body.setSize(20, 24, true);
@@ -475,7 +505,7 @@ class GameScene extends Phaser.Scene {
       const off = (i - (GAME.GROW_TREES - 1) / 2) * GAME.GROW_SPREAD;
       const x = Phaser.Math.Clamp(this.player.x + bx * GAME.GROW_DIST + perpX * off, 60, GAME.WORLD_WIDTH - 60);
       const y = Phaser.Math.Clamp(this.player.y + by * GAME.GROW_DIST + perpY * off, 60, GAME.WORLD_HEIGHT - 60);
-      const t = this.trees.create(x, y, 'tree');
+      const t = this.trees.create(x, y, this.biome.tree);
       t.setDepth(5 + y / GAME.WORLD_HEIGHT);
       t.body.setSize(20, 24, true);
       t.body.setOffset((t.width - 20) / 2, t.height - 30);

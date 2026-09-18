@@ -50,9 +50,14 @@ const Textures = {
     this.shield(scene);
     this.orb(scene);
     this.tree(scene);
+    this.treeSnow(scene);
+    this.tombstone(scene);
     this.log(scene);
     this.ground(scene);
+    this.groundGraveyard(scene);
+    this.groundSnow(scene);
     this.fog(scene);
+    this.fogVariants(scene);
     this.particle(scene);
     this.vignette(scene);
     this.firefly(scene);
@@ -725,6 +730,89 @@ const Textures = {
     canvas.refresh();
   },
 
+  // Snowy pine (Snow biome): cool-green tiers capped with snow, on a mound.
+  treeSnow(scene) {
+    const w = 76, h = 96, cx = w / 2;
+    const canvas = scene.textures.createCanvas('tree_snow', w, h);
+    const ctx = canvas.getContext();
+    // blue-ish ground shadow + a little snow mound at the base
+    ctx.fillStyle = 'rgba(30,50,80,0.25)';
+    ctx.beginPath(); ctx.ellipse(cx, h - 8, 27, 8, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(232,242,255,0.95)';
+    ctx.beginPath(); ctx.ellipse(cx, h - 10, 24, 7, 0, 0, 7); ctx.fill();
+    // trunk
+    const tg = ctx.createLinearGradient(cx - 6, 0, cx + 6, 0);
+    tg.addColorStop(0, '#2a1c0e'); tg.addColorStop(0.5, '#4a3218'); tg.addColorStop(1, '#2a1c0e');
+    ctx.fillStyle = tg; ctx.fillRect(cx - 5, 62, 10, 26);
+    // cool green tiers
+    const tier = (tipY, baseY, half, top, bot) => {
+      const fg = ctx.createLinearGradient(0, tipY, 0, baseY);
+      fg.addColorStop(0, top); fg.addColorStop(1, bot);
+      ctx.fillStyle = fg;
+      ctx.beginPath();
+      ctx.moveTo(cx, tipY); ctx.lineTo(cx + half, baseY);
+      ctx.quadraticCurveTo(cx, baseY + 7, cx - half, baseY);
+      ctx.closePath(); ctx.fill();
+    };
+    tier(24, 70, 32, '#3f7a58', '#204a34');
+    tier(12, 50, 27, '#498a60', '#255238');
+    tier(2, 34, 21, '#57a06d', '#2b5f40');
+    // snow caps sitting on each tier
+    const snow = (tipY, baseY, half) => {
+      ctx.fillStyle = 'rgba(240,248,255,0.96)';
+      ctx.beginPath();
+      ctx.moveTo(cx, tipY);
+      ctx.lineTo(cx + half * 0.7, baseY);
+      ctx.quadraticCurveTo(cx, baseY - 5, cx - half * 0.7, baseY);
+      ctx.closePath(); ctx.fill();
+    };
+    snow(24, 40, 32); snow(12, 26, 27); snow(2, 14, 21);
+    // sparkle flecks
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    for (let i = 0; i < 6; i++) {
+      const x = cx + (Math.random() * 40 - 20), y = 12 + Math.random() * 50;
+      ctx.beginPath(); ctx.arc(x, y, 1.1, 0, 7); ctx.fill();
+    }
+    canvas.refresh();
+  },
+
+  // Graveyard "tree": a mossy stone tombstone that acts as the map obstacle.
+  tombstone(scene) {
+    const w = 76, h = 96, cx = w / 2;
+    const canvas = scene.textures.createCanvas('tree_graveyard', w, h);
+    const ctx = canvas.getContext();
+    // ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.34)';
+    ctx.beginPath(); ctx.ellipse(cx, h - 8, 26, 8, 0, 0, 7); ctx.fill();
+    // a little grave mound
+    ctx.fillStyle = '#2a2620';
+    ctx.beginPath(); ctx.ellipse(cx, h - 12, 24, 9, 0, 0, 7); ctx.fill();
+    // stone slab with a rounded top
+    const sg = ctx.createLinearGradient(cx - 20, 0, cx + 20, 0);
+    sg.addColorStop(0, '#5a5f66'); sg.addColorStop(0.5, '#868d95'); sg.addColorStop(1, '#4c5157');
+    ctx.fillStyle = sg;
+    ctx.beginPath();
+    ctx.moveTo(cx - 20, h - 14);
+    ctx.lineTo(cx - 20, 40);
+    ctx.arc(cx, 40, 20, Math.PI, 0, false);
+    ctx.lineTo(cx + 20, h - 14);
+    ctx.closePath(); ctx.fill();
+    // engraved cross
+    ctx.strokeStyle = 'rgba(40,44,48,0.85)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(cx, 30); ctx.lineTo(cx, 64); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 11, 44); ctx.lineTo(cx + 11, 44); ctx.stroke();
+    // top-left light + cracks
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx - 16, 44); ctx.lineTo(cx - 16, h - 16); ctx.stroke();
+    ctx.strokeStyle = 'rgba(20,22,24,0.5)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx + 8, 30); ctx.lineTo(cx + 3, 52); ctx.lineTo(cx + 9, 70); ctx.stroke();
+    // patches of moss
+    ctx.fillStyle = 'rgba(90,140,70,0.5)';
+    ctx.beginPath(); ctx.arc(cx - 12, h - 22, 6, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 10, h - 30, 4, 0, 7); ctx.fill();
+    canvas.refresh();
+  },
+
   log(scene) {
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
     const w = 84, h = 40;
@@ -775,15 +863,72 @@ const Textures = {
     canvas.refresh();
   },
 
-  fog(scene) {
-    // soft radial blue puff used for the drifting fog layer
-    const s = 256, r = s / 2;
-    const canvas = scene.textures.createCanvas('fog', s, s);
+  // Graveyard floor: cold grey earth with dead-grass tufts and pale bones.
+  groundGraveyard(scene) {
+    const s = 128;
+    const canvas = scene.textures.createCanvas('ground_graveyard', s, s);
     const ctx = canvas.getContext();
+    ctx.fillStyle = '#242329'; ctx.fillRect(0, 0, s, s);
+    for (let i = 0; i < 9; i++) {
+      const x = Math.random() * s, y = Math.random() * s, r = 14 + Math.random() * 24;
+      const rg = ctx.createRadialGradient(x, y, 0, x, y, r);
+      const dark = Math.random() < 0.5;
+      rg.addColorStop(0, dark ? 'rgba(12,12,16,0.55)' : 'rgba(58,60,52,0.45)');
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    }
+    // dead-grass tufts + pale grey pebbles
+    for (let i = 0; i < 90; i++) {
+      const x = Math.random() * s, y = Math.random() * s;
+      const roll = Math.random();
+      ctx.fillStyle = roll < 0.3 ? 'rgba(96,110,70,0.20)' : (roll < 0.6 ? 'rgba(150,152,150,0.22)' : 'rgba(40,40,46,0.4)');
+      ctx.fillRect(x, y, 2, 2);
+    }
+    canvas.refresh();
+  },
+
+  // Snow floor: bright drifts with soft blue shadows and sparkles.
+  groundSnow(scene) {
+    const s = 128;
+    const canvas = scene.textures.createCanvas('ground_snow', s, s);
+    const ctx = canvas.getContext();
+    ctx.fillStyle = '#dce7f4'; ctx.fillRect(0, 0, s, s);
+    for (let i = 0; i < 10; i++) {
+      const x = Math.random() * s, y = Math.random() * s, r = 16 + Math.random() * 26;
+      const rg = ctx.createRadialGradient(x, y, 0, x, y, r);
+      const bright = Math.random() < 0.5;
+      rg.addColorStop(0, bright ? 'rgba(255,255,255,0.55)' : 'rgba(170,190,220,0.4)');
+      rg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    }
+    // sparkling ice specks
+    for (let i = 0; i < 70; i++) {
+      const x = Math.random() * s, y = Math.random() * s;
+      ctx.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.9)' : 'rgba(150,180,220,0.35)';
+      ctx.fillRect(x, y, 2, 2);
+    }
+    canvas.refresh();
+  },
+
+  fog(scene) {
+    this._fog(scene, 'fog', [90, 160, 255]);
+  },
+
+  // Coloured fog puffs for the other biomes (green mist / white flurry).
+  fogVariants(scene) {
+    this._fog(scene, 'fog_graveyard', [120, 180, 140]);
+    this._fog(scene, 'fog_snow', [220, 235, 255]);
+  },
+
+  _fog(scene, key, rgb) {
+    const s = 256, r = s / 2;
+    const canvas = scene.textures.createCanvas(key, s, s);
+    const ctx = canvas.getContext();
+    const [cr, cg, cb] = rgb;
     const grad = ctx.createRadialGradient(r, r, 0, r, r, r);
-    grad.addColorStop(0, 'rgba(90,160,255,0.75)');
-    grad.addColorStop(0.5, 'rgba(70,140,255,0.32)');
-    grad.addColorStop(1, 'rgba(70,140,255,0)');
+    grad.addColorStop(0, `rgba(${cr},${cg},${cb},0.72)`);
+    grad.addColorStop(0.5, `rgba(${cr},${cg},${cb},0.30)`);
+    grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, s, s);
     canvas.refresh();

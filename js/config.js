@@ -162,6 +162,34 @@ const GAME = {
   },
 };
 
+// Randomly-chosen map themes. Each run picks one. Every biome swaps the
+// ground, trees, fog and background tint for a different look; gameplay is
+// identical across them.
+const Biomes = {
+  LIST: {
+    forest: {
+      key: 'forest', label: 'Forest', icon: '🌲',
+      bg: 0x1c130b, ground: 'ground', tree: 'tree', fog: 'fog',
+      firefly: 0xbfe6ff, snowfall: false,
+    },
+    graveyard: {
+      key: 'graveyard', label: 'Graveyard', icon: '🪦',
+      bg: 0x0e0f13, ground: 'ground_graveyard', tree: 'tree_graveyard', fog: 'fog_graveyard',
+      firefly: 0x9fffc0, snowfall: false,
+    },
+    snow: {
+      key: 'snow', label: 'Snow', icon: '❄️',
+      bg: 0x1a2431, ground: 'ground_snow', tree: 'tree_snow', fog: 'fog_snow',
+      firefly: 0xffffff, snowfall: true,
+    },
+  },
+  ORDER: ['forest', 'graveyard', 'snow'],
+  pick() {
+    const k = this.ORDER[Math.floor(Math.random() * this.ORDER.length)];
+    return this.LIST[k] || this.LIST.forest;
+  },
+};
+
 const Storage = {
   // Bump to wipe everyone's high scores once (applied on load / next login).
   RESET_ID: '2',
