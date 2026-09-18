@@ -14,6 +14,7 @@ const Textures = {
     this.ghostMagma(scene);
     this.ghostForest(scene);
     this.ghostVolt(scene);
+    this.ghostAlien(scene);
     // skin bodies
     this._ghost(scene, 'skinEmber', { glow: 0xff5a1a, glow2: 0xffb060, body: 0xff7a3a, eye: 0x4a1000 });
     this._ghost(scene, 'skinFrost', { glow: 0x6fd0ff, glow2: 0xd0f0ff, body: 0xe8f6ff, eye: 0x2a4a5a });
@@ -43,6 +44,8 @@ const Textures = {
     this.heartArrow(scene);
     this.pellet(scene);
     this.zap(scene);
+    this.ufo(scene);
+    this.laser(scene);
     this.mud(scene);
     this.shield(scene);
     this.orb(scene);
@@ -176,6 +179,72 @@ const Textures = {
     g.fillStyle(0x143050, 1); g.fillCircle(cx - 6, 21, 3); g.fillCircle(cx + 6, 21, 3);
     g.fillStyle(0xffe066, 0.9); g.fillCircle(cx - 6, 20, 1); g.fillCircle(cx + 6, 20, 1);
     g.generateTexture('ghostVolt', w, h);
+    g.destroy();
+  },
+
+  // Mint-green "alien" ghost: little grey almond eyes on a glowing green body.
+  ghostAlien(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    // green glow
+    g.fillStyle(0x2fd98a, 0.16); g.fillCircle(cx, h / 2, 27);
+    g.fillStyle(0x2fd98a, 0.22); g.fillCircle(cx, h / 2, 21);
+    g.fillStyle(0x8fffcf, 0.30); g.fillCircle(cx, 24, 18);
+    // mint body
+    this._ghostShape(g, w, h, 0x6bffb0);
+    g.fillStyle(0x000000, 0.10); g.fillEllipse(cx, 41, 30, 15);
+    // glossy highlight
+    g.fillStyle(0xffffff, 0.85); g.fillCircle(cx - 6, 14, 5);
+    g.fillStyle(0xffffff, 0.45); g.fillCircle(cx + 4, 17, 2.2);
+    // big black almond alien eyes (angled inward)
+    g.fillStyle(0x0a1a12, 1);
+    g.fillEllipse(cx - 7, 23, 7, 11);
+    g.fillEllipse(cx + 7, 23, 7, 11);
+    // eye shine
+    g.fillStyle(0x8fffcf, 0.95);
+    g.fillCircle(cx - 8, 20, 1.4); g.fillCircle(cx + 6, 20, 1.4);
+    g.fillStyle(0xffffff, 0.9);
+    g.fillCircle(cx - 8, 20, 0.7); g.fillCircle(cx + 6, 20, 0.7);
+    g.generateTexture('ghostAlien', w, h);
+    g.destroy();
+  },
+
+  // Alien ghost's UFO: a little flying saucer with a glass dome. Drawn to sit
+  // over the ghost, so it is roughly the ghost's width.
+  ufo(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 72, h = 44, cx = w / 2, cy = 26;
+    // beam glow under the saucer
+    g.fillStyle(0x6bffb0, 0.14); g.fillTriangle(cx - 20, cy, cx + 20, cy, cx, h + 8);
+    // saucer body (metallic ellipse)
+    g.fillStyle(0x6a7a92, 1); g.fillEllipse(cx, cy, 64, 20);
+    g.fillStyle(0x9fb0c8, 1); g.fillEllipse(cx, cy - 2, 56, 15);
+    g.fillStyle(0x4a5568, 1); g.fillEllipse(cx, cy + 5, 60, 9);
+    // glass dome
+    g.fillStyle(0x8fffcf, 0.55); g.fillEllipse(cx, cy - 8, 26, 20);
+    g.fillStyle(0xd8fff0, 0.85); g.fillEllipse(cx, cy - 9, 18, 14);
+    g.fillStyle(0xffffff, 0.9); g.fillCircle(cx - 5, cy - 12, 3);
+    // running lights around the rim
+    const lights = [0xff5b6e, 0xffe066, 0x6bffb0, 0x6fb8ff, 0xff8fd0];
+    for (let i = 0; i < 5; i++) {
+      const lx = cx - 24 + i * 12;
+      g.fillStyle(lights[i], 1); g.fillCircle(lx, cy + 6, 2.4);
+      g.fillStyle(0xffffff, 0.7); g.fillCircle(lx, cy + 5.4, 0.9);
+    }
+    g.generateTexture('ufo', w, h);
+    g.destroy();
+  },
+
+  // Alien ghost's bouncing laser bolt. Drawn pointing toward +x so it can be
+  // rotated to its travel direction in game.
+  laser(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 34, h = 14, cy = h / 2;
+    g.fillStyle(0x6bffb0, 0.35); g.fillEllipse(w / 2, cy, 30, 12); // outer glow
+    g.fillStyle(0x2fff9a, 0.9); g.fillEllipse(w / 2, cy, 24, 7);   // core
+    g.fillStyle(0xffffff, 1); g.fillEllipse(w / 2 + 3, cy, 12, 3.4); // hot centre
+    g.fillStyle(0xd8fff0, 1); g.fillCircle(w - 5, cy, 3.2);         // bright tip
+    g.generateTexture('laser', w, h);
     g.destroy();
   },
 

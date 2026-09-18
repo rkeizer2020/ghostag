@@ -6,6 +6,8 @@ const DUAL_INFO = {
   grow:   { icon: '🌲', label: 'Grow',   color: 0x6fce6a },
   sprint: { icon: '💨', label: 'Sprint', color: 0x8fd0ff },
   taser:  { icon: '⚡', label: 'Taser',  color: 0xffe066 },
+  ufo:    { icon: '🛸', label: 'UFO',    color: 0x6bffb0 },
+  laser:  { icon: '🟢', label: 'Laser',  color: 0x2fff9a },
 };
 
 class GameScene extends Phaser.Scene {
@@ -34,6 +36,8 @@ class GameScene extends Phaser.Scene {
     this.stunUntil = 0;
     this.fleeUntil = 0;
     this.sprintUntil = 0;
+    this.ufoUntil = 0;
+    this.lastUfoHit = 0;
     this.invulnUntil = 0;
     this.shieldUntil = 0;
     this.phaseUntil = 0;
@@ -119,6 +123,12 @@ class GameScene extends Phaser.Scene {
     // fired projectiles (pink's heart arrow, black's shotgun pellets)
     this.projectiles = this.physics.add.group({ allowGravity: false });
     this.physics.add.overlap(this.projectiles, this.enemy, this.hitProjectile, null, this);
+
+    // Alien's bouncing laser: ricochets off the world edges and trees, and
+    // stuns the Spook when it finally connects.
+    this.lasers = this.physics.add.group({ allowGravity: false });
+    this.physics.add.collider(this.lasers, this.trees);
+    this.physics.add.overlap(this.lasers, this.enemy, this.hitLaser, null, this);
 
     // orbs
     this.orbs = this.physics.add.group();
@@ -404,6 +414,9 @@ class GameScene extends Phaser.Scene {
       // Volt's sprint: cooldown starts only AFTER the 3s effect ends
       case 'sprint': this.startSprint(now); return GAME.SPRINT_DURATION + GAME.SPRINT_COOLDOWN;
       case 'taser':  this.taser();         return GAME.TASER_COOLDOWN;
+      // Alien's UFO: cooldown starts only AFTER the 5s untouchable effect ends
+      case 'ufo':   this.startUfo(now);   return GAME.UFO_DURATION + GAME.UFO_COOLDOWN;
+      case 'laser': this.fireLaser();     return GAME.LASER_COOLDOWN;
       default:      return 2000;
     }
   }
@@ -512,6 +525,89 @@ class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
       }
     }
+  }
+
+  // ---- Alien ghost: UFO (untouchable) / bouncing laser ----
+  startUfo(now) {
+    this.ufoUntil = now + GAME.UFO_DURATION;
+    this.lastUfoHit = 0;
+    if (this.ufoSprite) this.ufoSprite.destroy();
+    this.ufoSprite = this.add.image(this.player.x, this.player.y - 20, 'ufo').setDepth(13).setScale(0.4);
+    this.tweens.add({ targets: this.ufoSprite, scale: 1, duration: 220, ease: 'Back.out' });
+    SFX.boost();
+    this.floatText('🛸 UFO! untouchable', 0x6bffb0);
+    this.time.delayedCall(GAME.UFO_DURATION, () => this.endUfo());
+  }
+
+  endUfo() {
+    if (this.ufoSprite) {
+      const s = this.ufoSprite;
+      this.ufoSprite = null;
+      this.tweens.add({ targets: s, scale: 0, alpha: 0, y: s.y - 30, duration: 260,
+        onComplete: () => s.destroy() });
+    }
+  }
+
+  // Called from caught() while the UFO is up: score instead of dying.
+  ufoHit(now) {
+    if (now - this.lastUfoHit < GAME.UFO_HIT_GRACE) { this.knockbackEnemy(80); return; }
+    this.lastUfoHit = now;
+    this.score += GAME.UFO_HIT_POINTS;
+    this.knockbackEnemy(120);
+    SFX.boost();
+    this.cameras.main.shake(90, 0.005);
+    if (this.ufoSprite) {
+      this.tweens.add({ targets: this.ufoSprite, angle: { from: -12, to: 12 }, duration: 90, yoyo: true, repeat: 1 });
+    }
+    for (let i = 0; i < 8; i++) {
+      const p = this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-12, 12), this.enemy.y + Phaser.Math.Between(-12, 8));
+      if (p && p.setTint) p.setTint(0x6bffb0);
+    }
+    const txt = this.add.text(this.enemy.x, this.enemy.y - 54, '🛸 +' + GAME.UFO_HIT_POINTS, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#6bffb0',
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
+  }
+
+  // Fire a laser that ricochets off the map edges and trees until it hits the
+  // Spook. Only one laser is kept in the air at a time.
+  fireLaser() {
+    // clear any previous laser still bouncing around
+    this.lasers.children.iterate((l) => { if (l && l.active) l.destroy(); });
+
+    const ang = this.aimAngle();
+    const l = this.lasers.create(this.player.x, this.player.y, 'laser');
+    l.setDepth(12).setRotation(ang);
+    l.body.allowGravity = false;
+    l.setCircle(6, 11, 1);
+    l.setBounce(1, 1);
+    l.setCollideWorldBounds(true);
+    l.body.onWorldBounds = false;
+    l.setVelocity(Math.cos(ang) * GAME.LASER_SPEED, Math.sin(ang) * GAME.LASER_SPEED);
+    l.bornAt = this.time.now;
+    SFX.slash();
+    // safety cap so a laser that somehow never lands can't live forever
+    this.time.delayedCall(GAME.LASER_MAX_LIFE, () => { if (l.active) l.destroy(); });
+  }
+
+  hitLaser(laser, enemy) {
+    if (!laser || !laser.active) return;
+    const now = this.time.now;
+    laser.destroy();
+    if (now < this.stunUntil) return; // already stunned
+    this.stunUntil = now + GAME.LASER_STUN_DURATION;
+    this.score += GAME.LASER_HIT_POINTS;
+    this.enemy.setVelocity(0, 0);
+    SFX.caught();
+    this.cameras.main.shake(160, 0.01);
+    for (let i = 0; i < 12; i++) {
+      const p = this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-16, 16), this.enemy.y + Phaser.Math.Between(-16, 8));
+      if (p && p.setTint) p.setTint(0x2fff9a);
+    }
+    const txt = this.add.text(this.enemy.x, this.enemy.y - 54, '🟢 STUNNED! +' + GAME.LASER_HIT_POINTS, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#2fff9a',
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
   }
 
   // Mud pool trap: slows the Spook and scores when it walks through.
@@ -983,6 +1079,20 @@ class GameScene extends Phaser.Scene {
     if (this.faceFx) {
       this.faceFx.setPosition(this.player.x, this.player.y - this.player.displayHeight * 0.125);
     }
+    // Alien UFO hovers over the ghost while active; a soft green glow trails it
+    if (this.ufoSprite) {
+      this.ufoSprite.setPosition(this.player.x, this.player.y - 20 + Math.sin(time * 0.006) * 2);
+      if (v.lengthSq() > 0 && Math.random() < 0.5) {
+        const p = this.trail.emitParticleAt(this.player.x, this.player.y + 6);
+        if (p && p.setTint) p.setTint(0x6bffb0);
+      }
+    }
+    // keep the bouncing laser pointing where it's actually travelling
+    if (this.lasers) {
+      this.lasers.children.iterate((l) => {
+        if (l && l.active && l.body) l.setRotation(Math.atan2(l.body.velocity.y, l.body.velocity.x));
+      });
+    }
   }
 
   boostTint() {
@@ -1131,6 +1241,9 @@ class GameScene extends Phaser.Scene {
     if (this.gameOver) return;
     const now = this.time.now;
     if (now < this.invulnUntil) return; // grace after a block / life loss
+
+    // Alien UFO: untouchable, and each hit scores instead of killing
+    if (now < this.ufoUntil) { this.ufoHit(now); return; }
 
     // Green shield blocks the hit
     if (now < this.shieldUntil) { this.blockWithShield(now); return; }

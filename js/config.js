@@ -121,6 +121,21 @@ const GAME = {
   TASER_POINTS: 50,            // points for landing a taser
   SHOTGUN_HIT_POINTS: 60,      // points for landing a shotgun blast
 
+  // Alien ghost, ability 1: hop in a UFO and become untouchable. Every time
+  // the Spook "hits" you while flying you score points instead of dying.
+  UFO_DURATION: 5000,          // ms the UFO stays up (untouchable)
+  UFO_COOLDOWN: 7500,          // ms cooldown AFTER the effect ends
+  UFO_HIT_POINTS: 50,          // points each time the Spook hits the UFO
+  UFO_HIT_GRACE: 500,          // ms between scored hits (avoids one hit = many)
+
+  // Alien ghost, ability 2: a laser that bounces off walls & trees forever
+  // until it finally hits the Spook, which stuns it.
+  LASER_COOLDOWN: 5000,        // ms between laser shots
+  LASER_SPEED: 520,            // px/s (bounces around the whole map)
+  LASER_STUN_DURATION: 3000,   // ms the Spook is stunned on a hit
+  LASER_HIT_POINTS: 70,        // points for landing a laser
+  LASER_MAX_LIFE: 20000,       // ms safety cap so a stray laser can't live forever
+
   COLORS: {
     bg: 0x1c130b,
     ground: 0x3d2b1a,      // brown earth
@@ -143,6 +158,7 @@ const GAME = {
     ghostMagma: 0x9a1a1a,
     ghostForest: 0x4a9e4a,
     ghostVolt: 0x4aa8ff,
+    ghostAlien: 0x6bffb0,
   },
 };
 
@@ -351,8 +367,15 @@ const Settings = {
       // cooldowns: GAME.SPRINT_* / GAME.TASER_COOLDOWN
       desc: 'Shift swaps: a 3x speed sprint (3s), or a short taser that stuns the Spook 2s. Fast.',
     },
+    alien: {
+      label: 'Alien Ghost', tex: 'ghostAlien', ability: 'dual', unlock: 12000,
+      abilityName: 'UFO / Laser', icon: '👽', speedMul: 1.15, lives: 1,
+      modes: ['ufo', 'laser'],
+      // cooldowns: GAME.UFO_* / GAME.LASER_COOLDOWN
+      desc: 'Shift swaps: a UFO that makes you untouchable 5s (+50 per hit), or a laser that bounces around the map until it stuns the Spook. Fast.',
+    },
   },
-  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt'],
+  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien'],
 
   // A character is unlocked once your best score reaches its threshold.
   isUnlocked(key) {
@@ -409,7 +432,7 @@ const Settings = {
 
   // body colour for each character (used to tint the owner skin's face)
   charColor(key) {
-    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff }[key] || 0xbfe6ff;
+    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff, alien: 0x6bffb0 }[key] || 0xbfe6ff;
   },
 
   getSkin() {
