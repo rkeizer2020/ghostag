@@ -10,6 +10,8 @@ const DUAL_INFO = {
   laser:  { icon: '🟢', label: 'Laser',  color: 0x2fff9a },
   decoy:  { icon: '🌀', label: 'Decoy',  color: 0xbfc2d0 },
   slice:  { icon: '⚔️', label: 'Dash',   color: 0xff6b7a },
+  rewind: { icon: '⏪', label: 'Rewind', color: 0x2fd6c0 },
+  slowmo: { icon: '⏱️', label: 'Slow-Mo', color: 0xffd54a },
 };
 
 class GameScene extends Phaser.Scene {
@@ -46,6 +48,9 @@ class GameScene extends Phaser.Scene {
     this.lureUntil = 0;       // Ninja decoy: Spook chases lurePoint instead of you
     this.lurePoint = null;
     this.orbBonusUntil = 0;   // Lucky gamble: double orb points for a while
+    this.slowMoUntil = 0;     // Chrono slow-mo: whole map runs slow
+    this.posHistory = [];     // Chrono rewind: recent {t,x,y} samples
+    this.blackHole = null;    // Void black hole currently on the map
     this.invulnUntil = 0;
     this.shieldUntil = 0;
     this.phaseUntil = 0;
@@ -323,6 +328,10 @@ class GameScene extends Phaser.Scene {
         this.gamble(now);
         this.abilityReadyAt = now + this.abilityCooldown;
         break;
+      case 'blackhole':
+        this.castBlackHole(now);
+        this.abilityReadyAt = now + this.abilityCooldown;
+        break;
       case 'log':
       default:
         this.dropLog();
@@ -459,6 +468,9 @@ class GameScene extends Phaser.Scene {
       // Ninja: decoy lure / mid-range dash slice
       case 'decoy': this.spawnDecoy(now); return GAME.DECOY_COOLDOWN;
       case 'slice': this.ninjaDash(now);  return GAME.NINJA_DASH_COOLDOWN;
+      // Chrono: rewind in time / slow the whole map
+      case 'rewind': this.rewind(now);    return GAME.REWIND_COOLDOWN;
+      case 'slowmo': this.startSlowMo(now); return GAME.SLOWMO_COOLDOWN;
       default:      return 2000;
     }
   }
@@ -775,6 +787,102 @@ class GameScene extends Phaser.Scene {
         if (!(this.charKey === 'purple' && this.phasing)) this.playerTreeCollider.active = true;
       },
     });
+  }
+
+  // ---- Chrono ghost: rewind in time / slow the whole map ----
+  rewind(now) {
+    // find the recorded position closest to REWIND_MS ago
+    const want = now - GAME.REWIND_MS;
+    let best = null, bestDiff = Infinity;
+    for (const p of this.posHistory) {
+      const diff = Math.abs(p.t - want);
+      if (diff < bestDiff) { bestDiff = diff; best = p; }
+    }
+    if (!best) best = this.posHistory[0];
+    const fromX = this.player.x, fromY = this.player.y;
+    const tx = best ? best.x : fromX, ty = best ? best.y : fromY;
+
+    // ghostly echo left behind at the old spot
+    const echo = this.add.image(fromX, fromY, this.playerTex).setDepth(9).setAlpha(0.6).setTint(0x2fd6c0);
+    this.tweens.add({ targets: echo, alpha: 0, scale: 0.7, duration: 400, onComplete: () => echo.destroy() });
+
+    this.player.setPosition(tx, ty);
+    this.invulnUntil = now + GAME.REWIND_INVULN;
+    for (let i = 0; i < 10; i++) {
+      const p = this.trail.emitParticleAt(tx + Phaser.Math.Between(-14, 14), ty + Phaser.Math.Between(-14, 14));
+      if (p && p.setTint) p.setTint(0x2fd6c0);
+    }
+    SFX.boost();
+    this.floatText('⏪ REWIND!', 0x2fd6c0);
+  }
+
+  startSlowMo(now) {
+    this.slowMoUntil = now + GAME.SLOWMO_MS;
+    // a cool tint wash over the world to sell the slow-mo
+    if (this.slowMoFx) this.slowMoFx.destroy();
+    this.slowMoFx = this.add.rectangle(GAME.WORLD_WIDTH / 2, GAME.WORLD_HEIGHT / 2, GAME.WORLD_WIDTH, GAME.WORLD_HEIGHT, 0x2fd6c0, 0.14)
+      .setDepth(7).setBlendMode(Phaser.BlendModes.SCREEN);
+    this.time.delayedCall(GAME.SLOWMO_MS, () => { if (this.slowMoFx) { this.slowMoFx.destroy(); this.slowMoFx = null; } });
+    SFX.boost();
+    this.floatText('⏱️ SLOW-MO!', 0xffd54a);
+  }
+
+  // ---- Void ghost: throw a black hole that pulls the Spook and vacuums orbs ----
+  castBlackHole(now) {
+    const vx = Phaser.Math.Clamp(this.player.x + this.faceDir.x * GAME.VOID_THROW_DIST, 40, GAME.WORLD_WIDTH - 40);
+    const vy = Phaser.Math.Clamp(this.player.y + this.faceDir.y * GAME.VOID_THROW_DIST, 40, GAME.WORLD_HEIGHT - 40);
+    if (this.blackHole && this.blackHole.sprite) this.blackHole.sprite.destroy();
+    const sprite = this.add.image(vx, vy, 'voidHole').setDepth(10).setScale(0.3);
+    this.tweens.add({ targets: sprite, scale: 1, duration: 220, ease: 'Back.out' });
+    this.blackHole = { x: vx, y: vy, until: now + GAME.VOID_MS, sprite };
+    SFX.slash();
+    this.floatText('🕳️ BLACK HOLE!', 0xc79cff);
+    this.time.delayedCall(GAME.VOID_MS, () => this.clearBlackHole());
+  }
+
+  clearBlackHole() {
+    if (this.blackHole && this.blackHole.sprite) {
+      const s = this.blackHole.sprite;
+      this.tweens.add({ targets: s, scale: 0, alpha: 0, angle: 180, duration: 260, onComplete: () => s.destroy() });
+    }
+    this.blackHole = null;
+  }
+
+  // Per-frame: spin the hole, vacuum nearby orbs into it and award them to you.
+  updateBlackHole(time) {
+    const bh = this.blackHole;
+    if (!bh || !bh.sprite) return;
+    bh.sprite.rotation += 0.15;
+    const r = GAME.VOID_PULL_RADIUS;
+    this.orbs.children.iterate((orb) => {
+      if (!orb || !orb.active) return;
+      const d = Phaser.Math.Distance.Between(orb.x, orb.y, bh.x, bh.y);
+      if (d > r) return;
+      if (d < 16) { this.vacuumOrb(orb); return; }
+      const a = Phaser.Math.Angle.Between(orb.x, orb.y, bh.x, bh.y);
+      const step = GAME.VOID_ORB_SPEED * (1 / 60);
+      orb.x += Math.cos(a) * step;
+      orb.y += Math.sin(a) * step;
+    });
+  }
+
+  // An orb reached the void: award it to the player (like collecting it).
+  vacuumOrb(orb) {
+    const wasPath = orb.isPath;
+    orb.destroy();
+    const orbMult = (this.charKey === 'brown' || this.time.now < this.orbBonusUntil) ? GAME.BROWN_ORB_MULTIPLIER : 1;
+    this.score += GAME.ORB_POINTS * orbMult;
+    this.runCoins += GAME.ORB_COINS;
+    Storage.addCoins(GAME.ORB_COINS);
+    if (this.coinsText) this.coinsText.setText('🪙 ' + this.runCoins);
+    SFX.pickup();
+    if (this.blackHole) {
+      for (let i = 0; i < 3; i++) {
+        const p = this.trail.emitParticleAt(this.blackHole.x + Phaser.Math.Between(-8, 8), this.blackHole.y + Phaser.Math.Between(-8, 8));
+        if (p && p.setTint) p.setTint(0xc79cff);
+      }
+    }
+    if (!wasPath) this.spawnOrb(); // keep the field stocked
   }
 
   // Mud pool trap: slows the Spook and scores when it walks through.
@@ -1170,10 +1278,23 @@ class GameScene extends Phaser.Scene {
       this.enemyStart + this.enemyAccel * this.elapsed
     );
 
+    this.recordHistory(time);
     this.handlePlayer(time);
     this.handleEnemy(time, dt);
+    this.updateBlackHole(time);
     this.handleSwordAndDanger(time);
     this.updateLogHud();
+  }
+
+  // Chrono rewind: keep a short trail of recent positions to jump back to.
+  recordHistory(time) {
+    const h = this.posHistory;
+    if (!h.length || time - h[h.length - 1].t >= 100) {
+      h.push({ t: time, x: this.player.x, y: this.player.y });
+      // keep a little more than REWIND_MS worth of samples
+      const cutoff = time - (GAME.REWIND_MS + 600);
+      while (h.length > 2 && h[0].t < cutoff) h.shift();
+    }
   }
 
   handlePlayer(time) {
@@ -1264,7 +1385,7 @@ class GameScene extends Phaser.Scene {
   }
 
   boostTint() {
-    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce, volt: 0xd0ecff, alien: 0xbfffe0, lucky: 0xdfffa0, ninja: 0xcfd2e0 }[this.charKey] || 0x9fe0ff;
+    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce, volt: 0xd0ecff, alien: 0xbfffe0, lucky: 0xdfffa0, ninja: 0xcfd2e0, chrono: 0xaff0e8, void: 0xd8bfff }[this.charKey] || 0x9fe0ff;
   }
 
   // Keeps the shield bubble on the player and toggles tree-phasing on/off.
@@ -1304,14 +1425,22 @@ class GameScene extends Phaser.Scene {
     this.enemy.setAngle(0);
 
     const slowed = time < this.slowUntil;
-    const speed = slowed ? this.enemySpeed * GAME.LOG_SLOW_FACTOR : this.enemySpeed;
+    const slowMo = time < this.slowMoUntil;
+    let factor = slowed ? GAME.LOG_SLOW_FACTOR : 1;
+    if (slowMo) factor = Math.min(factor, GAME.SLOWMO_FACTOR); // Chrono slow-mo
+    // Void black hole drags the Spook a little slower while it's being pulled
+    const pulling = this.blackHole && this.blackHole.sprite;
+    if (pulling) factor = Math.min(factor, GAME.VOID_ENEMY_FACTOR);
+    const speed = this.enemySpeed * factor;
 
     // Ninja decoy: chase the decoy's spot instead of the real player for a bit
     const luring = time < this.lureUntil && this.lurePoint;
-    const tgtX = luring ? this.lurePoint.x : this.player.x;
-    const tgtY = luring ? this.lurePoint.y : this.player.y;
+    let tgtX = luring ? this.lurePoint.x : this.player.x;
+    let tgtY = luring ? this.lurePoint.y : this.player.y;
+    // a black hole overrides the target: the Spook is dragged toward the void
+    if (pulling) { tgtX = this.blackHole.x; tgtY = this.blackHole.y; }
 
-    // direction straight at the current target (player, or the decoy)
+    // direction straight at the current target (player, decoy, or void)
     const chase = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, tgtX, tgtY);
 
     // Frightened by a heart arrow: run the OTHER way for a bit. Otherwise,
@@ -1329,8 +1458,10 @@ class GameScene extends Phaser.Scene {
     this.enemy.setFlipX(tgtX < this.enemy.x);
 
     // tint by current state
-    if (luring) this.enemy.setTint(0xbfc2d0);
+    if (pulling) this.enemy.setTint(0xc79cff);
+    else if (luring) this.enemy.setTint(0xbfc2d0);
     else if (fleeing) this.enemy.setTint(0xff8fd0);
+    else if (slowMo) this.enemy.setTint(0x9ff0e6);
     else if (slowed) this.enemy.setTint(0x6fd0ff);
     else this.enemy.clearTint();
 

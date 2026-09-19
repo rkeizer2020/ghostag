@@ -158,6 +158,24 @@ const GAME = {
   NINJA_DASH_STUN: 2000,       // ms the Spook is stunned if the dash hits it
   NINJA_DASH_POINTS: 40,       // points for slicing the Spook
 
+  // Chrono ghost, ability 1: rewind to where you were ~2 seconds ago.
+  REWIND_COOLDOWN: 6000,       // ms between rewinds
+  REWIND_MS: 2000,             // how far back in time you jump
+  REWIND_INVULN: 500,          // ms of safety right after arriving
+
+  // Chrono ghost, ability 2: slow the whole map while you keep full speed.
+  SLOWMO_COOLDOWN: 8000,       // ms between slow-mos
+  SLOWMO_MS: 2500,             // how long the slow lasts
+  SLOWMO_FACTOR: 0.25,         // enemy (and world) speed multiplier while slowed
+
+  // Void ghost: throw a black hole that pulls the Spook and vacuums orbs.
+  VOID_COOLDOWN: 8000,         // ms between black holes
+  VOID_MS: 3000,               // how long the black hole lasts
+  VOID_THROW_DIST: 180,        // px ahead of you where it appears
+  VOID_PULL_RADIUS: 230,       // orbs/Spook within this are pulled in
+  VOID_ENEMY_FACTOR: 0.7,      // Spook speed while being dragged toward the void
+  VOID_ORB_SPEED: 320,         // px/s orbs slide toward the centre
+
   COLORS: {
     bg: 0x1c130b,
     ground: 0x3d2b1a,      // brown earth
@@ -183,6 +201,8 @@ const GAME = {
     ghostAlien: 0x6bffb0,
     ghostLucky: 0x7be26a,
     ghostNinja: 0x33343f,
+    ghostChrono: 0x2fd6c0,
+    ghostVoid: 0x2a1a3a,
   },
 };
 
@@ -447,8 +467,20 @@ const Settings = {
       // cooldowns: GAME.DECOY_COOLDOWN / GAME.NINJA_DASH_COOLDOWN
       desc: 'Shift swaps: drop a decoy the Spook chases, or a mid-range dash slice that stuns it.',
     },
+    chrono: {
+      label: 'Chrono Ghost', tex: 'ghostChrono', ability: 'dual', unlock: 5500,
+      abilityName: 'Rewind / Slow-Mo', icon: '⏱️', speedMul: 1.0, lives: 1,
+      modes: ['rewind', 'slowmo'],
+      // cooldowns: GAME.REWIND_COOLDOWN / GAME.SLOWMO_COOLDOWN
+      desc: 'Shift swaps: rewind to where you were 2s ago, or slow the whole map 2.5s while you stay fast.',
+    },
+    void: {
+      label: 'Void Ghost', tex: 'ghostVoid', ability: 'blackhole', unlock: 6000,
+      abilityName: 'Black Hole', icon: '🕳️', speedMul: 0.85, lives: 1, cooldown: 8000,
+      desc: 'Throw a black hole that drags the Spook in and vacuums nearby orbs to you. A bit slow.',
+    },
   },
-  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja'],
+  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja', 'chrono', 'void'],
 
   // A character is unlocked once your best score reaches its threshold.
   isUnlocked(key) {
@@ -505,7 +537,7 @@ const Settings = {
 
   // body colour for each character (used to tint the owner skin's face)
   charColor(key) {
-    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xbfc2d0 }[key] || 0xbfe6ff;
+    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xbfc2d0, chrono: 0x7fe8e0, void: 0xb98fe0 }[key] || 0xbfe6ff;
   },
 
   getSkin() {

@@ -17,6 +17,8 @@ const Textures = {
     this.ghostAlien(scene);
     this.ghostLucky(scene);
     this.ghostNinja(scene);
+    this.ghostChrono(scene);
+    this.ghostVoid(scene);
     // skin bodies
     this._ghost(scene, 'skinEmber', { glow: 0xff5a1a, glow2: 0xffb060, body: 0xff7a3a, eye: 0x4a1000 });
     this._ghost(scene, 'skinFrost', { glow: 0x6fd0ff, glow2: 0xd0f0ff, body: 0xe8f6ff, eye: 0x2a4a5a });
@@ -48,6 +50,7 @@ const Textures = {
     this.zap(scene);
     this.ufo(scene);
     this.laser(scene);
+    this.voidHole(scene);
     this.mud(scene);
     this.shield(scene);
     this.orb(scene);
@@ -268,6 +271,78 @@ const Textures = {
     g.fillStyle(0x9fd2ff, 0.9); g.fillRect(cx - 7, 21.4, 2, 1.6); g.fillRect(cx + 4, 21.4, 2, 1.6);
     g.generateTexture('ghostNinja', w, h);
     g.destroy();
+  },
+
+  // Teal-and-gold "chrono" ghost: a little clock face on the belly.
+  ghostChrono(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    g.fillStyle(0x1fb8a8, 0.16); g.fillCircle(cx, h / 2, 27);
+    g.fillStyle(0x8ff0e6, 0.28); g.fillCircle(cx, 24, 18);
+    this._ghostShape(g, w, h, 0x2fd6c0);
+    g.fillStyle(0x000000, 0.10); g.fillEllipse(cx, 41, 30, 15);
+    g.fillStyle(0xffffff, 0.85); g.fillCircle(cx - 6, 14, 5);
+    // gold clock on the belly
+    const clY = 34;
+    g.fillStyle(0xffd54a, 1); g.fillCircle(cx, clY, 6);
+    g.fillStyle(0xfff3c8, 1); g.fillCircle(cx, clY, 4.5);
+    g.lineStyle(1.4, 0x7a5a10, 1);
+    g.beginPath(); g.moveTo(cx, clY); g.lineTo(cx, clY - 3.2); g.strokePath();       // minute hand
+    g.beginPath(); g.moveTo(cx, clY); g.lineTo(cx + 2.6, clY + 1.4); g.strokePath(); // hour hand
+    g.fillStyle(0x7a5a10, 1); g.fillCircle(cx, clY, 0.9);
+    // eyes + shine
+    g.fillStyle(0x0f4a44, 1); g.fillCircle(cx - 6, 22, 3); g.fillCircle(cx + 6, 22, 3);
+    g.fillStyle(0xffffff, 0.95); g.fillCircle(cx - 7, 21, 1); g.fillCircle(cx + 5, 21, 1);
+    g.generateTexture('ghostChrono', w, h);
+    g.destroy();
+  },
+
+  // Dark-purple "void" ghost: a swirling dark core with a violet rim glow.
+  ghostVoid(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    g.fillStyle(0x6a2fbf, 0.20); g.fillCircle(cx, h / 2, 27);
+    g.fillStyle(0xb98fe0, 0.26); g.fillCircle(cx, 24, 18);
+    this._ghostShape(g, w, h, 0x2a1a3a);
+    g.fillStyle(0x000000, 0.16); g.fillEllipse(cx, 41, 30, 15);
+    // swirling void core on the belly
+    g.fillStyle(0x120a1e, 1); g.fillCircle(cx, 32, 8);
+    g.lineStyle(1.6, 0x8f5fd0, 0.9); g.strokeCircle(cx, 32, 8);
+    g.lineStyle(1.2, 0xc79cff, 0.8);
+    g.beginPath(); g.arc(cx, 32, 5, 0.3, 3.6, false); g.strokePath();
+    g.beginPath(); g.arc(cx, 32, 2.6, 2.0, 5.2, false); g.strokePath();
+    // glowing violet eyes
+    g.fillStyle(0xc79cff, 1); g.fillCircle(cx - 6, 21, 3); g.fillCircle(cx + 6, 21, 3);
+    g.fillStyle(0xffffff, 0.9); g.fillCircle(cx - 6, 20, 1); g.fillCircle(cx + 6, 20, 1);
+    g.generateTexture('ghostVoid', w, h);
+    g.destroy();
+  },
+
+  // A thrown black hole: dark swirling disc with a bright violet accretion rim.
+  voidHole(scene) {
+    const s = 96, c = s / 2;
+    const canvas = scene.textures.createCanvas('voidHole', s, s);
+    const ctx = canvas.getContext();
+    // outer pull glow
+    let rg = ctx.createRadialGradient(c, c, 6, c, c, c);
+    rg.addColorStop(0, 'rgba(120,60,200,0.0)');
+    rg.addColorStop(0.7, 'rgba(120,60,200,0.28)');
+    rg.addColorStop(1, 'rgba(120,60,200,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, s, s);
+    // accretion ring
+    ctx.strokeStyle = 'rgba(199,156,255,0.9)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(c, c, 22, 0, 7); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(c, c, 26, 0, 7); ctx.stroke();
+    // dark core
+    rg = ctx.createRadialGradient(c, c, 1, c, c, 20);
+    rg.addColorStop(0, '#000000'); rg.addColorStop(0.7, '#0a0614'); rg.addColorStop(1, '#1a0e2e');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(c, c, 20, 0, 7); ctx.fill();
+    // a couple of swirl arcs
+    ctx.strokeStyle = 'rgba(143,95,208,0.8)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(c, c, 13, 0.4, 3.6); ctx.stroke();
+    ctx.beginPath(); ctx.arc(c, c, 8, 2.2, 5.4); ctx.stroke();
+    canvas.refresh();
   },
 
   // Alien ghost's UFO: a little flying saucer with a glass dome. Drawn to sit
