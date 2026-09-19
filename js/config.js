@@ -179,7 +179,7 @@ const GAME = {
 
   // Void ghost, ability 2: a bolt that damages + briefly stuns the Spook.
   // Only this character gives the Spook a healthbar (a boss to kill).
-  VOID_SHOT_COOLDOWN: 900,     // ms between bolts
+  VOID_SHOT_COOLDOWN: 5000,    // ms between bolts
   VOID_SHOT_SPEED: 820,        // px/s
   VOID_SHOT_LIFESPAN: 820,     // ms in flight (~670px range)
   VOID_SHOT_DAMAGE: 1,         // damage per bolt
