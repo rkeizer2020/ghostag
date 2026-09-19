@@ -168,13 +168,24 @@ const GAME = {
   SLOWMO_MS: 2500,             // how long the slow lasts
   SLOWMO_FACTOR: 0.25,         // enemy (and world) speed multiplier while slowed
 
-  // Void ghost: throw a black hole that pulls the Spook and vacuums orbs.
+  // Void ghost, ability 1: throw a black hole that pulls the Spook and orbs.
   VOID_COOLDOWN: 8000,         // ms between black holes
   VOID_MS: 3000,               // how long the black hole lasts
   VOID_THROW_DIST: 180,        // px ahead of you where it appears
-  VOID_PULL_RADIUS: 230,       // orbs/Spook within this are pulled in
+  VOID_PULL_RADIUS: 900,       // half the map: orbs/Spook within this are pulled
   VOID_ENEMY_FACTOR: 0.7,      // Spook speed while being dragged toward the void
   VOID_ORB_SPEED: 320,         // px/s orbs slide toward the centre
+  VOID_BLACKHOLE_DAMAGE: 1,    // damage dealt when the Spook reaches the void
+
+  // Void ghost, ability 2: a bolt that damages + briefly stuns the Spook.
+  // Only this character gives the Spook a healthbar (a boss to kill).
+  VOID_SHOT_COOLDOWN: 900,     // ms between bolts
+  VOID_SHOT_SPEED: 820,        // px/s
+  VOID_SHOT_LIFESPAN: 820,     // ms in flight (~670px range)
+  VOID_SHOT_DAMAGE: 1,         // damage per bolt
+  VOID_SHOT_STUN: 1000,        // ms the Spook is stunned on a hit
+  SPOOK_MAX_HP: 100,           // Void boss: Spook health
+  VOID_KILL_POINTS: 25000,     // points for defeating the Spook boss
 
   COLORS: {
     bg: 0x1c130b,
@@ -475,9 +486,11 @@ const Settings = {
       desc: 'Shift swaps: rewind to where you were 2s ago, or slow the whole map 2.5s while you stay fast.',
     },
     void: {
-      label: 'Void Ghost', tex: 'ghostVoid', ability: 'blackhole', unlock: 6000,
-      abilityName: 'Black Hole', icon: '🕳️', speedMul: 0.85, lives: 1, cooldown: 8000,
-      desc: 'Throw a black hole that drags the Spook in and vacuums nearby orbs to you. A bit slow.',
+      label: 'Void Ghost', tex: 'ghostVoid', ability: 'dual', unlock: 6000,
+      abilityName: 'Black Hole / Bolt', icon: '🕳️', speedMul: 0.85, lives: 1,
+      modes: ['blackhole', 'vshot'],
+      // cooldowns: GAME.VOID_COOLDOWN / GAME.VOID_SHOT_COOLDOWN
+      desc: 'Shift swaps: a half-map black hole (pulls Spook + orbs), or a bolt that damages the Spook. The Spook has 100 HP — kill it for 25000!',
     },
   },
   CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja', 'chrono', 'void'],

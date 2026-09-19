@@ -12,6 +12,8 @@ const DUAL_INFO = {
   slice:  { icon: '⚔️', label: 'Dash',   color: 0xff6b7a },
   rewind: { icon: '⏪', label: 'Rewind', color: 0x2fd6c0 },
   slowmo: { icon: '⏱️', label: 'Slow-Mo', color: 0xffd54a },
+  blackhole: { icon: '🕳️', label: 'Black Hole', color: 0xc79cff },
+  vshot:  { icon: '🔮', label: 'Bolt',   color: 0xc79cff },
 };
 
 class GameScene extends Phaser.Scene {
@@ -51,6 +53,7 @@ class GameScene extends Phaser.Scene {
     this.slowMoUntil = 0;     // Chrono slow-mo: whole map runs slow
     this.posHistory = [];     // Chrono rewind: recent {t,x,y} samples
     this.blackHole = null;    // Void black hole currently on the map
+    this.spookHp = GAME.SPOOK_MAX_HP; // Void boss: Spook health (only that char)
     this.invulnUntil = 0;
     this.shieldUntil = 0;
     this.phaseUntil = 0;
@@ -176,6 +179,9 @@ class GameScene extends Phaser.Scene {
 
     this.buildHUD();
     this.announceBiome();
+
+    // Void ghost turns the Spook into a boss with a health bar
+    this.spookHpBar = (this.charKey === 'void') ? this.add.graphics().setDepth(20) : null;
 
     this.input.keyboard.on('keydown-M', () => this.toggleMute());
     this.input.keyboard.on('keydown-P', () => this.togglePause());
@@ -328,10 +334,6 @@ class GameScene extends Phaser.Scene {
         this.gamble(now);
         this.abilityReadyAt = now + this.abilityCooldown;
         break;
-      case 'blackhole':
-        this.castBlackHole(now);
-        this.abilityReadyAt = now + this.abilityCooldown;
-        break;
       case 'log':
       default:
         this.dropLog();
@@ -414,6 +416,7 @@ class GameScene extends Phaser.Scene {
     proj.destroy();
     if (kind === 'arrow') this.arrowHit();
     else if (kind === 'shotgun') this.shotgunHit();
+    else if (kind === 'vshot') this.voidShotHit();
   }
 
   // Pink: the Spook turns tail and flees for a couple of seconds.
@@ -471,6 +474,9 @@ class GameScene extends Phaser.Scene {
       // Chrono: rewind in time / slow the whole map
       case 'rewind': this.rewind(now);    return GAME.REWIND_COOLDOWN;
       case 'slowmo': this.startSlowMo(now); return GAME.SLOWMO_COOLDOWN;
+      // Void: black hole / damaging bolt
+      case 'blackhole': this.castBlackHole(now); return GAME.VOID_COOLDOWN;
+      case 'vshot': this.fireVoidShot();  return GAME.VOID_SHOT_COOLDOWN;
       default:      return 2000;
     }
   }
@@ -853,6 +859,11 @@ class GameScene extends Phaser.Scene {
     const bh = this.blackHole;
     if (!bh || !bh.sprite) return;
     bh.sprite.rotation += 0.15;
+    // the Spook reaching the void takes 1 damage (once per black hole)
+    if (!bh.damaged && Phaser.Math.Distance.Between(this.enemy.x, this.enemy.y, bh.x, bh.y) < 40) {
+      bh.damaged = true;
+      this.damageSpook(GAME.VOID_BLACKHOLE_DAMAGE, this.time.now);
+    }
     const r = GAME.VOID_PULL_RADIUS;
     this.orbs.children.iterate((orb) => {
       if (!orb || !orb.active) return;
@@ -883,6 +894,71 @@ class GameScene extends Phaser.Scene {
       }
     }
     if (!wasPath) this.spawnOrb(); // keep the field stocked
+  }
+
+  // Void bolt: fired the way you face; damages + briefly stuns the Spook.
+  fireVoidShot() {
+    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
+    this.spawnProjectile('vshot', ang, GAME.VOID_SHOT_SPEED, GAME.VOID_SHOT_LIFESPAN, 'pellet', 0xc79cff);
+    SFX.click();
+  }
+
+  voidShotHit() {
+    const now = this.time.now;
+    this.stunUntil = Math.max(this.stunUntil, now + GAME.VOID_SHOT_STUN);
+    this.enemy.setVelocity(0, 0);
+    for (let i = 0; i < 6; i++) {
+      const p = this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-12, 12), this.enemy.y + Phaser.Math.Between(-12, 8));
+      if (p && p.setTint) p.setTint(0xc79cff);
+    }
+    this.damageSpook(GAME.VOID_SHOT_DAMAGE, now);
+  }
+
+  // Void boss: chip the Spook's health; on 0 it's defeated for a big reward.
+  damageSpook(amount, now) {
+    if (this.charKey !== 'void') return;
+    this.spookHp -= amount;
+    this.updateSpookHpBar();
+    const t = this.add.text(this.enemy.x, this.enemy.y - 62, '-' + amount, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '15px', fontStyle: 'bold', color: '#ff8fd0',
+    }).setOrigin(0.5).setDepth(21).setShadow(0, 2, '#000', 3);
+    this.tweens.add({ targets: t, y: t.y - 20, alpha: 0, duration: 700, onComplete: () => t.destroy() });
+    if (this.spookHp <= 0) this.killSpook(now);
+  }
+
+  killSpook(now) {
+    this.score += GAME.VOID_KILL_POINTS;
+    SFX.caught();
+    this.cameras.main.shake(320, 0.02);
+    this.cameras.main.flash(300, 200, 120, 255);
+    for (let i = 0; i < 24; i++) {
+      const p = this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-26, 26), this.enemy.y + Phaser.Math.Between(-26, 26));
+      if (p && p.setTint) p.setTint(Phaser.Math.RND.pick([0xc79cff, 0x8f5fd0, 0xffffff]));
+    }
+    const big = this.add.text(this.scale.width / 2, this.scale.height * 0.4, '🕳️ SPOOK DOWN!\n+' + GAME.VOID_KILL_POINTS, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '34px', fontStyle: 'bold', color: '#c79cff', align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(60).setShadow(0, 3, '#000', 8);
+    this.tweens.add({ targets: big, scale: { from: 1.3, to: 1 }, alpha: { from: 1, to: 0 }, duration: 1600, onComplete: () => big.destroy() });
+
+    // respawn: same speed it died at, full health, dropped far from the player
+    this.spookHp = GAME.SPOOK_MAX_HP;
+    this.stunUntil = 0; this.fleeUntil = 0; this.slowUntil = 0; this.slowMoUntil = 0;
+    const nx = this.player.x < GAME.WORLD_WIDTH / 2 ? GAME.WORLD_WIDTH - 90 : 90;
+    const ny = this.player.y < GAME.WORLD_HEIGHT / 2 ? GAME.WORLD_HEIGHT - 90 : 90;
+    this.enemy.setPosition(nx, ny);
+    this.enemy.clearTint();
+    this.updateSpookHpBar();
+  }
+
+  updateSpookHpBar() {
+    if (this.charKey !== 'void' || !this.spookHpBar) return;
+    const g = this.spookHpBar; g.clear();
+    const w = 50, h = 6;
+    const x = this.enemy.x - w / 2, y = this.enemy.y - 50;
+    const frac = Phaser.Math.Clamp(this.spookHp / GAME.SPOOK_MAX_HP, 0, 1);
+    g.fillStyle(0x000000, 0.55); g.fillRoundedRect(x - 1, y - 1, w + 2, h + 2, 3);
+    g.fillStyle(0x3a2030, 1); g.fillRect(x, y, w, h);
+    g.fillStyle(frac > 0.3 ? 0xff5b6e : 0xffd54a, 1); g.fillRect(x, y, w * frac, h);
   }
 
   // Mud pool trap: slows the Spook and scores when it walks through.
@@ -1282,6 +1358,7 @@ class GameScene extends Phaser.Scene {
     this.handlePlayer(time);
     this.handleEnemy(time, dt);
     this.updateBlackHole(time);
+    if (this.spookHpBar) this.updateSpookHpBar();
     this.handleSwordAndDanger(time);
     this.updateLogHud();
   }
