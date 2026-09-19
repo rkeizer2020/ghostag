@@ -15,6 +15,8 @@ const Textures = {
     this.ghostForest(scene);
     this.ghostVolt(scene);
     this.ghostAlien(scene);
+    this.ghostLucky(scene);
+    this.ghostNinja(scene);
     // skin bodies
     this._ghost(scene, 'skinEmber', { glow: 0xff5a1a, glow2: 0xffb060, body: 0xff7a3a, eye: 0x4a1000 });
     this._ghost(scene, 'skinFrost', { glow: 0x6fd0ff, glow2: 0xd0f0ff, body: 0xe8f6ff, eye: 0x2a4a5a });
@@ -211,6 +213,60 @@ const Textures = {
     g.fillStyle(0xffffff, 0.9);
     g.fillCircle(cx - 8, 20, 0.7); g.fillCircle(cx + 6, 20, 0.7);
     g.generateTexture('ghostAlien', w, h);
+    g.destroy();
+  },
+
+  // Green-and-gold "lucky" ghost: a gold four-leaf clover on the belly.
+  ghostLucky(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    // green glow
+    g.fillStyle(0x3fbf5a, 0.16); g.fillCircle(cx, h / 2, 27);
+    g.fillStyle(0x8fe6a0, 0.28); g.fillCircle(cx, 24, 18);
+    // green body
+    this._ghostShape(g, w, h, 0x7be26a);
+    g.fillStyle(0x000000, 0.10); g.fillEllipse(cx, 41, 30, 15);
+    // glossy highlight
+    g.fillStyle(0xffffff, 0.8); g.fillCircle(cx - 6, 14, 5);
+    // gold four-leaf clover on the belly
+    const clY = 33;
+    g.fillStyle(0xffd54a, 1);
+    g.fillCircle(cx - 4, clY - 3, 3.4);
+    g.fillCircle(cx + 4, clY - 3, 3.4);
+    g.fillCircle(cx - 4, clY + 3, 3.4);
+    g.fillCircle(cx + 4, clY + 3, 3.4);
+    g.fillStyle(0xe0a81e, 1); g.fillCircle(cx, clY, 2); // center
+    g.fillStyle(0x7a5a10, 1); g.fillRect(cx - 0.8, clY + 3, 1.6, 6); // stem
+    // eyes + shine
+    g.fillStyle(0x144a24, 1); g.fillCircle(cx - 6, 22, 3); g.fillCircle(cx + 6, 22, 3);
+    g.fillStyle(0xffffff, 0.95); g.fillCircle(cx - 7, 21, 1); g.fillCircle(cx + 5, 21, 1);
+    g.generateTexture('ghostLucky', w, h);
+    g.destroy();
+  },
+
+  // Dark "ninja" ghost: charcoal body with a red headband/mask across the eyes.
+  ghostNinja(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    // faint dark glow
+    g.fillStyle(0x20222c, 0.22); g.fillCircle(cx, h / 2, 26);
+    g.fillStyle(0x3a3d4a, 0.30); g.fillCircle(cx, 24, 18);
+    // charcoal body
+    this._ghostShape(g, w, h, 0x33343f);
+    g.fillStyle(0x000000, 0.14); g.fillEllipse(cx, 41, 30, 15);
+    // subtle top sheen
+    g.fillStyle(0xffffff, 0.16); g.fillCircle(cx - 6, 13, 4);
+    // red headband/mask band across the eyes
+    g.fillStyle(0xd42a3a, 1);
+    g.fillRect(cx - 16, 18, 32, 8);
+    g.fillStyle(0xa01824, 1); g.fillRect(cx - 16, 24, 32, 2); // band shadow
+    // trailing knot tails on the left
+    g.fillTriangle(cx - 16, 20, cx - 24, 22, cx - 16, 25);
+    g.fillTriangle(cx - 16, 22, cx - 22, 28, cx - 15, 26);
+    // glowing eyes peeking over the band
+    g.fillStyle(0xffffff, 1); g.fillRect(cx - 8, 21, 5, 2.4); g.fillRect(cx + 3, 21, 5, 2.4);
+    g.fillStyle(0x9fd2ff, 0.9); g.fillRect(cx - 7, 21.4, 2, 1.6); g.fillRect(cx + 4, 21.4, 2, 1.6);
+    g.generateTexture('ghostNinja', w, h);
     g.destroy();
   },
 

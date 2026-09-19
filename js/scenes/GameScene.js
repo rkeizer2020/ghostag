@@ -8,6 +8,8 @@ const DUAL_INFO = {
   taser:  { icon: '⚡', label: 'Taser',  color: 0xffe066 },
   ufo:    { icon: '🛸', label: 'UFO',    color: 0x6bffb0 },
   laser:  { icon: '🟢', label: 'Laser',  color: 0x2fff9a },
+  decoy:  { icon: '🌀', label: 'Decoy',  color: 0xbfc2d0 },
+  slice:  { icon: '⚔️', label: 'Dash',   color: 0xff6b7a },
 };
 
 class GameScene extends Phaser.Scene {
@@ -41,6 +43,8 @@ class GameScene extends Phaser.Scene {
     this.sprintUntil = 0;
     this.ufoUntil = 0;
     this.lastUfoHit = 0;
+    this.lureUntil = 0;       // Ninja decoy: Spook chases lurePoint instead of you
+    this.lurePoint = null;
     this.invulnUntil = 0;
     this.shieldUntil = 0;
     this.phaseUntil = 0;
@@ -314,6 +318,10 @@ class GameScene extends Phaser.Scene {
         this.fireShotgun();
         this.abilityReadyAt = now + this.abilityCooldown;
         break;
+      case 'gamble':
+        this.gamble(now);
+        this.abilityReadyAt = now + this.abilityCooldown;
+        break;
       case 'log':
       default:
         this.dropLog();
@@ -447,6 +455,9 @@ class GameScene extends Phaser.Scene {
       // Alien's UFO: cooldown starts only AFTER the 5s untouchable effect ends
       case 'ufo':   this.startUfo(now);   return GAME.UFO_DURATION + GAME.UFO_COOLDOWN;
       case 'laser': this.fireLaser();     return GAME.LASER_COOLDOWN;
+      // Ninja: decoy lure / mid-range dash slice
+      case 'decoy': this.spawnDecoy(now); return GAME.DECOY_COOLDOWN;
+      case 'slice': this.ninjaDash(now);  return GAME.NINJA_DASH_COOLDOWN;
       default:      return 2000;
     }
   }
@@ -638,6 +649,126 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#2fff9a',
     }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
     this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
+  }
+
+  // ---- Lucky ghost: Gamble for one of six random effects ----
+  gamble(now) {
+    const roll = Phaser.Math.Between(0, 5);
+    this.cameras.main.flash(120, 255, 240, 160);
+    switch (roll) {
+      case 0: { // orb burst
+        const ox = this.player.x, oy = this.player.y;
+        for (let i = 0; i < GAME.GAMBLE_ORBS; i++) {
+          const a = (i / GAME.GAMBLE_ORBS) * Math.PI * 2;
+          const x = Phaser.Math.Clamp(ox + Math.cos(a) * 46, 30, GAME.WORLD_WIDTH - 30);
+          const y = Phaser.Math.Clamp(oy + Math.sin(a) * 46, 30, GAME.WORLD_HEIGHT - 30);
+          const orb = this.orbs.create(x, y, 'orb');
+          orb.setCircle(8, 6, 6); orb.setDepth(6); orb.isPath = true; orb.setScale(0.4);
+          this.tweens.add({ targets: orb, scale: { from: 0.9, to: 1.15 }, duration: 600, yoyo: true, repeat: -1 });
+          this.time.delayedCall(GAME.PATH_LIFESPAN, () => { if (orb.active) orb.destroy(); });
+        }
+        SFX.pickup(); this.floatText('🍀 ORB BURST!', 0xffd54a);
+        break;
+      }
+      case 1: // speed boost
+        this.boostUntil = now + GAME.GAMBLE_BOOST_MS;
+        SFX.boost(); this.floatText('💨 SPEED!', 0x9be87a);
+        break;
+      case 2: // invincibility
+        this.invulnUntil = now + GAME.GAMBLE_INVULN_MS;
+        this.tweens.add({ targets: this.player, alpha: 0.4, duration: 160, yoyo: true, repeat: 8,
+          onComplete: () => { if (this.player.active) this.player.setAlpha(this.phasing ? 0.45 : 1); } });
+        SFX.boost(); this.floatText('🛡️ INVINCIBLE!', 0x9fffce);
+        break;
+      case 3: // stun the Spook
+        this.stunUntil = now + GAME.GAMBLE_STUN_MS;
+        this.enemy.setVelocity(0, 0);
+        SFX.caught(); this.cameras.main.shake(140, 0.008);
+        this.floatText('⚡ STUN!', 0xffe066);
+        break;
+      case 4: // jackpot points
+        this.score += GAME.GAMBLE_POINTS;
+        SFX.pickup(); this.floatText('🎯 +' + GAME.GAMBLE_POINTS + '!', 0xffd54a);
+        break;
+      default: // scare the Spook away
+        this.fleeUntil = now + GAME.GAMBLE_FLEE_MS;
+        SFX.boost(); this.floatText('😱 SPOOK SCARED!', 0xff8fd0);
+        break;
+    }
+  }
+
+  // ---- Ninja ghost: decoy lure / mid-range dash slice ----
+  spawnDecoy(now) {
+    // send the Spook to this spot for a while
+    this.lurePoint = { x: this.player.x, y: this.player.y };
+    this.lureUntil = now + GAME.DECOY_DURATION;
+
+    if (this.decoySprite) this.decoySprite.destroy();
+    if (this.decoyGlow) this.decoyGlow.destroy();
+    this.decoyGlow = this.add.image(this.player.x, this.player.y, 'glow')
+      .setDepth(8).setBlendMode(Phaser.BlendModes.ADD).setTint(0xbfc2d0).setAlpha(0.5).setScale(0.9);
+    this.decoySprite = this.add.image(this.player.x, this.player.y, this.playerTex)
+      .setDepth(9).setAlpha(0.65).setFlipX(this.player.flipX);
+    this.tweens.add({ targets: this.decoySprite, alpha: { from: 0.65, to: 0.4 }, duration: 400, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: this.decoyGlow, scale: { from: 0.85, to: 1.05 }, alpha: { from: 0.5, to: 0.25 }, duration: 500, yoyo: true, repeat: -1 });
+
+    SFX.click();
+    this.floatText('🌀 DECOY!', 0xbfc2d0);
+    this.time.delayedCall(GAME.DECOY_DURATION, () => this.clearDecoy());
+  }
+
+  clearDecoy() {
+    if (this.decoySprite) {
+      const s = this.decoySprite; this.decoySprite = null;
+      this.tweens.add({ targets: s, alpha: 0, scale: 0.6, duration: 260, onComplete: () => s.destroy() });
+    }
+    if (this.decoyGlow) { this.decoyGlow.destroy(); this.decoyGlow = null; }
+  }
+
+  ninjaDash(now) {
+    const fromX = this.player.x, fromY = this.player.y;
+    const toX = Phaser.Math.Clamp(fromX + this.faceDir.x * GAME.NINJA_DASH_RANGE, 20, GAME.WORLD_WIDTH - 20);
+    const toY = Phaser.Math.Clamp(fromY + this.faceDir.y * GAME.NINJA_DASH_RANGE, 20, GAME.WORLD_HEIGHT - 20);
+
+    this.invulnUntil = now + GAME.NINJA_DASH_INVULN;
+    SFX.slash();
+    this.cameras.main.shake(90, 0.004);
+
+    // pass through trees during the dash
+    this.playerTreeCollider.active = false;
+
+    // a bright slice streak in the dash direction
+    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
+    const fx = this.add.image(fromX, fromY, 'slash').setRotation(ang).setDepth(12).setScale(0.7).setAlpha(0.9);
+    this.tweens.add({ targets: fx, x: toX, y: toY, alpha: 0, duration: GAME.NINJA_DASH_DURATION + 120, onComplete: () => fx.destroy() });
+
+    // slice hit: does the dash line pass through the Spook?
+    if (now >= this.stunUntil) {
+      const d = this.distToSegment(this.enemy.x, this.enemy.y, fromX, fromY, toX, toY);
+      if (d <= 46) {
+        this.stunUntil = now + GAME.NINJA_DASH_STUN;
+        this.score += GAME.NINJA_DASH_POINTS;
+        this.enemy.setVelocity(0, 0);
+        SFX.caught();
+        for (let i = 0; i < 10; i++) {
+          this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-14, 14), this.enemy.y + Phaser.Math.Between(-14, 8));
+        }
+        const txt = this.add.text(this.enemy.x, this.enemy.y - 54, '⚔️ SLICE! +' + GAME.NINJA_DASH_POINTS, {
+          fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ff6b7a',
+        }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+        this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
+      }
+    }
+
+    // glide the player across, leaving a trail
+    this.player.setVelocity(0, 0);
+    this.tweens.add({
+      targets: this.player, x: toX, y: toY, duration: GAME.NINJA_DASH_DURATION, ease: 'Quad.out',
+      onUpdate: () => { this.trail.emitParticleAt(this.player.x, this.player.y); },
+      onComplete: () => {
+        if (!(this.charKey === 'purple' && this.phasing)) this.playerTreeCollider.active = true;
+      },
+    });
   }
 
   // Mud pool trap: slows the Spook and scores when it walks through.
@@ -1126,7 +1257,7 @@ class GameScene extends Phaser.Scene {
   }
 
   boostTint() {
-    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce, volt: 0xd0ecff }[this.charKey] || 0x9fe0ff;
+    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce, volt: 0xd0ecff, alien: 0xbfffe0, lucky: 0xdfffa0, ninja: 0xcfd2e0 }[this.charKey] || 0x9fe0ff;
   }
 
   // Keeps the shield bubble on the player and toggles tree-phasing on/off.
@@ -1168,8 +1299,13 @@ class GameScene extends Phaser.Scene {
     const slowed = time < this.slowUntil;
     const speed = slowed ? this.enemySpeed * GAME.LOG_SLOW_FACTOR : this.enemySpeed;
 
-    // direction straight at the player
-    const chase = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
+    // Ninja decoy: chase the decoy's spot instead of the real player for a bit
+    const luring = time < this.lureUntil && this.lurePoint;
+    const tgtX = luring ? this.lurePoint.x : this.player.x;
+    const tgtY = luring ? this.lurePoint.y : this.player.y;
+
+    // direction straight at the current target (player, or the decoy)
+    const chase = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, tgtX, tgtY);
 
     // Frightened by a heart arrow: run the OTHER way for a bit. Otherwise,
     // while escaping a tree, steer off to one side of the chase line (still
@@ -1183,17 +1319,19 @@ class GameScene extends Phaser.Scene {
     }
 
     this.enemy.setVelocity(Math.cos(ang) * speed, Math.sin(ang) * speed);
-    this.enemy.setFlipX(this.player.x < this.enemy.x);
+    this.enemy.setFlipX(tgtX < this.enemy.x);
 
     // tint by current state
-    if (fleeing) this.enemy.setTint(0xff8fd0);
+    if (luring) this.enemy.setTint(0xbfc2d0);
+    else if (fleeing) this.enemy.setTint(0xff8fd0);
     else if (slowed) this.enemy.setTint(0x6fd0ff);
     else this.enemy.clearTint();
 
     this.detectStuck(time, dt, speed);
 
+    // while lured to a decoy you can't be caught (that's the whole point)
     const dist = Phaser.Math.Distance.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
-    if (!fleeing && dist < GAME.CATCH_DISTANCE) this.caught();
+    if (!fleeing && !luring && dist < GAME.CATCH_DISTANCE) this.caught();
   }
 
   detectStuck(time, dt, speed) {

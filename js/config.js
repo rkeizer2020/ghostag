@@ -136,6 +136,27 @@ const GAME = {
   LASER_HIT_POINTS: 70,        // points for landing a laser
   LASER_MAX_LIFE: 20000,       // ms safety cap so a stray laser can't live forever
 
+  // Lucky ghost: press Gamble for one of six random effects.
+  GAMBLE_COOLDOWN: 6000,       // ms between gambles
+  GAMBLE_ORBS: 6,              // "orb burst" outcome: bonus orbs scattered
+  GAMBLE_BOOST_MS: 4000,       // "speed" outcome: boost duration
+  GAMBLE_INVULN_MS: 3000,      // "shield" outcome: invulnerability duration
+  GAMBLE_STUN_MS: 2500,        // "stun" outcome: Spook frozen
+  GAMBLE_FLEE_MS: 3000,        // "scare" outcome: Spook runs away
+  GAMBLE_POINTS: 100,          // "jackpot" outcome: bonus points
+
+  // Ninja ghost, ability 1: a decoy the Spook chases instead of you.
+  DECOY_COOLDOWN: 7000,        // ms between decoys
+  DECOY_DURATION: 2500,        // ms the Spook is lured to the decoy
+
+  // Ninja ghost, ability 2: a mid-range dash that stuns the Spook on contact.
+  NINJA_DASH_COOLDOWN: 5000,   // ms between dashes
+  NINJA_DASH_RANGE: 260,       // mid-range dash distance
+  NINJA_DASH_DURATION: 200,    // ms the dash takes
+  NINJA_DASH_INVULN: 450,      // ms of safety during/after the dash
+  NINJA_DASH_STUN: 2000,       // ms the Spook is stunned if the dash hits it
+  NINJA_DASH_POINTS: 40,       // points for slicing the Spook
+
   COLORS: {
     bg: 0x1c130b,
     ground: 0x3d2b1a,      // brown earth
@@ -159,6 +180,8 @@ const GAME = {
     ghostForest: 0x4a9e4a,
     ghostVolt: 0x4aa8ff,
     ghostAlien: 0x6bffb0,
+    ghostLucky: 0x7be26a,
+    ghostNinja: 0x33343f,
   },
 };
 
@@ -411,8 +434,20 @@ const Settings = {
       // cooldowns: GAME.UFO_* / GAME.LASER_COOLDOWN
       desc: 'Shift swaps: a UFO that makes you untouchable 5s (+50 per hit), or a laser that bounces around the map until it stuns the Spook. Fast.',
     },
+    lucky: {
+      label: 'Lucky Ghost', tex: 'ghostLucky', ability: 'gamble', unlock: 1200,
+      abilityName: 'Gamble', icon: '🍀', speedMul: 1.0, lives: 1, cooldown: 6000,
+      desc: 'Gamble for a random reward: orb burst, speed, shield, Spook stun, +100, or a scared Spook!',
+    },
+    ninja: {
+      label: 'Ninja Ghost', tex: 'ghostNinja', ability: 'dual', unlock: 4500,
+      abilityName: 'Decoy / Dash', icon: '🥷', speedMul: 1.0, lives: 1,
+      modes: ['decoy', 'slice'],
+      // cooldowns: GAME.DECOY_COOLDOWN / GAME.NINJA_DASH_COOLDOWN
+      desc: 'Shift swaps: drop a decoy the Spook chases, or a mid-range dash slice that stuns it.',
+    },
   },
-  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien'],
+  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja'],
 
   // A character is unlocked once your best score reaches its threshold.
   isUnlocked(key) {
@@ -469,7 +504,7 @@ const Settings = {
 
   // body colour for each character (used to tint the owner skin's face)
   charColor(key) {
-    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff, alien: 0x6bffb0 }[key] || 0xbfe6ff;
+    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xbfc2d0 }[key] || 0xbfe6ff;
   },
 
   getSkin() {
