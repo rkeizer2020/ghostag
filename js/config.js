@@ -139,11 +139,12 @@ const GAME = {
   // Lucky ghost: press Gamble for one of six random effects.
   GAMBLE_COOLDOWN: 6000,       // ms between gambles
   GAMBLE_ORBS: 6,              // "orb burst" outcome: bonus orbs scattered
-  GAMBLE_BOOST_MS: 4000,       // "speed" outcome: boost duration
-  GAMBLE_INVULN_MS: 3000,      // "shield" outcome: invulnerability duration
-  GAMBLE_STUN_MS: 2500,        // "stun" outcome: Spook frozen
+  GAMBLE_ORB_BUFF_MS: 5000,    // "orb burst": double orb points for this long
+  GAMBLE_SPEED_MS: 5000,       // "speed" outcome: 3x-speed burst duration
+  GAMBLE_INVULN_MS: 5000,      // "shield": untouchable + walk through trees
+  GAMBLE_STUN_MS: 3000,        // "stun" outcome: Spook frozen
   GAMBLE_FLEE_MS: 3000,        // "scare" outcome: Spook runs away
-  GAMBLE_POINTS: 100,          // "jackpot" outcome: bonus points
+  GAMBLE_POINTS: 1000,         // "jackpot" outcome: bonus points
 
   // Ninja ghost, ability 1: a decoy the Spook chases instead of you.
   DECOY_COOLDOWN: 7000,        // ms between decoys
@@ -437,7 +438,7 @@ const Settings = {
     lucky: {
       label: 'Lucky Ghost', tex: 'ghostLucky', ability: 'gamble', unlock: 1200,
       abilityName: 'Gamble', icon: '🍀', speedMul: 1.0, lives: 1, cooldown: 6000,
-      desc: 'Gamble for a random reward: orb burst, speed, shield, Spook stun, +100, or a scared Spook!',
+      desc: 'Gamble for a random reward: orb burst (+double orbs), 3x speed, invincible, Spook stun, +1000, or a scared Spook!',
     },
     ninja: {
       label: 'Ninja Ghost', tex: 'ghostNinja', ability: 'dual', unlock: 4500,

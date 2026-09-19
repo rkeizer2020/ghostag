@@ -45,6 +45,7 @@ class GameScene extends Phaser.Scene {
     this.lastUfoHit = 0;
     this.lureUntil = 0;       // Ninja decoy: Spook chases lurePoint instead of you
     this.lurePoint = null;
+    this.orbBonusUntil = 0;   // Lucky gamble: double orb points for a while
     this.invulnUntil = 0;
     this.shieldUntil = 0;
     this.phaseUntil = 0;
@@ -656,7 +657,7 @@ class GameScene extends Phaser.Scene {
     const roll = Phaser.Math.Between(0, 5);
     this.cameras.main.flash(120, 255, 240, 160);
     switch (roll) {
-      case 0: { // orb burst
+      case 0: { // orb burst + double-orb-points buff
         const ox = this.player.x, oy = this.player.y;
         for (let i = 0; i < GAME.GAMBLE_ORBS; i++) {
           const a = (i / GAME.GAMBLE_ORBS) * Math.PI * 2;
@@ -667,16 +668,21 @@ class GameScene extends Phaser.Scene {
           this.tweens.add({ targets: orb, scale: { from: 0.9, to: 1.15 }, duration: 600, yoyo: true, repeat: -1 });
           this.time.delayedCall(GAME.PATH_LIFESPAN, () => { if (orb.active) orb.destroy(); });
         }
-        SFX.pickup(); this.floatText('🍀 ORB BURST!', 0xffd54a);
+        this.orbBonusUntil = now + GAME.GAMBLE_ORB_BUFF_MS;
+        SFX.pickup(); this.floatText('🍀 ORB BURST! x2 orbs', 0xffd54a);
         break;
       }
-      case 1: // speed boost
-        this.boostUntil = now + GAME.GAMBLE_BOOST_MS;
-        SFX.boost(); this.floatText('💨 SPEED!', 0x9be87a);
+      case 1: // 3x speed burst (reuses the sprint multiplier)
+        this.sprintUntil = now + GAME.GAMBLE_SPEED_MS;
+        SFX.boost(); this.floatText('💨 SPEED x3!', 0x9be87a);
         break;
-      case 2: // invincibility
+      case 2: // invincible + walk through trees
         this.invulnUntil = now + GAME.GAMBLE_INVULN_MS;
-        this.tweens.add({ targets: this.player, alpha: 0.4, duration: 160, yoyo: true, repeat: 8,
+        this.playerTreeCollider.active = false;
+        this.time.delayedCall(GAME.GAMBLE_INVULN_MS, () => {
+          if (!(this.charKey === 'purple' && this.phasing)) this.playerTreeCollider.active = true;
+        });
+        this.tweens.add({ targets: this.player, alpha: 0.45, duration: 200, yoyo: true, repeat: 11,
           onComplete: () => { if (this.player.active) this.player.setAlpha(this.phasing ? 0.45 : 1); } });
         SFX.boost(); this.floatText('🛡️ INVINCIBLE!', 0x9fffce);
         break;
@@ -988,8 +994,9 @@ class GameScene extends Phaser.Scene {
     const wasPath = orb.isPath;
     const ox = orb.x, oy = orb.y;
     orb.destroy();
-    // Brown ghost earns double points from orbs
-    const orbMult = (this.charKey === 'brown') ? GAME.BROWN_ORB_MULTIPLIER : 1;
+    // Brown ghost (always) or Lucky's orb-burst buff earn double orb points
+    const doubleOrbs = (this.charKey === 'brown') || (this.time.now < this.orbBonusUntil);
+    const orbMult = doubleOrbs ? GAME.BROWN_ORB_MULTIPLIER : 1;
     this.score += GAME.ORB_POINTS * orbMult;
     if (orbMult > 1) this.floatText('+' + (GAME.ORB_POINTS * orbMult), 0xffd54a);
     this.runCoins += GAME.ORB_COINS;
