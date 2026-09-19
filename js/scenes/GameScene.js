@@ -599,13 +599,12 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
   }
 
-  // Fire a laser that ricochets off the map edges and trees until it hits the
-  // Spook. Only one laser is kept in the air at a time.
+  // Fire a laser in the exact direction you're facing (no auto-aim). It
+  // ricochets off the map edges and trees and stays alive until it hits the
+  // Spook, so several lasers can be bouncing around the map at once.
   fireLaser() {
-    // clear any previous laser still bouncing around
-    this.lasers.children.iterate((l) => { if (l && l.active) l.destroy(); });
-
-    const ang = this.aimAngle();
+    // shoot the way the ghost is looking, not toward the Spook
+    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
     const l = this.lasers.create(this.player.x, this.player.y, 'laser');
     l.setDepth(12).setRotation(ang);
     l.body.allowGravity = false;
@@ -617,8 +616,6 @@ class GameScene extends Phaser.Scene {
     l.isLaser = true; // marker so the overlap callback can tell it from the Spook
     l.bornAt = this.time.now;
     SFX.slash();
-    // safety cap so a laser that somehow never lands can't live forever
-    this.time.delayedCall(GAME.LASER_MAX_LIFE, () => { if (l.active) l.destroy(); });
   }
 
   hitLaser(a, b) {
