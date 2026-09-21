@@ -198,6 +198,15 @@ const GAME = {
   ZIP_DURATION: 200,           // ms the zip takes
   ZIP_INVULN: 450,             // ms of safety during/after the zip
 
+  // City map's vending machine: buy a soda, then Arrow Down sprays it.
+  SODA_COST: 10,               // coins per soda
+  SODA_BUY_COOLDOWN: 30000,    // ms between purchases from the machine
+  SODA_SPEED: 620,             // px/s the soda splat travels
+  SODA_LIFESPAN: 520,          // ms in flight (~320px, mid-range)
+  SODA_STUN: 2500,             // ms the Spook is stunned on a hit
+  SODA_POINTS: 40,             // points for hitting the Spook with soda
+  SODA_FIRE_GAP: 300,          // ms guard so one key-press fires one soda
+
   COLORS: {
     bg: 0x1c130b,
     ground: 0x3d2b1a,      // brown earth
@@ -249,8 +258,13 @@ const Biomes = {
       bg: 0x1a2431, ground: 'ground_snow', tree: 'tree_snow', fog: 'fog_snow',
       firefly: 0xffffff, snowfall: true,
     },
+    city: {
+      key: 'city', label: 'City', icon: '🏙️',
+      bg: 0x12141d, ground: 'ground_city', tree: 'tree_city', fog: 'fog_city',
+      firefly: 0xffe6a0, snowfall: false, vending: true,
+    },
   },
-  ORDER: ['forest', 'graveyard', 'snow'],
+  ORDER: ['forest', 'graveyard', 'snow', 'city'],
   pick() {
     const k = this.ORDER[Math.floor(Math.random() * this.ORDER.length)];
     return this.LIST[k] || this.LIST.forest;

@@ -59,12 +59,16 @@ const Textures = {
     this.tree(scene);
     this.treeSnow(scene);
     this.tombstone(scene);
+    this.building(scene);
     this.log(scene);
     this.ground(scene);
     this.groundGraveyard(scene);
     this.groundSnow(scene);
+    this.groundCity(scene);
     this.fog(scene);
     this.fogVariants(scene);
+    this.vending(scene);
+    this.soda(scene);
     this.particle(scene);
     this.vignette(scene);
     this.firefly(scene);
@@ -968,6 +972,42 @@ const Textures = {
     canvas.refresh();
   },
 
+  // City "tree": a tall building with lit windows (footprint at the bottom).
+  building(scene) {
+    const w = 76, h = 96, cx = w / 2;
+    const canvas = scene.textures.createCanvas('tree_city', w, h);
+    const ctx = canvas.getContext();
+    // ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.34)';
+    ctx.beginPath(); ctx.ellipse(cx, h - 8, 28, 8, 0, 0, 7); ctx.fill();
+    // pick a facade tone
+    const bw = 52, bx = cx - bw / 2, by = 10, bh = h - 20;
+    const wall = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+    wall.addColorStop(0, '#3a4152'); wall.addColorStop(0.5, '#4a5468'); wall.addColorStop(1, '#333a49');
+    ctx.fillStyle = wall; ctx.fillRect(bx, by, bw, bh);
+    // roof lip
+    ctx.fillStyle = '#2a3040'; ctx.fillRect(bx - 3, by - 4, bw + 6, 6);
+    ctx.fillStyle = '#20262f'; ctx.fillRect(cx - 5, by - 12, 10, 8); // rooftop box
+    // window grid, some lit
+    const cols = 4, rows = 7, mx = 6, my = 6;
+    const cwj = (bw - mx * (cols + 1)) / cols;
+    const chj = (bh - my * (rows + 1)) / rows;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = bx + mx + c * (cwj + mx);
+        const y = by + my + r * (chj + my);
+        const lit = Math.random() < 0.5;
+        ctx.fillStyle = lit ? 'rgba(255,225,140,0.95)' : 'rgba(20,26,34,0.9)';
+        ctx.fillRect(x, y, cwj, chj);
+        if (lit) { ctx.fillStyle = 'rgba(255,245,200,0.5)'; ctx.fillRect(x, y, cwj, 2); }
+      }
+    }
+    // door at the base (the footprint the collision sits on)
+    ctx.fillStyle = '#20262f'; ctx.fillRect(cx - 7, h - 22, 14, 12);
+    ctx.fillStyle = 'rgba(255,225,140,0.5)'; ctx.fillRect(cx - 6, h - 21, 12, 3);
+    canvas.refresh();
+  },
+
   // Graveyard "tree": a mossy stone tombstone that acts as the map obstacle.
   tombstone(scene) {
     const w = 76, h = 96, cx = w / 2;
@@ -1102,14 +1142,91 @@ const Textures = {
     canvas.refresh();
   },
 
+  // City floor: dark asphalt with paving seams and faint road paint.
+  groundCity(scene) {
+    const s = 128;
+    const canvas = scene.textures.createCanvas('ground_city', s, s);
+    const ctx = canvas.getContext();
+    ctx.fillStyle = '#282b33'; ctx.fillRect(0, 0, s, s);
+    // paving-slab seams (tile cleanly at the edges)
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 2;
+    ctx.strokeRect(0.5, 0.5, s - 1, s - 1);
+    ctx.beginPath(); ctx.moveTo(s / 2, 0); ctx.lineTo(s / 2, s); ctx.moveTo(0, s / 2); ctx.lineTo(s, s / 2); ctx.stroke();
+    // grime blotches
+    for (let i = 0; i < 8; i++) {
+      const x = Math.random() * s, y = Math.random() * s, r = 12 + Math.random() * 22;
+      const rg = ctx.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, Math.random() < 0.5 ? 'rgba(15,16,20,0.5)' : 'rgba(60,64,74,0.4)');
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    }
+    // faint speckle + a couple of manhole dots
+    for (let i = 0; i < 60; i++) {
+      const x = Math.random() * s, y = Math.random() * s;
+      ctx.fillStyle = Math.random() < 0.5 ? 'rgba(90,96,108,0.25)' : 'rgba(20,22,28,0.4)';
+      ctx.fillRect(x, y, 2, 2);
+    }
+    canvas.refresh();
+  },
+
   fog(scene) {
     this._fog(scene, 'fog', [90, 160, 255]);
   },
 
-  // Coloured fog puffs for the other biomes (green mist / white flurry).
+  // Coloured fog puffs for the other biomes (green mist / white flurry / smog).
   fogVariants(scene) {
     this._fog(scene, 'fog_graveyard', [120, 180, 140]);
     this._fog(scene, 'fog_snow', [220, 235, 255]);
+    this._fog(scene, 'fog_city', [150, 150, 165]);
+  },
+
+  // The city vending machine you buy sodas from.
+  vending(scene) {
+    const w = 44, h = 64, cx = w / 2;
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    // shadow
+    g.fillStyle(0x000000, 0.3); g.fillEllipse(cx, h - 4, 40, 8);
+    // cabinet
+    g.fillStyle(0xc0202a, 1); g.fillRoundedRect(3, 2, w - 6, h - 8, 6);
+    g.fillStyle(0xe23a44, 1); g.fillRoundedRect(3, 2, w - 6, 14, 6); // lighter top
+    g.fillStyle(0x8a1620, 1); g.fillRect(3, h - 16, w - 6, 8);       // dark base
+    // glass front with bottles
+    g.fillStyle(0x123049, 0.95); g.fillRoundedRect(7, 8, 22, h - 26, 3);
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 2; c++) {
+        g.fillStyle([0x6fd0ff, 0xffe066, 0x9fff8a, 0xff8fd0][(r + c) % 4], 0.95);
+        g.fillRect(9 + c * 10, 11 + r * 11, 7, 8);
+      }
+    }
+    // button panel + dispenser slot
+    g.fillStyle(0x2a2f38, 1); g.fillRoundedRect(32, 9, 8, h - 30, 2);
+    g.fillStyle(0xffe066, 1); g.fillCircle(36, 14, 1.6); g.fillCircle(36, 20, 1.6);
+    g.fillStyle(0x101318, 1); g.fillRoundedRect(9, h - 15, 20, 5, 2); // slot
+    // "SODA" glow label
+    g.fillStyle(0xffffff, 0.85); g.fillRect(8, 4, 20, 3);
+    g.generateTexture('vending', w, h);
+    g.destroy();
+  },
+
+  // A soda splat projectile (fizzy brown blob).
+  soda(scene) {
+    const s = 26, c = s / 2;
+    const canvas = scene.textures.createCanvas('soda', s, s);
+    const ctx = canvas.getContext();
+    // glow
+    let rg = ctx.createRadialGradient(c, c, 1, c, c, c);
+    rg.addColorStop(0, 'rgba(150,90,40,0.9)'); rg.addColorStop(0.6, 'rgba(110,60,25,0.6)'); rg.addColorStop(1, 'rgba(90,50,20,0)');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(c, c, c, 0, 7); ctx.fill();
+    // cola blob
+    rg = ctx.createRadialGradient(c - 2, c - 2, 1, c, c, 7);
+    rg.addColorStop(0, '#7a4a24'); rg.addColorStop(1, '#3a2010');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(c, c, 7, 0, 7); ctx.fill();
+    // fizz bubbles
+    ctx.fillStyle = 'rgba(255,240,220,0.9)';
+    ctx.beginPath(); ctx.arc(c - 2, c - 3, 1.6, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(c + 3, c + 1, 1.1, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(c + 1, c + 4, 0.9, 0, 7); ctx.fill();
+    canvas.refresh();
   },
 
   _fog(scene, key, rgb) {

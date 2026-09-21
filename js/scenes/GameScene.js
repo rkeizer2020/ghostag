@@ -57,6 +57,9 @@ class GameScene extends Phaser.Scene {
     this.blackHole = null;    // Void black hole currently on the map
     this.spookHp = GAME.SPOOK_MAX_HP; // Void boss: Spook health (only that char)
     this.rootUntil = 0;       // Spider web: Spook fully stuck in place
+    this.sodas = 0;           // City vending machine: sodas in hand
+    this.vendReadyAt = 0;     // when the machine can sell again
+    this.lastSodaFire = 0;    // guard so one Arrow-Down press fires one soda
     this.invulnUntil = 0;
     this.shieldUntil = 0;
     this.phaseUntil = 0;
@@ -173,6 +176,8 @@ class GameScene extends Phaser.Scene {
     this.dualModes.forEach((m) => { this.dualReady[m] = 0; });
     this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
     this.shiftKey.on('down', () => this.switchDualMode());
+    // City map: Arrow Down sprays a soda you bought from the vending machine
+    this.input.keyboard.on('keydown-DOWN', () => this.fireSoda());
     this.joystick = null;
     if (this.sys.game.device.input.touch) {
       this.joystick = new VirtualJoystick(this);
@@ -189,6 +194,9 @@ class GameScene extends Phaser.Scene {
 
     // Void ghost turns the Spook into a boss with a health bar
     this.spookHpBar = (this.charKey === 'void') ? this.add.graphics().setDepth(20) : null;
+
+    // City map: a vending machine you can buy sodas from
+    if (this.biome.vending) this.spawnVending();
 
     this.input.keyboard.on('keydown-M', () => this.toggleMute());
     this.input.keyboard.on('keydown-P', () => this.togglePause());
@@ -424,6 +432,7 @@ class GameScene extends Phaser.Scene {
     if (kind === 'arrow') this.arrowHit();
     else if (kind === 'shotgun') this.shotgunHit();
     else if (kind === 'vshot') this.voidShotHit();
+    else if (kind === 'soda') this.sodaHit();
   }
 
   // Pink: the Spook turns tail and flees for a couple of seconds.
@@ -1041,6 +1050,82 @@ class GameScene extends Phaser.Scene {
         if (!(this.charKey === 'purple' && this.phasing)) this.playerTreeCollider.active = true;
       },
     });
+  }
+
+  // ---- City map: vending machine + soda spray (any character) ----
+  spawnVending() {
+    const x = GAME.WORLD_WIDTH * 0.72, y = GAME.WORLD_HEIGHT * 0.5;
+    this.vending = this.physics.add.image(x, y, 'vending');
+    this.vending.setDepth(5 + y / GAME.WORLD_HEIGHT);
+    this.vending.body.allowGravity = false;
+    this.vending.setImmovable(true);
+    this.vending.body.setSize(40, 30, true);
+    this.vending.body.setOffset((this.vending.width - 40) / 2, this.vending.height - 32);
+    this.physics.add.overlap(this.player, this.vending, this.buySoda, null, this);
+
+    this.add.text(x, y - 42, '🥤 ' + GAME.SODA_COST, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '15px', fontStyle: 'bold', color: '#ffe066',
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+
+    // soda counter HUD (top-left)
+    this.sodaText = this.add.text(16, 112, '', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '16px', fontStyle: 'bold', color: '#ffe066',
+    }).setDepth(30).setScrollFactor(0).setShadow(0, 2, '#000', 4);
+    this.updateSodaHud();
+  }
+
+  updateSodaHud() {
+    if (!this.sodaText) return;
+    this.sodaText.setText(this.sodas > 0 ? ('🥤 ' + this.sodas + '  (↓ spray)') : '');
+  }
+
+  buySoda() {
+    const now = this.time.now;
+    if (now < this.vendReadyAt) return; // machine still restocking (silent)
+    if (Storage.getCoins() < GAME.SODA_COST) {
+      if (now - (this._vendMsgAt || 0) > 1500) {
+        this._vendMsgAt = now;
+        this.floatText('need ' + GAME.SODA_COST + ' 🪙', 0xff8a8a);
+      }
+      return;
+    }
+    Storage.addCoins(-GAME.SODA_COST);
+    this.sodas += 1;
+    this.vendReadyAt = now + GAME.SODA_BUY_COOLDOWN;
+    this.updateSodaHud();
+    SFX.pickup();
+    this.floatText('🥤 SODA! -' + GAME.SODA_COST + ' 🪙', 0xffe066);
+  }
+
+  fireSoda() {
+    if (this.gameOver || this.sodas <= 0) return;
+    const now = this.time.now;
+    if (now - this.lastSodaFire < GAME.SODA_FIRE_GAP) return;
+    this.lastSodaFire = now;
+    this.sodas -= 1;
+    this.updateSodaHud();
+    const ang = Math.atan2(this.faceDir.y, this.faceDir.x);
+    this.spawnProjectile('soda', ang, GAME.SODA_SPEED, GAME.SODA_LIFESPAN, 'soda', null);
+    SFX.slash();
+    this.floatText('🥤 splash!', 0xffe066);
+  }
+
+  sodaHit() {
+    const now = this.time.now;
+    if (now < this.stunUntil) return;
+    this.stunUntil = now + GAME.SODA_STUN;
+    this.score += GAME.SODA_POINTS;
+    this.enemy.setVelocity(0, 0);
+    SFX.caught();
+    this.cameras.main.shake(120, 0.006);
+    for (let i = 0; i < 10; i++) {
+      const p = this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-16, 16), this.enemy.y + Phaser.Math.Between(-16, 10));
+      if (p && p.setTint) p.setTint(Phaser.Math.RND.pick([0x7a4a24, 0xffe066, 0xcaa06a]));
+    }
+    const txt = this.add.text(this.enemy.x, this.enemy.y - 54, '🥤 SPLAT! +' + GAME.SODA_POINTS, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ffe066',
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
   }
 
   // Mud pool trap: slows the Spook and scores when it walks through.
