@@ -14,6 +14,8 @@ const DUAL_INFO = {
   slowmo: { icon: '⏱️', label: 'Slow-Mo', color: 0xffd54a },
   blackhole: { icon: '🕳️', label: 'Black Hole', color: 0xc79cff },
   vshot:  { icon: '🔮', label: 'Bolt',   color: 0xc79cff },
+  webtrap: { icon: '🕸️', label: 'Web',   color: 0x9fff8a },
+  zip:    { icon: '🧵', label: 'Zipline', color: 0x8fe6a0 },
 };
 
 class GameScene extends Phaser.Scene {
@@ -54,6 +56,7 @@ class GameScene extends Phaser.Scene {
     this.posHistory = [];     // Chrono rewind: recent {t,x,y} samples
     this.blackHole = null;    // Void black hole currently on the map
     this.spookHp = GAME.SPOOK_MAX_HP; // Void boss: Spook health (only that char)
+    this.rootUntil = 0;       // Spider web: Spook fully stuck in place
     this.invulnUntil = 0;
     this.shieldUntil = 0;
     this.phaseUntil = 0;
@@ -135,6 +138,10 @@ class GameScene extends Phaser.Scene {
     // dropped mud pools (Magma ability 1) that slow the Spook on contact
     this.mudpools = this.physics.add.group({ allowGravity: false, immovable: true });
     this.physics.add.overlap(this.enemy, this.mudpools, this.hitMud, null, this);
+
+    // spider webs that root the Spook in place on contact
+    this.webs = this.physics.add.group({ allowGravity: false, immovable: true });
+    this.physics.add.overlap(this.enemy, this.webs, this.hitWeb, null, this);
 
     // fired projectiles (pink's heart arrow, black's shotgun pellets)
     this.projectiles = this.physics.add.group({ allowGravity: false });
@@ -477,6 +484,9 @@ class GameScene extends Phaser.Scene {
       // Void: black hole / damaging bolt
       case 'blackhole': this.castBlackHole(now); return GAME.VOID_COOLDOWN;
       case 'vshot': this.fireVoidShot();  return GAME.VOID_SHOT_COOLDOWN;
+      // Spider: web trap / zipline to nearest tree
+      case 'webtrap': this.dropWeb();     return GAME.WEB_COOLDOWN;
+      case 'zip': this.zipline(now);      return GAME.ZIP_COOLDOWN;
       default:      return 2000;
     }
   }
@@ -959,6 +969,78 @@ class GameScene extends Phaser.Scene {
     g.fillStyle(0x000000, 0.55); g.fillRoundedRect(x - 1, y - 1, w + 2, h + 2, 3);
     g.fillStyle(0x3a2030, 1); g.fillRect(x, y, w, h);
     g.fillStyle(frac > 0.3 ? 0xff5b6e : 0xffd54a, 1); g.fillRect(x, y, w * frac, h);
+  }
+
+  // ---- Spider ghost: web trap / zipline to nearest tree ----
+  dropWeb() {
+    const web = this.webs.create(this.player.x, this.player.y, 'web');
+    web.setDepth(4);
+    web.setBodySize(64, 40);
+    web.setImmovable(true);
+    web.body.allowGravity = false;
+    web.setScale(0.4).setAlpha(0.95);
+    this.tweens.add({ targets: web, scale: 1, duration: 180, ease: 'Back.out' });
+    SFX.click();
+    this.time.delayedCall(GAME.WEB_LIFESPAN - 1500, () => {
+      if (web.active) this.tweens.add({ targets: web, alpha: 0.15, duration: 1500 });
+    });
+    this.time.delayedCall(GAME.WEB_LIFESPAN, () => { if (web.active) web.destroy(); });
+    this.floatText('🕸️ WEB!', 0x9fff8a);
+  }
+
+  hitWeb(enemy, web) {
+    if (!web.active) return;
+    web.destroy();
+    const now = this.time.now;
+    this.rootUntil = now + GAME.WEB_ROOT_MS;
+    this.enemy.setVelocity(0, 0);
+    this.score += GAME.WEB_POINTS;
+    SFX.caught();
+    for (let i = 0; i < 8; i++) {
+      const p = this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-14, 14), this.enemy.y + Phaser.Math.Between(-14, 8));
+      if (p && p.setTint) p.setTint(0x9fff8a);
+    }
+    const txt = this.add.text(this.enemy.x, this.enemy.y - 54, '🕸️ STUCK! +' + GAME.WEB_POINTS, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#9fff8a',
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
+  }
+
+  zipline(now) {
+    // nearest tree anywhere on the map
+    let nearest = null, best = Infinity;
+    this.trees.children.iterate((t) => {
+      if (!t) return;
+      const d = Phaser.Math.Distance.Between(t.x, t.y, this.player.x, this.player.y);
+      if (d > 6 && d < best) { best = d; nearest = t; }
+    });
+    if (!nearest) { this.floatText('no tree!', 0x9fff8a); return; }
+
+    // land just short of the tree so you don't get stuck in its trunk
+    const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearest.x, nearest.y);
+    const toX = Phaser.Math.Clamp(nearest.x - Math.cos(a) * 30, 20, GAME.WORLD_WIDTH - 20);
+    const toY = Phaser.Math.Clamp(nearest.y - Math.sin(a) * 30, 20, GAME.WORLD_HEIGHT - 20);
+
+    // a web line drawn from the player to the tree
+    const line = this.add.line(0, 0, this.player.x, this.player.y, nearest.x, nearest.y, 0xe6ffe6, 0.9)
+      .setOrigin(0, 0).setDepth(12).setLineWidth(1.5);
+    this.tweens.add({ targets: line, alpha: 0, duration: GAME.ZIP_DURATION + 160, onComplete: () => line.destroy() });
+
+    this.invulnUntil = now + GAME.ZIP_INVULN;
+    this.playerTreeCollider.active = false;
+    this.player.setVelocity(0, 0);
+    SFX.boost();
+    this.floatText('🧵 ZIP!', 0x8fe6a0);
+    this.tweens.add({
+      targets: this.player, x: toX, y: toY, duration: GAME.ZIP_DURATION, ease: 'Quad.out',
+      onUpdate: () => {
+        const p = this.trail.emitParticleAt(this.player.x, this.player.y);
+        if (p && p.setTint) p.setTint(0x9fff8a);
+      },
+      onComplete: () => {
+        if (!(this.charKey === 'purple' && this.phasing)) this.playerTreeCollider.active = true;
+      },
+    });
   }
 
   // Mud pool trap: slows the Spook and scores when it walks through.
@@ -1462,7 +1544,7 @@ class GameScene extends Phaser.Scene {
   }
 
   boostTint() {
-    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce, volt: 0xd0ecff, alien: 0xbfffe0, lucky: 0xdfffa0, ninja: 0xcfd2e0, chrono: 0xaff0e8, void: 0xd8bfff }[this.charKey] || 0x9fe0ff;
+    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce, volt: 0xd0ecff, alien: 0xbfffe0, lucky: 0xdfffa0, ninja: 0xcfd2e0, chrono: 0xaff0e8, void: 0xd8bfff, spider: 0xbfffb0 }[this.charKey] || 0x9fe0ff;
   }
 
   // Keeps the shield bubble on the player and toggles tree-phasing on/off.
@@ -1495,6 +1577,15 @@ class GameScene extends Phaser.Scene {
       this.enemy.setVelocity(0, 0);
       this.enemy.setTint(0xffe066);
       this.enemy.setAngle(Math.sin(time / 55) * 7);
+      this.enemyPrevX = this.enemy.x;
+      this.enemyPrevY = this.enemy.y;
+      return;
+    }
+    // rooted by a spider web: fully stuck in place (cannot move or catch)
+    if (time < this.rootUntil) {
+      this.enemy.setVelocity(0, 0);
+      this.enemy.setTint(0x9fff8a);
+      this.enemy.setAngle(0);
       this.enemyPrevX = this.enemy.x;
       this.enemyPrevY = this.enemy.y;
       return;

@@ -187,6 +187,17 @@ const GAME = {
   SPOOK_MAX_HP: 100,           // Void boss: Spook health
   VOID_KILL_POINTS: 25000,     // points for defeating the Spook boss
 
+  // Spider ghost, ability 1: a web that roots the Spook in place.
+  WEB_COOLDOWN: 6000,          // ms between webs
+  WEB_LIFESPAN: 9000,          // ms the web stays on the ground
+  WEB_ROOT_MS: 2000,           // ms the Spook is fully stuck (can't move)
+  WEB_POINTS: 50,              // points when the Spook gets webbed
+
+  // Spider ghost, ability 2: zip to the nearest tree for a fast escape.
+  ZIP_COOLDOWN: 5000,          // ms between ziplines
+  ZIP_DURATION: 200,           // ms the zip takes
+  ZIP_INVULN: 450,             // ms of safety during/after the zip
+
   COLORS: {
     bg: 0x1c130b,
     ground: 0x3d2b1a,      // brown earth
@@ -214,6 +225,7 @@ const GAME = {
     ghostNinja: 0x33343f,
     ghostChrono: 0x2fd6c0,
     ghostVoid: 0x2a1a3a,
+    ghostSpider: 0x243024,
   },
 };
 
@@ -492,8 +504,15 @@ const Settings = {
       // cooldowns: GAME.VOID_COOLDOWN / GAME.VOID_SHOT_COOLDOWN
       desc: 'Shift swaps: a half-map black hole (pulls Spook + orbs), or a bolt that damages the Spook. The Spook has 100 HP — kill it for 25000!',
     },
+    spider: {
+      label: 'Spider Ghost', tex: 'ghostSpider', ability: 'dual', unlock: 4000,
+      abilityName: 'Web / Zipline', icon: '🕸️', speedMul: 1.0, lives: 1,
+      modes: ['webtrap', 'zip'],
+      // cooldowns: GAME.WEB_COOLDOWN / GAME.ZIP_COOLDOWN
+      desc: 'Shift swaps: drop a web that roots the Spook in place 2s, or zip to the nearest tree to escape.',
+    },
   },
-  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja', 'chrono', 'void'],
+  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja', 'chrono', 'void', 'spider'],
 
   // A character is unlocked once your best score reaches its threshold.
   isUnlocked(key) {
@@ -550,7 +569,7 @@ const Settings = {
 
   // body colour for each character (used to tint the owner skin's face)
   charColor(key) {
-    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xbfc2d0, chrono: 0x7fe8e0, void: 0xb98fe0 }[key] || 0xbfe6ff;
+    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xbfc2d0, chrono: 0x7fe8e0, void: 0xb98fe0, spider: 0x8fe6a0 }[key] || 0xbfe6ff;
   },
 
   getSkin() {

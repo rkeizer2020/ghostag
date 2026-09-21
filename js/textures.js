@@ -19,6 +19,7 @@ const Textures = {
     this.ghostNinja(scene);
     this.ghostChrono(scene);
     this.ghostVoid(scene);
+    this.ghostSpider(scene);
     // skin bodies
     this._ghost(scene, 'skinEmber', { glow: 0xff5a1a, glow2: 0xffb060, body: 0xff7a3a, eye: 0x4a1000 });
     this._ghost(scene, 'skinFrost', { glow: 0x6fd0ff, glow2: 0xd0f0ff, body: 0xe8f6ff, eye: 0x2a4a5a });
@@ -51,6 +52,7 @@ const Textures = {
     this.ufo(scene);
     this.laser(scene);
     this.voidHole(scene);
+    this.web(scene);
     this.mud(scene);
     this.shield(scene);
     this.orb(scene);
@@ -316,6 +318,65 @@ const Textures = {
     g.fillStyle(0xffffff, 0.9); g.fillCircle(cx - 6, 20, 1); g.fillCircle(cx + 6, 20, 1);
     g.generateTexture('ghostVoid', w, h);
     g.destroy();
+  },
+
+  // Black-and-green "spider" ghost: dark body, green legs and a web belly.
+  ghostSpider(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    g.fillStyle(0x2f6b3a, 0.16); g.fillCircle(cx, h / 2, 27);
+    g.fillStyle(0x6fce6a, 0.22); g.fillCircle(cx, 24, 18);
+    // little green spider legs poking out the sides
+    g.lineStyle(2, 0x4a9e4a, 0.95);
+    for (const s of [-1, 1]) {
+      g.beginPath(); g.moveTo(cx + s * 12, 26); g.lineTo(cx + s * 22, 20); g.lineTo(cx + s * 26, 26); g.strokePath();
+      g.beginPath(); g.moveTo(cx + s * 12, 31); g.lineTo(cx + s * 23, 30); g.lineTo(cx + s * 27, 36); g.strokePath();
+    }
+    // dark body
+    this._ghostShape(g, w, h, 0x243024);
+    g.fillStyle(0x000000, 0.14); g.fillEllipse(cx, 41, 30, 15);
+    // faint green web on the belly
+    g.lineStyle(1, 0x6fce6a, 0.55);
+    g.beginPath(); g.moveTo(cx, 30); g.lineTo(cx, 40); g.strokePath();
+    g.beginPath(); g.moveTo(cx - 7, 32); g.lineTo(cx + 7, 32); g.strokePath();
+    g.beginPath(); g.moveTo(cx - 6, 36); g.lineTo(cx + 6, 36); g.strokePath();
+    g.beginPath(); g.arc(cx, 34, 5, 0.2, 2.9); g.strokePath();
+    // glowing green eyes (several, spidery)
+    g.fillStyle(0x9fff8a, 1);
+    g.fillCircle(cx - 6, 22, 2.6); g.fillCircle(cx + 6, 22, 2.6);
+    g.fillCircle(cx - 10, 20, 1.4); g.fillCircle(cx + 10, 20, 1.4);
+    g.fillStyle(0xffffff, 0.9); g.fillCircle(cx - 6, 21, 0.9); g.fillCircle(cx + 6, 21, 0.9);
+    g.generateTexture('ghostSpider', w, h);
+    g.destroy();
+  },
+
+  // Spider web trap laid on the ground.
+  web(scene) {
+    const s = 84, c = s / 2;
+    const canvas = scene.textures.createCanvas('web', s, s);
+    const ctx = canvas.getContext();
+    ctx.strokeStyle = 'rgba(230,255,230,0.85)'; ctx.lineWidth = 1.4;
+    // radial spokes
+    const spokes = 8;
+    for (let i = 0; i < spokes; i++) {
+      const a = (i / spokes) * Math.PI * 2;
+      ctx.beginPath(); ctx.moveTo(c, c); ctx.lineTo(c + Math.cos(a) * (c - 4), c + Math.sin(a) * (c - 4)); ctx.stroke();
+    }
+    // concentric rings (slightly wavy)
+    ctx.strokeStyle = 'rgba(180,255,190,0.7)';
+    for (let r = 8; r < c - 2; r += 8) {
+      ctx.beginPath();
+      for (let i = 0; i <= spokes; i++) {
+        const a = (i / spokes) * Math.PI * 2;
+        const rr = r + (i % 2 ? 2 : 0);
+        const x = c + Math.cos(a) * rr, y = c + Math.sin(a) * rr;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    // dewy center highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.arc(c, c, 2.4, 0, 7); ctx.fill();
+    canvas.refresh();
   },
 
   // A thrown black hole: dark swirling disc with a bright violet accretion rim.
