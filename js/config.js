@@ -509,7 +509,7 @@ const Settings = {
       abilityName: 'Web / Zipline', icon: '🕸️', speedMul: 1.0, lives: 1,
       modes: ['webtrap', 'zip'],
       // cooldowns: GAME.WEB_COOLDOWN / GAME.ZIP_COOLDOWN
-      desc: 'Shift swaps: drop a web that roots the Spook in place 2s, or zip to the nearest tree to escape.',
+      desc: 'Shift swaps: drop a web that roots the Spook in place 2s, or zip to the farthest tree for a big escape.',
     },
   },
   CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja', 'chrono', 'void', 'spider'],

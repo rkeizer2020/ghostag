@@ -971,7 +971,7 @@ class GameScene extends Phaser.Scene {
     g.fillStyle(frac > 0.3 ? 0xff5b6e : 0xffd54a, 1); g.fillRect(x, y, w * frac, h);
   }
 
-  // ---- Spider ghost: web trap / zipline to nearest tree ----
+  // ---- Spider ghost: web trap / zipline to the farthest tree ----
   dropWeb() {
     const web = this.webs.create(this.player.x, this.player.y, 'web');
     web.setDepth(4);
@@ -1007,22 +1007,22 @@ class GameScene extends Phaser.Scene {
   }
 
   zipline(now) {
-    // nearest tree anywhere on the map
-    let nearest = null, best = Infinity;
+    // FARTHEST tree anywhere on the map (biggest possible escape)
+    let target = null, best = -1;
     this.trees.children.iterate((t) => {
       if (!t) return;
       const d = Phaser.Math.Distance.Between(t.x, t.y, this.player.x, this.player.y);
-      if (d > 6 && d < best) { best = d; nearest = t; }
+      if (d > best) { best = d; target = t; }
     });
-    if (!nearest) { this.floatText('no tree!', 0x9fff8a); return; }
+    if (!target) { this.floatText('no tree!', 0x9fff8a); return; }
 
     // land just short of the tree so you don't get stuck in its trunk
-    const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearest.x, nearest.y);
-    const toX = Phaser.Math.Clamp(nearest.x - Math.cos(a) * 30, 20, GAME.WORLD_WIDTH - 20);
-    const toY = Phaser.Math.Clamp(nearest.y - Math.sin(a) * 30, 20, GAME.WORLD_HEIGHT - 20);
+    const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, target.x, target.y);
+    const toX = Phaser.Math.Clamp(target.x - Math.cos(a) * 30, 20, GAME.WORLD_WIDTH - 20);
+    const toY = Phaser.Math.Clamp(target.y - Math.sin(a) * 30, 20, GAME.WORLD_HEIGHT - 20);
 
     // a web line drawn from the player to the tree
-    const line = this.add.line(0, 0, this.player.x, this.player.y, nearest.x, nearest.y, 0xe6ffe6, 0.9)
+    const line = this.add.line(0, 0, this.player.x, this.player.y, target.x, target.y, 0xe6ffe6, 0.9)
       .setOrigin(0, 0).setDepth(12).setLineWidth(1.5);
     this.tweens.add({ targets: line, alpha: 0, duration: GAME.ZIP_DURATION + 160, onComplete: () => line.destroy() });
 
