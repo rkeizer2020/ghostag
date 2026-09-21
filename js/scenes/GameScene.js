@@ -176,8 +176,8 @@ class GameScene extends Phaser.Scene {
     this.dualModes.forEach((m) => { this.dualReady[m] = 0; });
     this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
     this.shiftKey.on('down', () => this.switchDualMode());
-    // City map: Arrow Down sprays a soda you bought from the vending machine
-    this.input.keyboard.on('keydown-DOWN', () => this.fireSoda());
+    // City map: Enter sprays a soda you bought from the vending machine
+    this.input.keyboard.on('keydown-ENTER', () => this.fireSoda());
     this.joystick = null;
     if (this.sys.game.device.input.touch) {
       this.joystick = new VirtualJoystick(this);
@@ -1076,7 +1076,7 @@ class GameScene extends Phaser.Scene {
 
   updateSodaHud() {
     if (!this.sodaText) return;
-    this.sodaText.setText(this.sodas > 0 ? ('🥤 ' + this.sodas + '  (↓ spray)') : '');
+    this.sodaText.setText(this.sodas > 0 ? ('🥤 ' + this.sodas + '  (Enter to spray)') : '');
   }
 
   buySoda() {
