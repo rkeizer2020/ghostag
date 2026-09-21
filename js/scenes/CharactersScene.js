@@ -146,7 +146,7 @@ class CharactersScene extends Phaser.Scene {
     const accent = this.accentFor(key);
     const accentHex = '#' + accent.toString(16).padStart(6, '0');
     const unlocked = Settings.isUnlocked(key);
-    const D = 60;
+    const D = 300; // above the cards' buttons (UI.button renders at depth 100)
     const objs = [];
 
     const shade = this.add.rectangle(cx, cy, W, H, 0x000000, 0.62).setDepth(D).setScrollFactor(0).setInteractive();
