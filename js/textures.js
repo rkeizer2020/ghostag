@@ -20,6 +20,8 @@ const Textures = {
     this.ghostChrono(scene);
     this.ghostVoid(scene);
     this.ghostSpider(scene);
+    this.ghostCat(scene);
+    this.ghostSuperCat(scene);
     // skin bodies
     this._ghost(scene, 'skinEmber', { glow: 0xff5a1a, glow2: 0xffb060, body: 0xff7a3a, eye: 0x4a1000 });
     this._ghost(scene, 'skinFrost', { glow: 0x6fd0ff, glow2: 0xd0f0ff, body: 0xe8f6ff, eye: 0x2a4a5a });
@@ -351,6 +353,88 @@ const Textures = {
     g.fillCircle(cx - 10, 20, 1.4); g.fillCircle(cx + 10, 20, 1.4);
     g.fillStyle(0xffffff, 0.9); g.fillCircle(cx - 6, 21, 0.9); g.fillCircle(cx + 6, 21, 0.9);
     g.generateTexture('ghostSpider', w, h);
+    g.destroy();
+  },
+
+  // Shadow Cat (admin): jet-black ghost body, pointy ears, golden almond eyes,
+  // whiskers and a curling tail, wrapped in a faint violet ghost-glow.
+  ghostCat(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    // violet ghost glow
+    g.fillStyle(0x8f5fd0, 0.14); g.fillCircle(cx, h / 2, 27);
+    g.fillStyle(0xb98fe0, 0.20); g.fillCircle(cx, 24, 18);
+    // curling tail behind the body (drawn first)
+    g.lineStyle(4, 0x15121c, 1);
+    g.beginPath(); g.moveTo(cx + 13, 40); g.lineTo(cx + 21, 34); g.lineTo(cx + 22, 24); g.strokePath();
+    // pointy ears
+    g.fillStyle(0x15121c, 1);
+    g.fillTriangle(cx - 13, 11, cx - 8, -1, cx - 3, 12);
+    g.fillTriangle(cx + 13, 11, cx + 8, -1, cx + 3, 12);
+    g.fillStyle(0x3a2a44, 1);
+    g.fillTriangle(cx - 11, 10, cx - 8, 2, cx - 5, 10);
+    g.fillTriangle(cx + 11, 10, cx + 8, 2, cx + 5, 10);
+    // black ghost body
+    this._ghostShape(g, w, h, 0x15121c);
+    g.fillStyle(0x000000, 0.22); g.fillEllipse(cx, 42, 30, 15);
+    // subtle top sheen
+    g.fillStyle(0xb98fe0, 0.18); g.fillCircle(cx - 6, 13, 4.5);
+    // golden almond eyes with slit pupils + glow
+    g.fillStyle(0xffcf33, 0.45); g.fillCircle(cx - 6, 22, 5); g.fillCircle(cx + 6, 22, 5);
+    g.fillStyle(0xffcf33, 1); g.fillEllipse(cx - 6, 22, 6, 8); g.fillEllipse(cx + 6, 22, 6, 8);
+    g.fillStyle(0x1a1206, 1); g.fillEllipse(cx - 6, 22, 1.8, 7); g.fillEllipse(cx + 6, 22, 1.8, 7);
+    g.fillStyle(0xffffff, 0.9); g.fillCircle(cx - 7, 19, 0.9); g.fillCircle(cx + 5, 19, 0.9);
+    // pink nose
+    g.fillStyle(0xc98fb0, 1); g.fillTriangle(cx - 1.6, 27, cx + 1.6, 27, cx, 29);
+    // whiskers
+    g.lineStyle(0.8, 0xe6e1f5, 0.7);
+    g.beginPath(); g.moveTo(cx - 3, 28); g.lineTo(cx - 15, 26); g.strokePath();
+    g.beginPath(); g.moveTo(cx - 3, 30); g.lineTo(cx - 14, 31); g.strokePath();
+    g.beginPath(); g.moveTo(cx + 3, 28); g.lineTo(cx + 15, 26); g.strokePath();
+    g.beginPath(); g.moveTo(cx + 3, 30); g.lineTo(cx + 14, 31); g.strokePath();
+    g.generateTexture('ghostCat', w, h);
+    g.destroy();
+  },
+
+  // Super Cat (admin ultimate): the same cat powered up — spiky golden Goku
+  // hair, a blazing gold aura and brighter molten eyes.
+  ghostSuperCat(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    // blazing gold aura
+    g.fillStyle(0xffb020, 0.16); g.fillCircle(cx, h / 2, 28);
+    g.fillStyle(0xffd24a, 0.24); g.fillCircle(cx, 26, 22);
+    g.fillStyle(0xfff2b0, 0.30); g.fillCircle(cx, 22, 16);
+    // curling tail with a gold tip
+    g.lineStyle(4, 0x15121c, 1);
+    g.beginPath(); g.moveTo(cx + 13, 40); g.lineTo(cx + 21, 34); g.lineTo(cx + 22, 24); g.strokePath();
+    // black cat ears peeking through the hair
+    g.fillStyle(0x15121c, 1);
+    g.fillTriangle(cx - 13, 10, cx - 8, -2, cx - 3, 11);
+    g.fillTriangle(cx + 13, 10, cx + 8, -2, cx + 3, 11);
+    // spiky golden hair over the top of the head
+    const spikes = [[-13, 9, -18, -12], [-7, 5, -8, -18], [0, 4, 0, -21], [7, 5, 8, -18], [13, 9, 18, -12]];
+    g.fillStyle(0xffd24a, 1);
+    for (const s of spikes) g.fillTriangle(cx + s[0] - 4, s[1], cx + s[2], s[3], cx + s[0] + 4, s[1]);
+    g.fillStyle(0xfff2b0, 0.6);
+    for (const s of spikes) g.fillTriangle(cx + s[0] - 1.5, s[1], cx + s[2], s[3], cx + s[0] + 1.5, s[1]);
+    // black ghost body with a warm rim
+    this._ghostShape(g, w, h, 0x15121c);
+    g.fillStyle(0x000000, 0.20); g.fillEllipse(cx, 42, 30, 15);
+    g.lineStyle(1.4, 0xffd24a, 0.5); g.strokeCircle(cx, 24, 17);
+    // molten golden eyes with slit pupils + strong glow
+    g.fillStyle(0xffd24a, 0.6); g.fillCircle(cx - 6, 22, 5.5); g.fillCircle(cx + 6, 22, 5.5);
+    g.fillStyle(0xfff2b0, 1); g.fillEllipse(cx - 6, 22, 6.5, 8.5); g.fillEllipse(cx + 6, 22, 6.5, 8.5);
+    g.fillStyle(0x1a1206, 1); g.fillEllipse(cx - 6, 22, 1.9, 7.5); g.fillEllipse(cx + 6, 22, 1.9, 7.5);
+    g.fillStyle(0xffffff, 1); g.fillCircle(cx - 7, 19, 1); g.fillCircle(cx + 5, 19, 1);
+    // pink nose + whiskers
+    g.fillStyle(0xffb0c0, 1); g.fillTriangle(cx - 1.6, 27, cx + 1.6, 27, cx, 29);
+    g.lineStyle(0.8, 0xfff2d0, 0.7);
+    g.beginPath(); g.moveTo(cx - 3, 28); g.lineTo(cx - 15, 26); g.strokePath();
+    g.beginPath(); g.moveTo(cx + 3, 28); g.lineTo(cx + 15, 26); g.strokePath();
+    // a couple of rising gold spark motes
+    g.fillStyle(0xfff2b0, 0.9); g.fillCircle(cx - 14, 34, 1.4); g.fillCircle(cx + 15, 30, 1.2); g.fillCircle(cx + 12, 40, 1);
+    g.generateTexture('ghostSuperCat', w, h);
     g.destroy();
   },
 

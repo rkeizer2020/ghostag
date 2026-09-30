@@ -207,6 +207,33 @@ const GAME = {
   SODA_POINTS: 40,             // points for hitting the Spook with soda
   SODA_FIRE_GAP: 300,          // ms guard so one key-press fires one soda
 
+  // ---- Cat (admin-only): 3 base abilities on keys 1/2/3, transform on 4 ----
+  // Base "Shadow Cat" form. Every base ability gives +40.
+  CAT_ABILITY_POINTS: 40,
+  CAT_CLAW_COOLDOWN: 7500,     // ms between claw swipes
+  CAT_CLAW_RANGE: 240,         // huge forward reach
+  CAT_CLAW_ARC: Math.PI * 0.7, // wide hit cone
+  CAT_CLAW_STUN: 3000,         // ms the Spook is stunned on a claw hit
+  CAT_LEAP_COOLDOWN: 12000,    // ms between moon leaps
+  CAT_LEAP_INVULN: 700,        // ms of safety during/after the leap
+  CAT_UI_COOLDOWN: 12000,      // ms between base Ultra Instinct uses
+  CAT_UI_MS: 3000,             // ms untouchable (base Ultra Instinct)
+
+  // Super Cat (press 4 at 1444+ pts): upgraded abilities, each plays a cutscene.
+  CAT_TRANSFORM_SCORE: 1444,   // score needed to go Super Cat
+  COMET_COOLDOWN: 12000,       // ms between Comet Paw punches
+  COMET_POINTS: 44,            // points for a Comet Paw
+  THUNDER_COOLDOWN: 12000,     // ms between Thunder Rush dashes
+  THUNDER_RANGE: 560,          // huge dash reach
+  THUNDER_STUN: 4000,          // ms the Spook is stunned on a Thunder Rush hit
+  THUNDER_POINTS: 44,          // points for a Thunder Rush hit
+  UI2_COOLDOWN: 15000,         // ms between Ultra Instinct 0.2 arms
+  UI2_ARM_MS: 6000,            // ms the counter stays armed (waiting for a hit)
+  UI2_POINTS: 444,             // points when the counter triggers
+  UI2_STUN: 4000,              // ms the Spook is stunned by the counter
+  UI2_SPEED_MS: 4000,          // ms of the 4x speed buff after a counter
+  UI2_SPEED_MULT: 4,           // speed multiplier during the counter buff
+
   COLORS: {
     bg: 0x1c130b,
     ground: 0x3d2b1a,      // brown earth
@@ -235,6 +262,8 @@ const GAME = {
     ghostChrono: 0x2fd6c0,
     ghostVoid: 0x2a1a3a,
     ghostSpider: 0x243024,
+    ghostCat: 0x15121c,
+    ghostSuperCat: 0xffd24a,
   },
 };
 
@@ -525,13 +554,23 @@ const Settings = {
       // cooldowns: GAME.WEB_COOLDOWN / GAME.ZIP_COOLDOWN
       desc: 'Shift swaps: drop a web that roots the Spook in place 2s, or zip to the farthest tree for a big escape.',
     },
+    // Admin-only. A black cat with golden eyes; 3 abilities on keys 1/2/3.
+    // At 1444+ points press 4 to become Super Cat (golden Goku hair): the
+    // abilities upgrade and each ultimate plays its own anime cutscene.
+    cat: {
+      label: 'Shadow Cat', tex: 'ghostCat', ability: 'cat', unlock: 0, admin: true,
+      abilityName: 'Cat', icon: '🐾', speedMul: 1.1, lives: 1,
+      desc: 'ADMIN. 1 Claw (stun 3s) · 2 Moon Leap · 3 Ultra Instinct (3s untouchable). At 1444 pts press 4 → SUPER CAT: Comet Paw, Thunder Rush & Ultra Instinct 0.2, each with a cutscene.',
+    },
   },
-  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja', 'chrono', 'void', 'spider'],
+  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja', 'chrono', 'void', 'spider', 'cat'],
 
   // A character is unlocked once your best score reaches its threshold.
   isUnlocked(key) {
     const c = this.CHARACTERS[key];
     if (!c) return false;
+    // admin-only characters (Cat): founder accounts only, never via score/perk
+    if (c.admin) return Storage.isFounderUnlocked();
     if (key === 'blue') return true;
     if (Storage.allCharsUnlocked()) return true; // founder perk
     return Storage.bestOverall() >= (c.unlock || 0);
@@ -583,7 +622,7 @@ const Settings = {
 
   // body colour for each character (used to tint the owner skin's face)
   charColor(key) {
-    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xbfc2d0, chrono: 0x7fe8e0, void: 0xb98fe0, spider: 0x8fe6a0 }[key] || 0xbfe6ff;
+    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xbfc2d0, chrono: 0x7fe8e0, void: 0xb98fe0, spider: 0x8fe6a0, cat: 0xffcf33 }[key] || 0xbfe6ff;
   },
 
   getSkin() {

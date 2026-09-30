@@ -67,12 +67,21 @@ class GameScene extends Phaser.Scene {
     this.gameOver = false;
     this.lastWarnBeep = 0;
 
+    // Cat (admin): 3-ability form that transforms into Super Cat at 1444 pts.
+    this.superCat = false;        // has the ultimate transform happened
+    this.catReady = { 1: 0, 2: 0, 3: 0 }; // per-slot cooldown timers
+    this.ui2ArmUntil = 0;         // Super Cat ability 3: counter armed window
+    this.catSpeedUntil = 0;       // 4x speed buff after an Ultra Instinct 0.2 counter
+    this.cutsceneActive = false;  // a Super Cat cutscene is playing (freeze play)
+
     // selected character + its ability
     this.charKey = Settings.getCharacter();
     this.character = Settings.CHARACTERS[this.charKey];
     // equipped cosmetic skin overrides the look (classic = character colour)
     this.skin = Settings.skin();
     this.playerTex = (this.skin.kind === 'default') ? this.character.tex : this.skin.tex;
+    // the admin Cat always looks like a cat, whatever cosmetic skin is equipped
+    if (this.charKey === 'cat') this.playerTex = 'ghostCat';
     this.runCoins = 0;
     this.charSpeedMul = this.character.speedMul || 1;
     this.lives = this.character.lives || 1;
@@ -178,6 +187,15 @@ class GameScene extends Phaser.Scene {
     this.shiftKey.on('down', () => this.switchDualMode());
     // City map: Enter sprays a soda you bought from the vending machine
     this.input.keyboard.on('keydown-ENTER', () => this.fireSoda());
+    // Cat (admin): abilities on 1/2/3, transform to Super Cat on 4
+    if (this.charKey === 'cat') {
+      this.input.keyboard.on('keydown-ONE', () => this.useCatAbility(1));
+      this.input.keyboard.on('keydown-TWO', () => this.useCatAbility(2));
+      this.input.keyboard.on('keydown-THREE', () => this.useCatAbility(3));
+      this.input.keyboard.on('keydown-FOUR', () => this.transformSuperCat());
+      // Space is a convenient alias for ability 1
+      this.spaceKey.on('down', () => this.useCatAbility(1));
+    }
     this.joystick = null;
     if (this.sys.game.device.input.touch) {
       this.joystick = new VirtualJoystick(this);
@@ -304,6 +322,8 @@ class GameScene extends Phaser.Scene {
 
   useAbility() {
     if (this.gameOver) return;
+    // the Cat has its own 1/2/3/4 controls (handled in useCatAbility)
+    if (this.character.ability === 'cat') return;
     const now = this.time.now;
 
     // dual ability (Magma, Forest): each mode has its own cooldown
@@ -508,6 +528,212 @@ class GameScene extends Phaser.Scene {
     SFX.click();
     this.floatText(info.icon + ' ' + info.label.toUpperCase(), info.color);
     this.updateLogHud();
+  }
+
+  // ================= Cat (admin): base + Super Cat abilities =================
+  // Small shared FX helpers used by the cat's attacks.
+  enemyBurst(tint) {
+    for (let i = 0; i < 12; i++) {
+      const p = this.trail.emitParticleAt(this.enemy.x + Phaser.Math.Between(-16, 16), this.enemy.y + Phaser.Math.Between(-16, 8));
+      if (p && p.setTint && tint != null) p.setTint(tint);
+    }
+  }
+  enemyText(msg, hex) {
+    const txt = this.add.text(this.enemy.x, this.enemy.y - 54, msg, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: hex,
+    }).setOrigin(0.5).setDepth(20).setShadow(0, 2, '#000', 4);
+    this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
+  }
+
+  // Route a 1/2/3 press to the base or Super Cat ability in that slot.
+  useCatAbility(slot) {
+    if (this.gameOver || this.cutsceneActive) return;
+    const now = this.time.now;
+    if (now < (this.catReady[slot] || 0)) return;
+    let cd;
+    if (this.superCat) {
+      if (slot === 1) { this.cometPaw(now); cd = GAME.COMET_COOLDOWN; }
+      else if (slot === 2) { this.thunderRush(now); cd = GAME.THUNDER_COOLDOWN; }
+      else { this.armUltra02(now); cd = GAME.UI2_COOLDOWN; }
+    } else {
+      if (slot === 1) { this.catClaw(now); cd = GAME.CAT_CLAW_COOLDOWN; }
+      else if (slot === 2) { this.moonLeap(now); cd = GAME.CAT_LEAP_COOLDOWN; }
+      else { this.catUltraInstinct(now); cd = GAME.CAT_UI_COOLDOWN; }
+    }
+    this.catReady[slot] = now + cd;
+    this.updateLogHud();
+  }
+
+  // Key 4 at 1444+ pts: become Super Cat (golden hair, upgraded abilities).
+  transformSuperCat() {
+    if (this.gameOver || this.cutsceneActive || this.superCat) return;
+    if (Math.floor(this.score) < GAME.CAT_TRANSFORM_SCORE) {
+      this.floatText('Need ' + GAME.CAT_TRANSFORM_SCORE + ' pts to transform', 0xffd24a);
+      return;
+    }
+    this.superCat = true;
+    this.playerTex = 'ghostSuperCat';
+    this.player.setTexture('ghostSuperCat');
+    this.invulnUntil = this.time.now + 1200; // safety during the flash
+    // reset per-slot cooldowns so the ultimate abilities are ready immediately
+    this.catReady = { 1: 0, 2: 0, 3: 0 };
+    if (this.playerGlow) this.playerGlow.setTint(0xffd24a).setScale(1.15);
+    for (let i = 0; i < 26; i++) {
+      const p = this.trail.emitParticleAt(this.player.x + Phaser.Math.Between(-22, 22), this.player.y + Phaser.Math.Between(-22, 22));
+      if (p && p.setTint) p.setTint(0xffd24a);
+    }
+    this.cameras.main.flash(420, 255, 240, 180);
+    this.cameras.main.shake(320, 0.008);
+    SFX.boost();
+    this.floatText('⚡ SUPER CAT!', 0xffd24a);
+    this.updateLogHud();
+  }
+
+  // ---- base Shadow Cat abilities (+40 each) ----
+  catClaw(now) {
+    const ang = this.aimAngle();
+    const slash = this.add.image(this.player.x, this.player.y, 'slash')
+      .setDepth(12).setRotation(ang).setScale(0.9).setAlpha(0.95).setTint(0xffd24a);
+    this.tweens.add({ targets: slash, scale: 2.8, alpha: 0, duration: 260, ease: 'Quad.out', onComplete: () => slash.destroy() });
+    this.cameras.main.shake(90, 0.004);
+    SFX.slash();
+    if (now >= this.stunUntil) {
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.enemy.x, this.enemy.y);
+      if (dist <= GAME.CAT_CLAW_RANGE) {
+        const toEnemy = Phaser.Math.Angle.Between(this.player.x, this.player.y, this.enemy.x, this.enemy.y);
+        const diff = Math.abs(Phaser.Math.Angle.Wrap(toEnemy - ang));
+        if (diff <= GAME.CAT_CLAW_ARC / 2) {
+          this.stunUntil = now + GAME.CAT_CLAW_STUN;
+          this.score += GAME.CAT_ABILITY_POINTS;
+          this.enemy.setVelocity(0, 0);
+          SFX.caught();
+          this.enemyBurst(0xffd24a);
+          this.enemyText('🐾 CLAW! +' + GAME.CAT_ABILITY_POINTS, '#ffd24a');
+          return;
+        }
+      }
+    }
+    this.floatText('🐾 Claw', 0xffd24a);
+  }
+
+  moonLeap(now) {
+    const fromX = this.player.x, fromY = this.player.y;
+    const range = 720;
+    const nx = Phaser.Math.Clamp(fromX + this.faceDir.x * range, 30, GAME.WORLD_WIDTH - 30);
+    const ny = Phaser.Math.Clamp(fromY + this.faceDir.y * range, 30, GAME.WORLD_HEIGHT - 30);
+    const ghostImg = this.add.image(fromX, fromY, this.playerTex).setAlpha(0.5).setDepth(9);
+    this.tweens.add({ targets: ghostImg, alpha: 0, scale: 0.6, duration: 300, onComplete: () => ghostImg.destroy() });
+    // sail over trees and the Spook during the leap
+    this.playerTreeCollider.active = false;
+    this.player.setPosition(nx, ny);
+    this.player.setVelocity(0, 0);
+    this.score += GAME.CAT_ABILITY_POINTS;
+    this.invulnUntil = now + GAME.CAT_LEAP_INVULN;
+    this.time.delayedCall(GAME.CAT_LEAP_INVULN, () => {
+      if (!this.gameOver && this.charKey === 'cat') this.playerTreeCollider.active = true;
+    });
+    SFX.boost();
+    this.cameras.main.shake(80, 0.003);
+    for (let i = 0; i < 10; i++) this.trail.emitParticleAt(nx + Phaser.Math.Between(-12, 12), ny + Phaser.Math.Between(-12, 12));
+    this.floatText('🌙 MOON LEAP! +' + GAME.CAT_ABILITY_POINTS, 0xbfa0ff);
+  }
+
+  catUltraInstinct(now) {
+    this.invulnUntil = now + GAME.CAT_UI_MS;
+    this.score += GAME.CAT_ABILITY_POINTS;
+    SFX.boost();
+    const reps = Math.max(1, Math.floor(GAME.CAT_UI_MS / 400));
+    this.tweens.add({
+      targets: this.player, alpha: 0.45, duration: 200, yoyo: true, repeat: reps,
+      onComplete: () => { if (this.player.active) this.player.setAlpha(1); },
+    });
+    this.floatText('✨ ULTRA INSTINCT! +' + GAME.CAT_ABILITY_POINTS, 0xdbeaff);
+  }
+
+  // ---- Super Cat ultimates (each plays its cutscene, then applies) ----
+  // Freeze play, run the named cutscene, then apply the effect on completion.
+  playCatCutscene(name, applyFn) {
+    if (typeof Cutscenes === 'undefined' || this.cutsceneActive) { if (applyFn) applyFn(); return; }
+    this.cutsceneActive = true;
+    this.physics.world.pause();
+    SFX.setMusicIntensity(0);
+    Cutscenes.play(name, () => {
+      this.cutsceneActive = false;
+      if (this.gameOver) return;
+      this.physics.world.resume();
+      if (applyFn) applyFn();
+      this.updateLogHud();
+    });
+  }
+
+  cometPaw(now) {
+    this.playCatCutscene('comet', () => {
+      const t = this.time.now;
+      // punch the Spook to the far side of the map, diagonally opposite
+      const opp = (this.player.x < GAME.WORLD_WIDTH / 2) ? GAME.WORLD_WIDTH - 60 : 60;
+      const oy = Phaser.Math.Clamp(GAME.WORLD_HEIGHT - this.player.y, 60, GAME.WORLD_HEIGHT - 60);
+      this.enemy.setPosition(opp, oy);
+      this.enemy.setVelocity(0, 0);
+      this.stunUntil = t + 1500; // dazed after the launch
+      this.score += GAME.COMET_POINTS;
+      this.cameras.main.shake(200, 0.01);
+      SFX.caught();
+      this.enemyBurst(0xffd24a);
+      this.floatText('👊 COMET PAW! +' + GAME.COMET_POINTS, 0xffd24a);
+    });
+  }
+
+  thunderRush(now) {
+    const fromX = this.player.x, fromY = this.player.y;
+    const toX = Phaser.Math.Clamp(fromX + this.faceDir.x * GAME.THUNDER_RANGE, 30, GAME.WORLD_WIDTH - 30);
+    const toY = Phaser.Math.Clamp(fromY + this.faceDir.y * GAME.THUNDER_RANGE, 30, GAME.WORLD_HEIGHT - 30);
+    this.playCatCutscene('thunder', () => {
+      const t = this.time.now;
+      this.player.setPosition(toX, toY);
+      this.player.setVelocity(0, 0);
+      this.invulnUntil = t + 500;
+      // did the dash line sweep through the Spook?
+      const d = this.distToSegment(this.enemy.x, this.enemy.y, fromX, fromY, toX, toY);
+      if (t >= this.stunUntil && d <= 64) {
+        this.stunUntil = t + GAME.THUNDER_STUN;
+        this.enemy.setVelocity(0, 0);
+        this.enemyBurst(0x8fd0ff);
+        SFX.caught();
+      }
+      this.score += GAME.THUNDER_POINTS;
+      this.cameras.main.shake(150, 0.008);
+      for (let i = 0; i < 10; i++) this.trail.emitParticleAt(toX + Phaser.Math.Between(-12, 12), toY + Phaser.Math.Between(-12, 12));
+      this.floatText('💨 THUNDER RUSH! +' + GAME.THUNDER_POINTS, 0x8fd0ff);
+    });
+  }
+
+  // Ultra Instinct 0.2: arm a counter window. The next Spook hit while armed
+  // triggers ui2Counter() from caught() instead of ending the run.
+  armUltra02(now) {
+    this.ui2ArmUntil = now + GAME.UI2_ARM_MS;
+    SFX.boost();
+    this.player.setAlpha(0.8);
+    this.floatText('🌀 ULTRA INSTINCT 0.2 — counter armed', 0xdbeaff);
+  }
+
+  ui2Counter(now) {
+    this.ui2ArmUntil = 0;
+    if (this.player.active) this.player.setAlpha(1);
+    // freeze the Spook up front so it can't re-catch during/after the cutscene
+    this.stunUntil = now + GAME.UI2_STUN + 1200;
+    this.enemy.setVelocity(0, 0);
+    this.playCatCutscene('ultra', () => {
+      const t = this.time.now;
+      this.score += GAME.UI2_POINTS;
+      this.stunUntil = t + GAME.UI2_STUN;
+      this.catSpeedUntil = t + GAME.UI2_SPEED_MS;
+      this.invulnUntil = t + 700;
+      this.enemy.setVelocity(0, 0);
+      this.cameras.main.shake(220, 0.011);
+      SFX.caught();
+      this.enemyBurst(0xdbeaff);
+      this.floatText('🌀 COUNTER! +' + GAME.UI2_POINTS + ' · 4x speed', 0xdbeaff);
+    });
   }
 
   // ---- Forest ghost: chop a tree for orbs / grow a wall of trees ----
@@ -1421,7 +1647,21 @@ class GameScene extends Phaser.Scene {
     this.updateLogHud();
 
     // touch: a button to use the ability
-    if (this.sys.game.device.input.touch) {
+    if (this.sys.game.device.input.touch && this.character.ability === 'cat') {
+      // Cat (admin): four stacked buttons for abilities 1/2/3 and transform 4
+      this.catBtns = [];
+      [1, 2, 3, 4].forEach((slot) => {
+        const b = this.add.text(0, 0, String(slot), {
+          fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ffffff',
+          backgroundColor: slot === 4 ? '#4a3a10' : '#3a2a1e', padding: { x: 15, y: 10 },
+        }).setOrigin(1, 1).setScrollFactor(0).setDepth(2000).setInteractive({ useHandCursor: true });
+        b.on('pointerdown', (p, x, y, event) => {
+          if (event) event.stopPropagation();
+          if (slot === 4) this.transformSuperCat(); else this.useCatAbility(slot);
+        });
+        this.catBtns.push(b);
+      });
+    } else if (this.sys.game.device.input.touch) {
       const label = this.character.icon + ' ' + this.character.abilityName.toUpperCase();
       this.logBtn = this.add.text(W - 20, H - 20, label, {
         fontFamily: 'system-ui, sans-serif', fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
@@ -1459,11 +1699,27 @@ class GameScene extends Phaser.Scene {
     if (this.logHud) this.logHud.setPosition(16, H - 34);
     if (this.logBtn) this.logBtn.setPosition(W - 20, H - 20);
     if (this.switchBtn) this.switchBtn.setPosition(W - 20, H - 78);
+    if (this.catBtns) this.catBtns.forEach((b, i) => b.setPosition(W - 20, H - 20 - i * 52));
   }
 
   updateLogHud() {
     if (!this.logHud) return;
     const now = this.time.now;
+
+    // Cat (admin): show the three ability slots + the transform / Super state
+    if (this.character.ability === 'cat') {
+      const r = (s) => (now >= (this.catReady[s] || 0) ? '' : '…');
+      if (this.superCat) {
+        this.logHud.setText('⚡ 1 Comet' + r(1) + '  2 Thunder' + r(2) + '  3 Ultra0.2' + r(3));
+        this.logHud.setColor('#ffd24a');
+      } else {
+        const canT = Math.floor(this.score) >= GAME.CAT_TRANSFORM_SCORE;
+        this.logHud.setText('🐾 1 Claw' + r(1) + '  2 Leap' + r(2) + '  3 Ultra' + r(3)
+          + '  ·  4 ' + (canT ? 'SUPER CAT!' : GAME.CAT_TRANSFORM_SCORE + 'pts'));
+        this.logHud.setColor(canT ? '#ffe27a' : '#d8e6b0');
+      }
+      return;
+    }
 
     // dual ability (Magma, Forest): show the current mode + its own cooldown
     if (this.character.ability === 'dual' && this.dualMode) {
@@ -1507,9 +1763,15 @@ class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    if (this.gameOver) return;
+    if (this.gameOver || this.cutsceneActive) return;
     const dt = delta / 1000;
     this.elapsed += dt;
+
+    // Super Cat: end the Ultra Instinct 0.2 arm window if no hit landed in time
+    if (this.ui2ArmUntil && time >= this.ui2ArmUntil) {
+      this.ui2ArmUntil = 0;
+      if (this.player.active) this.player.setAlpha(1);
+    }
 
     // score from survival time
     this.score += GAME.SURVIVE_POINTS_PER_SEC * dt;
@@ -1553,6 +1815,8 @@ class GameScene extends Phaser.Scene {
     // Volt's sprint: a short burst of 3x speed
     const sprinting = time < this.sprintUntil;
     if (sprinting) speed *= GAME.SPRINT_MULT;
+    // Super Cat Ultra Instinct 0.2 counter: a 4x speed burst
+    if (time < this.catSpeedUntil) speed = Math.max(speed, GAME.PLAYER_SPEED * GAME.UI2_SPEED_MULT);
 
     let vx = 0, vy = 0;
     if (this.cursors.left.isDown || this.wasd.left.isDown) vx -= 1;
@@ -1629,7 +1893,7 @@ class GameScene extends Phaser.Scene {
   }
 
   boostTint() {
-    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce, volt: 0xd0ecff, alien: 0xbfffe0, lucky: 0xdfffa0, ninja: 0xcfd2e0, chrono: 0xaff0e8, void: 0xd8bfff, spider: 0xbfffb0 }[this.charKey] || 0x9fe0ff;
+    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce, volt: 0xd0ecff, alien: 0xbfffe0, lucky: 0xdfffa0, ninja: 0xcfd2e0, chrono: 0xaff0e8, void: 0xd8bfff, spider: 0xbfffb0, cat: 0xffe27a }[this.charKey] || 0x9fe0ff;
   }
 
   // Keeps the shield bubble on the player and toggles tree-phasing on/off.
@@ -1800,6 +2064,9 @@ class GameScene extends Phaser.Scene {
     if (this.gameOver) return;
     const now = this.time.now;
     if (now < this.invulnUntil) return; // grace after a block / life loss
+
+    // Super Cat Ultra Instinct 0.2: an armed hit becomes a counter, not a death
+    if (this.superCat && now < this.ui2ArmUntil) { this.ui2Counter(now); return; }
 
     // Alien UFO: untouchable, and each hit scores instead of killing
     if (now < this.ufoUntil) { this.ufoHit(now); return; }

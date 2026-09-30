@@ -20,7 +20,11 @@ class CharactersScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif', fontSize: '17px', fontStyle: 'bold', color: '#ffd54a',
     }).setOrigin(0.5).setDepth(3).setShadow(0, 2, '#000', 4);
 
-    const keys = Settings.CHAR_ORDER;
+    // admin-only characters (Cat) are hidden entirely unless you're a founder
+    const keys = Settings.CHAR_ORDER.filter((k) => {
+      const c = Settings.CHARACTERS[k];
+      return !(c && c.admin) || Storage.isFounderUnlocked();
+    });
     const n = keys.length;
     const cols = W >= H ? 3 : 2;
     const rows = Math.ceil(n / cols);
@@ -134,7 +138,7 @@ class CharactersScene extends Phaser.Scene {
   }
 
   accentFor(key) {
-    return { blue: 0x6fb8ff, red: 0xff6b7a, green: 0x6fe0a0, purple: 0xb98fe0, yellow: 0xffd24a, brown: 0xc79a6a, pink: 0xff8fd0, black: 0x9a9ab4, magma: 0xff6a3a, forest: 0x6fce6a, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xd42a3a, chrono: 0x2fd6c0, void: 0x8f5fd0, spider: 0x6fe0a0 }[key] || 0x6fb8ff;
+    return { blue: 0x6fb8ff, red: 0xff6b7a, green: 0x6fe0a0, purple: 0xb98fe0, yellow: 0xffd24a, brown: 0xc79a6a, pink: 0xff8fd0, black: 0x9a9ab4, magma: 0xff6a3a, forest: 0x6fce6a, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xd42a3a, chrono: 0x2fd6c0, void: 0x8f5fd0, spider: 0x6fe0a0, cat: 0xffd24a }[key] || 0x6fb8ff;
   }
 
   // Popup describing a character's abilities (opened by the ℹ button).
@@ -207,7 +211,7 @@ class CharactersScene extends Phaser.Scene {
     const current = Settings.getCharacter();
     Settings.CHAR_ORDER.forEach((key) => {
       const card = this.cards[key];
-      if (!card.unlocked) return;
+      if (!card || !card.unlocked) return;
       const selected = key === current;
       card.drawPanel(selected);
       if (card.btn) {
