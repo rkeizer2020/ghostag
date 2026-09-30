@@ -221,6 +221,7 @@ const GAME = {
 
   // Super Cat (press 4 at 1004+ pts): upgraded abilities, each plays a cutscene.
   CAT_TRANSFORM_SCORE: 1004,   // score needed to go Super Cat
+  CAT_SUPER_SCORE_CAP: 4444,   // once Super Cat, the score can't climb past this
   COMET_COOLDOWN: 12000,       // ms between Comet Paw punches
   COMET_POINTS: 44,            // points for a Comet Paw
   THUNDER_COOLDOWN: 12000,     // ms between Thunder Rush dashes

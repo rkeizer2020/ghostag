@@ -1775,6 +1775,10 @@ class GameScene extends Phaser.Scene {
 
     // score from survival time
     this.score += GAME.SURVIVE_POINTS_PER_SEC * dt;
+    // Super Cat is maxed out: the score can't climb past the cap
+    if (this.superCat && this.score > GAME.CAT_SUPER_SCORE_CAP) {
+      this.score = GAME.CAT_SUPER_SCORE_CAP;
+    }
     this.scoreText.setText('Score: ' + Math.floor(this.score));
 
     // enemy ramps up the longer you live
