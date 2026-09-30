@@ -219,8 +219,8 @@ const GAME = {
   CAT_UI_COOLDOWN: 12000,      // ms between base Ultra Instinct uses
   CAT_UI_MS: 3000,             // ms untouchable (base Ultra Instinct)
 
-  // Super Cat (press 4 at 1444+ pts): upgraded abilities, each plays a cutscene.
-  CAT_TRANSFORM_SCORE: 1444,   // score needed to go Super Cat
+  // Super Cat (press 4 at 1004+ pts): upgraded abilities, each plays a cutscene.
+  CAT_TRANSFORM_SCORE: 1004,   // score needed to go Super Cat
   COMET_COOLDOWN: 12000,       // ms between Comet Paw punches
   COMET_POINTS: 44,            // points for a Comet Paw
   THUNDER_COOLDOWN: 12000,     // ms between Thunder Rush dashes
@@ -555,12 +555,12 @@ const Settings = {
       desc: 'Shift swaps: drop a web that roots the Spook in place 2s, or zip to the farthest tree for a big escape.',
     },
     // Admin-only. A black cat with golden eyes; 3 abilities on keys 1/2/3.
-    // At 1444+ points press 4 to become Super Cat (golden Goku hair): the
+    // At 1004+ points press 4 to become Super Cat (golden Goku hair): the
     // abilities upgrade and each ultimate plays its own anime cutscene.
     cat: {
       label: 'Shadow Cat', tex: 'ghostCat', ability: 'cat', unlock: 0, admin: true,
       abilityName: 'Cat', icon: '🐾', speedMul: 1.1, lives: 1,
-      desc: 'ADMIN. 1 Claw (stun 3s) · 2 Moon Leap · 3 Ultra Instinct (3s untouchable). At 1444 pts press 4 → SUPER CAT: Comet Paw, Thunder Rush & Ultra Instinct 0.2, each with a cutscene.',
+      desc: 'ADMIN. 1 Claw (stun 3s) · 2 Moon Leap · 3 Ultra Instinct (3s untouchable). At 1004 pts press 4 → SUPER CAT: Comet Paw, Thunder Rush & Ultra Instinct 0.2, each with a cutscene.',
     },
   },
   CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja', 'chrono', 'void', 'spider', 'cat'],

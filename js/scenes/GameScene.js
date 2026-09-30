@@ -67,7 +67,7 @@ class GameScene extends Phaser.Scene {
     this.gameOver = false;
     this.lastWarnBeep = 0;
 
-    // Cat (admin): 3-ability form that transforms into Super Cat at 1444 pts.
+    // Cat (admin): 3-ability form that transforms into Super Cat at 1004 pts.
     this.superCat = false;        // has the ultimate transform happened
     this.catReady = { 1: 0, 2: 0, 3: 0 }; // per-slot cooldown timers
     this.ui2ArmUntil = 0;         // Super Cat ability 3: counter armed window
@@ -564,7 +564,7 @@ class GameScene extends Phaser.Scene {
     this.updateLogHud();
   }
 
-  // Key 4 at 1444+ pts: become Super Cat (golden hair, upgraded abilities).
+  // Key 4 at 1004+ pts: become Super Cat (golden hair, upgraded abilities).
   transformSuperCat() {
     if (this.gameOver || this.cutsceneActive || this.superCat) return;
     if (Math.floor(this.score) < GAME.CAT_TRANSFORM_SCORE) {
