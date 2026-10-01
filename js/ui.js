@@ -356,4 +356,141 @@ const UI = {
 
     return { setValue: (v) => setV(v, false), track, fill, thumb };
   },
+
+  // ---- Online: create/join a lobby (Supabase Realtime) ----
+  _onlinePanel: null,
+  _onlineBound: false,
+  onlinePanel() {
+    if (this._onlinePanel) { this._onlinePanel.style.display = 'flex'; this._onlineHome(); return; }
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(6,8,10,0.74);font-family:system-ui,-apple-system,sans-serif;';
+    const card = document.createElement('div');
+    card.style.cssText = 'width:min(390px,92vw);max-height:90vh;overflow:auto;background:#171019;border:2px solid #6fb8ff;border-radius:16px;padding:20px;color:#eaf6ff;box-shadow:0 12px 44px rgba(0,0,0,.55)';
+    wrap.appendChild(card);
+    document.body.appendChild(wrap);
+    this._onlinePanel = wrap;
+    this._onlineCard = card;
+    wrap.addEventListener('pointerdown', (e) => { if (e.target === wrap) this.closeOnline(true); });
+    this._onlineBindMatch();
+    this._onlineHome();
+  },
+
+  closeOnline(leave) {
+    if (this._onlinePanel) this._onlinePanel.style.display = 'none';
+    if (leave && typeof Net !== 'undefined' && Net.inLobby() && !(Net.lobby && Net.lobby.started)) Net.leave();
+  },
+
+  // react to match start / host leaving, once
+  _onlineBindMatch() {
+    if (this._onlineBound || typeof Net === 'undefined') return;
+    this._onlineBound = true;
+    Net.on('start', (payload) => {
+      if (this._onlinePanel) this._onlinePanel.style.display = 'none';
+      try {
+        if (window.game && window.game.scene.getScene('OnlineGame')) {
+          window.game.scene.start('OnlineGame', payload);
+        }
+      } catch (e) { /* ignore */ }
+    });
+    Net.on('hostleft', () => {
+      if (this._onlinePanel && this._onlinePanel.style.display !== 'none') {
+        Net.leave();
+        this._onlineHome('The host left — that lobby is closed.');
+      }
+    });
+  },
+
+  _onlineStyles() {
+    return {
+      inp: 'width:100%;padding:11px;margin:6px 0;border-radius:10px;border:1px solid #3a4652;background:#0f0c14;color:#fff;font-size:15px;box-sizing:border-box;',
+      btn: 'padding:11px;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;color:#fff;',
+    };
+  },
+
+  _onlineHome(message) {
+    const card = this._onlineCard; if (!card) return;
+    const { inp, btn } = this._onlineStyles();
+    if (typeof Net === 'undefined' || !Net.available()) {
+      card.innerHTML =
+        '<div style="font-size:22px;font-weight:800;text-align:center;color:#bfe6ff">🌐 Online</div>' +
+        '<div style="text-align:center;color:#9fb0c0;font-size:14px;margin:14px 0">Online play needs the website and a connection — it is blocked in the preview. Open the game at its web address and log in, then try again.</div>' +
+        '<button id="o-close" style="' + btn + 'width:100%;background:#2a2f36">Close</button>';
+      card.querySelector('#o-close').onclick = () => this.closeOnline(true);
+      return;
+    }
+    card.innerHTML =
+      '<div style="font-size:22px;font-weight:800;text-align:center;color:#bfe6ff">🌐 Online</div>' +
+      '<div style="text-align:center;color:#9fb0c0;font-size:13px;margin:4px 0 14px">Create a lobby and share the code, or join a friend\'s.</div>' +
+      '<label style="font-size:12px;color:#9fb0c0">Your name</label>' +
+      '<input id="o-name" maxlength="14" placeholder="Name" style="' + inp + '">' +
+      '<button id="o-create" style="' + btn + 'width:100%;background:#2a6cff;margin-top:6px">➕  Create lobby</button>' +
+      '<div style="display:flex;align-items:center;gap:10px;margin:14px 0;color:#6a7682;font-size:12px"><div style="flex:1;height:1px;background:#2a3038"></div>OR<div style="flex:1;height:1px;background:#2a3038"></div></div>' +
+      '<input id="o-code" maxlength="5" placeholder="LOBBY CODE" style="' + inp + 'text-transform:uppercase;letter-spacing:3px;text-align:center;font-weight:800">' +
+      '<button id="o-join" style="' + btn + 'width:100%;background:#3a2a5e">🔑  Join lobby</button>' +
+      '<div id="o-msg" style="min-height:18px;color:#ff9a9a;font-size:13px;text-align:center;margin:8px 0"></div>' +
+      '<button id="o-close" style="' + btn + 'width:100%;background:#2a2f36">Close</button>';
+    const $ = (id) => card.querySelector('#' + id);
+    $('o-name').value = Net.myName();
+    const msg = (t, ok) => { const el = $('o-msg'); el.textContent = t || ''; el.style.color = ok ? '#8fe6a0' : '#ff9a9a'; };
+    if (message) msg(message);
+    const saveName = () => Net.setName($('o-name').value);
+    $('o-code').oninput = (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); };
+
+    $('o-create').onclick = async () => {
+      saveName(); msg('Creating…', true);
+      const r = await Net.createLobby({ onUpdate: () => this._onlineRoom(), onError: (m) => msg(m) });
+      if (r && r.ok) this._onlineRoom();
+    };
+    $('o-join').onclick = async () => {
+      saveName(); msg('Joining…', true);
+      const r = await Net.joinLobby($('o-code').value, { onUpdate: () => this._onlineRoom(), onError: (m) => msg(m) });
+      if (r && r.ok) this._onlineRoom();
+    };
+    $('o-close').onclick = () => this.closeOnline(true);
+  },
+
+  _onlineRoom() {
+    const card = this._onlineCard; if (!card) return;
+    if (typeof Net === 'undefined' || !Net.inLobby()) { this._onlineHome(); return; }
+    const { btn } = this._onlineStyles();
+    const host = Net.isHost;
+    const count = Net.count();
+    const canStart = host && count >= 2;
+    const rows = Net.playerList().map((p) => {
+      const tags = (p.isHost ? ' <span style="color:#ffd54a">👑 host</span>' : '') + (p.id === Net.myId() ? ' <span style="color:#8fe6a0">(you)</span>' : '');
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0f0c14;border:1px solid #2a3038;border-radius:10px;margin:5px 0">' +
+        '<span style="font-size:16px">👻</span><span style="flex:1;font-weight:700">' + this._esc(p.name) + '</span>' + tags + '</div>';
+    }).join('');
+
+    card.innerHTML =
+      '<div style="font-size:20px;font-weight:800;text-align:center;color:#bfe6ff">Lobby</div>' +
+      '<div style="text-align:center;margin:10px 0">' +
+        '<div style="font-size:12px;color:#9fb0c0">share this code</div>' +
+        '<div id="o-codebig" style="font-size:38px;font-weight:900;letter-spacing:8px;color:#ffd54a;cursor:pointer" title="tap to copy">' + Net.code + '</div>' +
+        '<button id="o-copy" style="' + btn + 'background:#2a3038;padding:6px 14px;font-size:13px">📋 Copy code</button>' +
+      '</div>' +
+      '<div style="text-align:center;color:#9fb0c0;font-size:13px;margin:6px 0">Mode: <b style="color:#eaf6ff">🏃 Spook Tag</b> · ' + count + '/' + Net.MAX_PLAYERS + ' players' +
+        (Net.lobby.locked ? ' · <span style="color:#ff9a9a">🔒 locked</span>' : ' · <span style="color:#8fe6a0">🔓 open</span>') + '</div>' +
+      '<div style="margin:10px 0">' + rows + '</div>' +
+      (host
+        ? '<button id="o-lock" style="' + btn + 'width:100%;background:#3a2a5e;margin-bottom:8px">' + (Net.lobby.locked ? '🔓  Unlock lobby' : '🔒  Lock lobby') + '</button>' +
+          '<button id="o-start" style="' + btn + 'width:100%;background:' + (canStart ? '#2a6cff' : '#2a3038') + '" ' + (canStart ? '' : 'disabled') + '>▶  Start match</button>' +
+          (count < 2 ? '<div style="text-align:center;color:#9fb0c0;font-size:12px;margin-top:6px">Need at least 2 players to start.</div>' : '')
+        : '<div style="text-align:center;color:#9fb0c0;font-size:13px;margin:8px 0">Waiting for the host to start…</div>') +
+      '<button id="o-leave" style="' + btn + 'width:100%;margin-top:10px;background:#7a2530">Leave lobby</button>';
+
+    const $ = (id) => card.querySelector('#' + id);
+    const copy = () => { try { navigator.clipboard.writeText(Net.code); } catch (e) { /* ignore */ } };
+    $('o-copy').onclick = copy;
+    $('o-codebig').onclick = copy;
+    if (host) {
+      $('o-lock').onclick = () => Net.setLocked(!Net.lobby.locked);
+      if ($('o-start')) $('o-start').onclick = () => { if (canStart) Net.startMatch(); };
+    }
+    $('o-leave').onclick = () => { Net.leave(); this._onlineHome(); };
+  },
+
+  _esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  },
 };

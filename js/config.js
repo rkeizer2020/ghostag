@@ -235,6 +235,17 @@ const GAME = {
   UI2_SPEED_MS: 4000,          // ms of the 4x speed buff after a counter
   UI2_SPEED_MULT: 4,           // speed multiplier during the counter buff
 
+  // ---- Online "Spook Tag" mode (host-authoritative multiplayer) ----
+  TAG_ROUND_MS: 60000,         // the shared 60s hot-potato countdown
+  TAG_CATCH_DIST: 42,          // how close the Spook must be to tag someone
+  TAG_PASS_GRACE: 1300,        // ms after a pass where no tagging happens (no instant tag-backs)
+  TAG_STUN_MS: 1000,           // every stun ability is capped to 1s in this mode
+  TAG_STUN_RANGE: 150,         // reach of the universal stun pulse (nerfed)
+  TAG_STUN_COOLDOWN: 5000,     // ms between your stun pulses
+  TAG_NERF: 0.8,               // abilities are a little weaker in this mode
+  TAG_POS_HZ: 15,              // position broadcasts per second
+  TAG_STATE_HZ: 10,            // host authoritative-state broadcasts per second
+
   COLORS: {
     bg: 0x1c130b,
     ground: 0x3d2b1a,      // brown earth
