@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lightbearer - Demo</title>
+<style>
+  :root { --green:#7fd6a0; --gold:#ffd77a; --ink:#0a0d12; }
+  html,body{margin:0;height:100%;background:#05070a;overflow:hidden;font-family:Georgia,"Times New Roman",serif;color:#e8e2d0;user-select:none;-webkit-user-select:none}
+  #wrap{position:fixed;inset:0}
+  canvas{display:block;width:100%;height:100%}
+  #vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(0,0,0,.72) 100%)}
+  #flash{position:fixed;inset:0;pointer-events:none;background:#c0392b;opacity:0;transition:opacity .35s}
+  #hud{position:fixed;left:22px;top:20px;pointer-events:none}
+  .lives{display:flex;gap:6px}
+  .life{width:52px;height:15px;background:#7fd16a;border:2px solid #20301c;border-radius:8px;transform:skewX(-18deg);box-shadow:0 0 8px rgba(127,209,106,.55);transition:all .25s}
+  .life.off{background:#1b2217;box-shadow:none;opacity:.55}
+  .stam{margin-top:8px;width:170px;height:7px;border:2px solid #1e2630;background:#10151b;border-radius:5px;overflow:hidden}
+  .stam i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#e6d36a,#b7e86a)}
+  .stam.low i{background:#d86b4a}
+  .magic{display:flex;gap:7px;margin-top:10px}
+  .gem{width:15px;height:24px;background:#f3f6ff;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);box-shadow:0 0 6px #fff;transition:all .2s}
+  .gem.off{background:#3a4150;opacity:.6}
+  .abil{display:flex;gap:10px;margin-top:14px}
+  .slot{width:44px;height:44px;border:2px solid rgba(220,230,240,.55);background:rgba(10,14,20,.55);transform:rotate(45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(0,0,0,.6)}
+  .slot span{transform:rotate(-45deg);font-size:19px;filter:drop-shadow(0 0 3px #000)}
+  .slot.locked{opacity:.35}
+  .slot small{position:absolute;transform:rotate(-45deg) translate(0,27px);font:10px system-ui;color:#cbd5de}
+  #lights{position:fixed;right:24px;top:20px;text-align:right;pointer-events:none;font-size:18px;letter-spacing:.06em;text-shadow:0 0 8px #000}
+  #lights b{color:var(--gold)}
+  #hint{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);padding:6px 16px;background:rgba(5,8,12,.6);border:1px solid rgba(255,215,122,.5);border-radius:3px;opacity:0;transition:opacity .25s;pointer-events:none;color:var(--gold);font-size:15px}
+  #help{position:fixed;left:22px;bottom:18px;font:12px/1.55 system-ui,sans-serif;color:#aab4be;pointer-events:none;text-shadow:0 0 4px #000}
+  #help kbd{background:#1a222c;border:1px solid #3a4756;border-radius:3px;padding:0 5px;color:#e8eef4}
+  #banner{position:fixed;left:0;right:0;top:34%;text-align:center;pointer-events:none;font-size:46px;letter-spacing:.14em;color:var(--gold);text-shadow:0 0 22px rgba(255,190,80,.9);opacity:0;transition:opacity 1s}
+  #banner small{display:block;font-size:17px;letter-spacing:.12em;color:#e8e2d0;margin-top:10px}
+  .bar{position:fixed;width:64px;height:8px;margin:-4px 0 0 -32px;background:rgba(5,8,12,.8);border:1px solid #000;border-radius:2px;pointer-events:none;display:none}
+  .bar i{display:block;height:100%;background:linear-gradient(#e86a52,#b13a2e)}
+  .bar em{position:absolute;left:0;right:0;top:-15px;text-align:center;font:11px system-ui;color:#fff;font-style:normal;text-shadow:0 0 3px #000,0 0 3px #000}
+  .pop{position:fixed;pointer-events:none;font:bold 20px Georgia,serif;color:#fff;text-shadow:0 0 6px #000,0 0 3px #000;transform:translate(-50%,-50%)}
+  #title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(8,14,20,.82),rgba(2,4,6,.97));z-index:5;text-align:center;transition:opacity .6s}
+  #title h1{font-size:64px;letter-spacing:.2em;margin:0;color:var(--gold);text-shadow:0 0 30px rgba(255,180,70,.7);font-weight:normal}
+  #title p{max-width:560px;line-height:1.6;color:#c9cfd6;font-size:17px}
+  #title button{margin-top:18px;font:20px Georgia,serif;letter-spacing:.2em;padding:12px 38px;background:transparent;color:var(--gold);border:2px solid var(--gold);cursor:pointer;transition:all .2s}
+  #title button:hover{background:var(--gold);color:#111}
+  #title .ctl{font:14px/1.9 system-ui,sans-serif;color:#aab4be;margin-top:6px}
+  #title kbd{background:#1a222c;border:1px solid #3a4756;border-radius:3px;padding:1px 6px;color:#e8eef4}
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#05070a;z-index:9;color:#8a96a3;letter-spacing:.2em}
+</style>
+</head>
+<body>
+<div id="wrap"></div>
+<div id="vignette"></div>
+<div id="flash"></div>
+
+<div id="hud">
+  <div class="lives" id="lives"></div>
+  <div class="stam" id="stam"><i></i></div>
+  <div class="magic" id="magic"></div>
+  <div class="abil">
+    <div class="slot"><span>⚔️</span></div>
+    <div class="slot"><span>🛡️</span></div>
+    <div class="slot"><span>🏹</span><small>F</small></div>
+    <div class="slot locked"><span>🔥</span></div>
+    <div class="slot locked"><span>⛓️</span></div>
+  </div>
+</div>
+<div id="lights">LIGHTS &nbsp;<b id="lightcount">0 / 6</b></div>
+<div id="hint"></div>
+<div id="banner"></div>
+<div id="help">
+  <kbd>WASD</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>Space</kbd> roll<br>
+  <kbd>Left click</kbd> sword &nbsp; <kbd>Right click</kbd> shield (block just as the hit lands = parry) &nbsp; <kbd>F</kbd> bow &nbsp; <kbd>E</kbd> light a brazier &nbsp; <kbd>M</kbd> mute
+</div>
+
+<div id="title">
+  <h1>LIGHTBEARER</h1>
+  <p>The caves have gone dark. You are the mysterious folk who carries the old flame &mdash; light the braziers, face what lurks between them, and bring the mountain back to life.</p>
+  <div class="ctl">
+    <kbd>WASD</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>Space</kbd> roll<br>
+    <kbd>Left mouse</kbd> sword slash &nbsp; <kbd>Right mouse</kbd> shield<br>
+    Block right as a blow lands (0.2 s) for a <b style="color:#ffd77a">PERFECT PARRY</b>: 2 damage + 1 s stun
+  </div>
+  <button id="start">ENTER THE CAVE</button>
+</div>
+<div id="loading">LOADING…</div>
+
+<script type="importmap">
+{ "imports": { "three": "./three.module.min.js", "three/addons/": "./addons/" } }
+</script>
+<script type="module" src="game.js"></script>
+</body>
+</html>
