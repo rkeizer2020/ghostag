@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
 /* =========================================================================
    LIGHTBEARER - demo
@@ -426,6 +427,98 @@ for (let i = 0; i < 7; i++) { const [x, z] = edgePos(srand() * TAU, srange(1.4, 
 for (let i = 0; i < 9; i++) { const [x, z] = edgePos((i / 9) * TAU + srange(0, 0.3), srange(1.0, 2.2)); addCrystals(x, z, i % 3 === 0); }
 for (let i = 0; i < 6; i++) { const [x, z] = edgePos(srand() * TAU, srange(1.6, 3.2)); addUrn(x, z, srange(0.8, 1.3)); }
 addFern(-2.2, 5.9, 1.1); addFern(-9.4, -1.2, 1.2); addMushrooms(2.5, -11.5); addFern(6.5, 6.6, 1);
+
+
+// ---------- Quaternius "Modular Ruins" models (CC0) ----------------------
+const fbx = new FBXLoader();
+const modelCache = {};
+function loadModel(name, height) {
+  if (!modelCache[name]) {
+    modelCache[name] = new Promise((res) => fbx.load(`models/${name}.fbx`, (obj) => {
+      obj.traverse((o) => {
+        if (!o.isMesh) return;
+        const conv = (m) => {
+          const c = m.color.clone();
+          const isBush = name.startsWith('Bush');
+          if (isBush && c.r > 0.9 && c.g > 0.9) c.set(0x4fae48).convertSRGBToLinear();
+          else if (/Tree/.test(name) && /leaf|leaves/i.test(m.name || '')) c.set(0x4a9a44).convertSRGBToLinear();
+          else if (/Tree/.test(name) && /leaf|leaves/i.test(m.name || '')) c.set(0x4a9a44).convertSRGBToLinear();
+          else if (/Tree/.test(name) && c.r > 0.9 && c.g > 0.9) c.set(0x6a4a34).convertSRGBToLinear();
+          else if (!o.geometry.attributes.color) c.convertLinearToSRGB(); else c.setRGB(1.1, 1.1, 1.1);
+          const lum = (c.r + c.g + c.b) / 3;
+          if (!o.geometry.attributes.color && lum < 0.12) c.multiplyScalar(0.12 / Math.max(lum, 0.01));
+          return new THREE.MeshStandardMaterial({ color: c, vertexColors: !!o.geometry.attributes.color, roughness: 0.85, metalness: 0.02 });
+        };
+        o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material);
+        o.castShadow = true; o.receiveShadow = true;
+      });
+      res(obj);
+    }, undefined, (e) => { console.warn('model failed', name, e); res(null); }));
+  }
+  return modelCache[name].then((src) => {
+    if (!src) return null;
+    const obj = src.clone(true);
+    const wrapG = new THREE.Group(); wrapG.add(obj);
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = box.getSize(new THREE.Vector3());
+    const flat = /^(Bush|Bridge|Bricks|BearTrap|Cart|Curve|Grass|Trapdoor|Rail|Stairs)/.test(name);
+    const k = height / (flat ? Math.max(size.x, size.z) : size.y);
+    obj.scale.multiplyScalar(k);
+    box.setFromObject(obj);
+    const c = box.getCenter(new THREE.Vector3());
+    obj.position.set(-c.x, -box.min.y, -c.z);
+    return wrapG;
+  });
+}
+async function place(name, height, x, z, rotY = 0, collideR = 0, scaleMul = 1) {
+  const m = await loadModel(name, height * scaleMul);
+  if (!m) return;
+  m.position.set(x, 0, z); m.rotation.y = rotY;
+  world.add(m);
+  if (collideR) addCollider(x, z, collideR, 'prop');
+}
+const faceCentre = (x, z) => Math.atan2(-x, -z);
+(function placeRuins() {
+  // gateways at the edge of the plaza
+  place('Arch_Gothic', 6.2, -2.5, -12.6, faceCentre(-2.5, -12.6), 0);
+  place('Arch_Round_RoundColumn', 6.0, 12.2, 1.2, faceCentre(12.2, 1.2));
+  place('Arch_Gothic_RoundColumn', 5.6, -12.8, 8.0, faceCentre(-12.8, 8.0));
+  // library nook
+  place('Bookcase_Full', 2.6, -12.3, -3.0, faceCentre(-12.3, -3.0), 1.0);
+  place('Bookcase_Empty', 2.6, -12.0, -5.2, faceCentre(-12.0, -5.2), 1.0);
+  // barrels
+  [[10.8, 8.6], [11.9, 7.2], [10.2, 7.3], [-6.5, 10.8], [-5.2, 11.6], [3.5, -12.0], [9.5, -11.0]].forEach(([x, z], i) => place('Barrel', 1.5 + (i % 3) * 0.15, x, z, i * 1.3, 0.6));
+  // bear traps scattered on the floor
+  [[-1.2, 6.5, 'BearTrap_Open'], [3.5, -4.5, 'BearTrap_Closed'], [-5.5, -3.8, 'BearTrap_Open'], [7.5, 5.0, 'BearTrap_Closed']].forEach(([x, z, n], i) => place(n, 1.1, x, z, i * 1.7));
+  // bushes growing along the cave edge
+  [['Bush_2x2', 3.0, -10.5, 11.5], ['Bush_2x1', 3.0, 9.0, 11.5], ['Bush_1x1', 1.6, 12.0, -3.5], ['Bush_2x2', 3.0, 10.8, -7.8], ['Bush_1x1', 1.6, -11.8, 2.2], ['Bush_2x1', 3.0, 0.8, -12.4], ['Bush_1x1', 1.6, -2.8, 12.6]].forEach(([n, h, x, z], i) => place(n, h, x, z, i * 2.1, 0.7));
+  // brick piles and a broken bridge section
+  place('Bricks', 1.6, 6.0, -8.3, 0.6, 0.6); place('Bricks', 1.5, -7.8, -8.4, 2.2, 0.6);
+  place('BridgeSection', 4.5, 3.0, 11.0, faceCentre(3.0, 11.0) + Math.PI / 2, 0);
+  // more props from the pack
+  place('Column_Round', 4.0, 5.5, 8.5, 0, 0.7); place('Column_Round_Short', 2.2, -3.2, 9.6, 0, 0.7); place('Column_Square', 3.6, -8.0, -9.8, 0, 0.7);
+  place('Crate', 1.2, 9.6, 9.6, 0.4, 0.7); place('Crate', 1.2, 10.9, 9.9, 1.2, 0.7); place('Crate', 1.1, 10.2, 11.0, 0.1, 0.7);
+  place('Chest', 1.0, -10.2, 9.6, faceCentre(-10.2, 9.6), 0.7); place('Chest_Gold', 1.0, 11.0, -8.6, faceCentre(11.0, -8.6), 0.7);
+  place('Cart', 3.2, 4.8, -11.2, 0.5, 1.0);
+  place('Candles_1', 0.7, -9.0, -2.4, 0); place('Candles_2', 0.7, 10.2, -3.0, 0); place('Candles_1', 0.6, 0.5, 11.3, 0);
+  place('DeadTree_1', 5.0, -13.0, -8.0, 0.4, 0.5); place('DeadTree_2', 4.5, 12.5, -4.5, 1.1, 0.5); place('DeadTree_3', 4.5, 13.2, 6.5, 2.2, 0.5);
+  place('Bush_Large', 2.4, -9.3, -11.0, 0.8, 0.8); place('Bush_Round', 1.8, 8.0, 12.2, 0, 0.7);
+  // statues, torches, pots, trees, ruined walls
+  place('Statue_Fox', 3.2, -11.0, -9.0, faceCentre(-11.0, -9.0), 0.9); place('Statue_Stag', 3.6, 12.0, 9.0, faceCentre(12.0, 9.0), 0.9);
+  [[-10.0, -0.8], [11.6, 0.6], [-3.8, 12.2], [7.4, -11.8], [-7.2, -11.2], [12.2, -1.8]].forEach(([x, z], i) => place('Torch', 2.0, x, z, i));
+  [['Pot1', -7.8, 9.2], ['Pot2', -6.9, 9.9], ['Pot3', 6.6, 11.0], ['Pot1_Broken', 8.0, 10.4], ['Pot2_Broken', -2.4, -3.0], ['Pot3_Broken', 2.0, 5.0], ['Pot1', 11.0, 4.4], ['Pot3', -11.5, 3.6]].forEach(([n, x, z], i) => place(n, 1.1, x, z, i * 1.9, 0.4));
+  place('Skull', 0.4, 1.8, 2.8, 0.5); place('Skull', 0.4, -4.0, -5.6, 2.1);
+  place('Tree_1', 4.6, -13.0, 5.6, 0.2, 0.5); place('Tree_2', 4.6, 4.2, -12.8, 1.0, 0.5); place('Tree_3', 4.8, -6.2, 13.0, 2.0, 0.5);
+  [[-5.5, 0.4], [3.4, 2.4], [-1.0, -7.4], [8.6, 2.6], [0.4, 8.0]].forEach(([x, z], i) => place('Grass', 1.0, x, z, i * 1.3));
+  place('Wall_ArchRound_Broken', 3.4, 9.5, -6.4, faceCentre(9.5, -6.4) + Math.PI / 2, 0); place('Wall_ArchGothic', 3.4, -10.4, -4.6, faceCentre(-10.4, -4.6) + Math.PI / 2, 0);
+  place('Trapdoor', 1.8, -0.5, -3.0, 0.3); place('Stairs', 2.0, 12.8, -0.8, faceCentre(12.8, -0.8), 0);
+  place('Rail_Straight', 1.2, -4.4, 12.6, 0.2); place('Rail_Corner', 1.2, -5.8, 12.4, 0.2);
+  // loose bricks near the pillars
+  for (let i = 0; i < 26; i++) {
+    const p = [[-6.5, -6.2], [7.8, -9.2], [8.8, 8.0], [-9.0, 5.0]][i % 4];
+    place('Brick', 0.5, p[0] + srange(-2.2, 2.2), p[1] + srange(-2.2, 2.2), srand() * TAU);
+  }
+})();
 
 // ---------- braziers ----------------------------------------------------
 const braziers = [];
