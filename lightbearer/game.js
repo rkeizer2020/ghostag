@@ -817,12 +817,12 @@ function buildPlayer() {
 const pl = buildPlayer();
 scene.add(pl.root);
 const player = {
-  x: 0, z: 3, vx: 0, vz: 0, fa: Math.PI, lives: MAX_LIVES, stamina: 100, magic: 4, magicT: 0,
+  x: 0, z: 3, vx: 0, vz: 0, fa: Math.PI, lives: MAX_LIVES, stamina: 100,
   slashT: -1, slashDone: false, slashCd: 0, queuedSlash: 0,
   blocking: false, blockTime: 0, blockCd: 0, guardRaise: 0,
   rollT: -1, rollDirX: 0, rollDirZ: 1, rollCd: 0,
   invuln: 0, knock: { x: 0, z: 0 }, exhausted: false, staminaDelay: 0, walkPhase: 0, moveAmt: 0, stepAcc: 0,
-  dead: 0, parries: 0, bowCd: 0, bowAnim: 0,
+  dead: 0, parries: 0,
 };
 const SLASH_TIME = 0.34, ROLL_TIME = 0.36;
 
@@ -980,10 +980,11 @@ addEventListener('keydown', (e) => {
   if (!started) return;
   if (e.code === 'Space') { e.preventDefault(); tryRoll(); }
   if (e.code === 'KeyE') tryLight();
-  if (e.code === 'KeyF') tryBow();
+  if (e.code === 'Digit1' || e.code === 'Numpad1') player.queuedSlash = 0.18;
+  if (e.code === 'Digit2' || e.code === 'Numpad2') pressBlock();
   if (e.code === 'KeyM') Sfx.toggle();
 });
-addEventListener('keyup', (e) => { keys[e.code] = false; });
+addEventListener('keyup', (e) => { keys[e.code] = false; if ((e.code === 'Digit2' || e.code === 'Numpad2') && !mouse.down[2]) releaseBlock(); });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.down.fill(false); releaseBlock(); });
 
 function updateAim() {
@@ -992,6 +993,7 @@ function updateAim() {
 }
 const aimAngle = () => Math.atan2(aimPoint.x - player.x, aimPoint.z - player.z);
 
+const blockHeld = () => mouse.down[2] || keys.Digit2 || keys.Numpad2;
 function pressBlock() {
   if (player.dead > 0 || player.blocking || player.blockCd > 0 || player.rollT >= 0 || player.slashT >= 0) { player.wantBlock = true; return; }
   player.blocking = true; player.blockTime = 0;
@@ -1010,14 +1012,6 @@ function tryRoll() {
   player.rollT = 0; player.stamina -= 20; player.staminaDelay = 0.7; player.invuln = Math.max(player.invuln, 0.3);
   player.slashT = -1; player.blocking = false; player.fa = Math.atan2(dx, dz);
   Sfx.roll();
-}
-
-function tryBow() {
-  if (player.dead > 0 || player.bowCd > 0 || player.magic < 1 || player.rollT >= 0) return;
-  player.magic -= 1; player.bowCd = 0.35; player.bowAnim = 0.2;
-  const dx = Math.sin(player.fa), dz = Math.cos(player.fa);
-  spawnArrow(player.x + dx * 1.0, 1.1, player.z + dz * 1.0, dx * 19, dz * 19, 'player');
-  Sfx.shoot();
 }
 
 function tryLight() {
@@ -1358,14 +1352,12 @@ function updatePlayer(dt) {
   P.slashCd = Math.max(0, P.slashCd - dt);
   P.rollCd = Math.max(0, P.rollCd - dt);
   P.blockCd = Math.max(0, P.blockCd - dt);
-  P.bowCd = Math.max(0, P.bowCd - dt);
-  P.bowAnim = Math.max(0, P.bowAnim - dt);
   P.queuedSlash = Math.max(0, P.queuedSlash - dt);
 
   // buffered block press
-  if (mouse.down[2] && !P.blocking && P.blockCd <= 0 && P.slashT < 0 && P.rollT < 0) { P.blocking = true; P.blockTime = 0; }
+  if (blockHeld() && !P.blocking && P.blockCd <= 0 && P.slashT < 0 && P.rollT < 0) { P.blocking = true; P.blockTime = 0; }
   if (P.blocking) P.blockTime += dt;
-  if (!mouse.down[2] && P.blocking) { P.blocking = false; P.blockCd = 0.25; }
+  if (!blockHeld() && P.blocking) { P.blocking = false; P.blockCd = 0.25; }
 
   // slash start
   if (P.queuedSlash > 0 && P.slashT < 0 && P.slashCd <= 0 && !P.blocking && P.rollT < 0) {
@@ -1410,8 +1402,6 @@ function updatePlayer(dt) {
     if (P.slashT >= SLASH_TIME) P.slashT = -1;
   }
 
-  // magic regen
-  if (P.magic < 4) { P.magicT += dt; if (P.magicT >= 5) { P.magicT = 0; P.magic++; updateHud(); } }
 
   // footsteps
   const spd = Math.hypot(P.vx, P.vz);
@@ -1477,7 +1467,7 @@ function animatePlayer(dt) {
     if (t < 0.09) { const k = t / 0.09; rx = lerp(-1.95, -0.25, k); ry = lerp(-0.2, -1.4 * side, k); }
     else if (t < 0.21) { const k = (t - 0.09) / 0.12; rx = -0.25; ry = lerp(-1.4 * side, 1.4 * side, 1 - Math.pow(1 - k, 3)); }
     else { const k = (t - 0.21) / (SLASH_TIME - 0.21); rx = lerp(-0.25, -1.95, k); ry = lerp(1.4 * side, -0.2, k); }
-  } else if (P.bowAnim > 0) { rx = -0.2; ry = -0.1; }
+  }
   else if (P.rollT >= 0) { rx = -1.2; ry = 0; }
   sw.rotation.set(rx, ry, rz);
 
@@ -1550,16 +1540,14 @@ function animateWorld(dt) {
 }
 
 // ---------- HUD ---------------------------------------------------------
-const livesEl = $('lives'), magicEl = $('magic'), stamEl = $('stam'), hintEl = $('hint');
+const livesEl = $('lives'), stamEl = $('stam'), hintEl = $('hint');
 for (let i = 0; i < MAX_LIVES; i++) { const d = document.createElement('div'); d.className = 'life'; livesEl.appendChild(d); }
-for (let i = 0; i < 4; i++) { const d = document.createElement('div'); d.className = 'gem'; magicEl.appendChild(d); }
 let _hudSig = '';
 function updateHud() {
-  const sig = player.lives + '|' + player.magic;
+  const sig = String(player.lives);
   if (sig !== _hudSig) {
     _hudSig = sig;
     [...livesEl.children].forEach((el, i) => el.classList.toggle('off', i >= player.lives));
-    [...magicEl.children].forEach((el, i) => el.classList.toggle('off', i >= player.magic));
   }
   stamEl.firstElementChild.style.width = player.stamina + '%';
   stamEl.classList.toggle('low', player.exhausted);
@@ -1636,4 +1624,4 @@ camera.position.set(0, 20, 30);
 frame();
 $('loading').style.display = 'none';
 
-window.__game = { player, dummies, braziers, arrows, camera, scene, renderer, keys, mouse, lightBrazier, tryBow, get started() { return started; } };
+window.__game = { player, dummies, braziers, arrows, camera, scene, renderer, keys, mouse, lightBrazier, get started() { return started; } };
