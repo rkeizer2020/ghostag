@@ -789,9 +789,6 @@ function buildPlayer() {
   eye.add(new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), yellowMat));
   const white = new THREE.Mesh(new THREE.CircleGeometry(0.3, 20).scale(1.15, 0.8, 1), new THREE.MeshBasicMaterial({ color: 0xf4f4ee })); white.position.z = 0.01; eye.add(white);
   const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.13, 14), new THREE.MeshBasicMaterial({ color: 0x15171a })); pupil.position.z = 0.02; eye.add(pupil); S.pupil = pupil;
-  const scalp = new THREE.Mesh(sph(0.62, 1, 0.45, 0.58), new THREE.MeshStandardMaterial({ color: 0x9a7242, roughness: 0.6 }));
-  scalp.position.y = 0.5; head.add(scalp);
-  head.add(buildHair());
 
   // sword arm (+z along arm / blade)
   const sw = new THREE.Group(); sw.position.set(-0.95, 2.45, 0); sw.rotation.order = 'YXZ'; rig.add(sw); S.sword = sw;
