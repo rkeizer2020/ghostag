@@ -220,6 +220,10 @@ const Net = {
     this.players = {};
     this.self = null;
     this.lobby = { locked: false, started: false, mode: 'tag' };
-    this._handlers = {};
+    // NOTE: do NOT clear _handlers here. _join() calls leave() to clean up any
+    // prior channel, and the UI registers its 'start' / 'hostleft' listeners
+    // once when the panel opens — wiping them here meant "Start match" fired
+    // into nothing. Listeners are lightweight and the UI binds them only once
+    // (guarded by _onlineBound); the game scene removes its own on shutdown.
   },
 };
