@@ -1013,7 +1013,6 @@ function tryRoll() {
 function tryBow() {
   if (player.dead > 0 || player.bowCd > 0 || player.magic < 1 || player.rollT >= 0) return;
   player.magic -= 1; player.bowCd = 0.35; player.bowAnim = 0.2;
-  player.fa = aimAngle();
   const dx = Math.sin(player.fa), dz = Math.cos(player.fa);
   spawnArrow(player.x + dx * 1.0, 1.1, player.z + dz * 1.0, dx * 19, dz * 19, 'player');
   Sfx.shoot();
@@ -1361,14 +1360,13 @@ function updatePlayer(dt) {
   // slash start
   if (P.queuedSlash > 0 && P.slashT < 0 && P.slashCd <= 0 && !P.blocking && P.rollT < 0) {
     P.slashT = 0; P.slashDone = false; P.slashCd = SLASH_TIME + 0.05; P.queuedSlash = 0;
-    P.fa = aimAngle();
     slashFxFlip *= -1;
     Sfx.slash();
   }
 
   // facing
-  if (P.blocking || P.bowAnim > 0) P.fa += angDiff(aimAngle(), P.fa) * Math.min(1, dt * 22);
-  else if (P.slashT < 0 && P.rollT < 0 && (move.x || move.z)) P.fa += angDiff(Math.atan2(move.x, move.z), P.fa) * Math.min(1, dt * 16);
+  // attacks, blocks and arrows all go the way the character is looking (his movement direction)
+  if (P.slashT < 0 && P.rollT < 0 && (move.x || move.z)) P.fa += angDiff(Math.atan2(move.x, move.z), P.fa) * Math.min(1, dt * 20);
 
   // speed
   const wantRun = (keys.ShiftLeft || keys.ShiftRight) && (move.x || move.z) && !P.exhausted && P.stamina > 0 && !P.blocking && P.slashT < 0;
