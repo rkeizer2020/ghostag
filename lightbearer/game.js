@@ -954,7 +954,14 @@ function updatePops(dt) {
 }
 
 // ---------- game state --------------------------------------------------
-let hitstop = 0, shake = 0, timeNow = 0, started = false, won = false, hintText = '';
+let hitstop = 0, shake = 0, timeNow = 0, started = false, paused = false, won = false, hintText = '';
+function showHow(open) {
+  $('howpanel').hidden = !open;
+  if (started) { paused = open; if (open) { for (const k in keys) keys[k] = false; mouse.down.fill(false); releaseBlock(); } }
+}
+$('howto').addEventListener('click', () => showHow(true));
+$('howclose').addEventListener('click', () => showHow(false));
+$('helpbtn').addEventListener('click', () => showHow(true));
 const HOLD_TO_WALK = 0.22;   // hold the left mouse button longer than this to walk towards the cursor
 const mouse = { x: innerWidth / 2, y: innerHeight / 2, down: [false, false, false], hold: 0 };
 const keys = {};
@@ -964,7 +971,7 @@ const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.9);
 
 addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
 addEventListener('mousedown', (e) => {
-  if (!started || e.target.closest('#title')) return;
+  if (!started || paused || e.target.closest('#title, #howpanel, #helpbtn')) return;
   mouse.down[e.button] = true;
   if (e.button === 0) mouse.hold = 0;
   if (e.button === 2) pressBlock();
@@ -976,8 +983,9 @@ addEventListener('mouseup', (e) => {
 });
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
+  if (e.code === 'Escape') { showHow($('howpanel').hidden); return; }
   keys[e.code] = true;
-  if (!started) return;
+  if (!started || paused) return;
   if (e.code === 'Space') { e.preventDefault(); tryRoll(); }
   if (e.code === 'KeyE') tryLight();
   if (e.code === 'Digit1' || e.code === 'Numpad1') player.queuedSlash = 0.18;
@@ -1596,9 +1604,11 @@ function frame() {
 
   updateAim();
   if (started) {
-    updatePlayer(dt);
-    for (const d of dummies) updateDummy(d, dt);
-    updateArrows(dt);
+    if (!paused) {
+      updatePlayer(dt);
+      for (const d of dummies) updateDummy(d, dt);
+      updateArrows(dt);
+    }
   } else {
     for (const d of dummies) { d.yaw.rotation.y = d.face; }
   }
@@ -1615,10 +1625,12 @@ function frame() {
 $('start').addEventListener('click', () => {
   Sfx.init();
   started = true;
+  document.body.classList.add('playing');
+  $('helpbtn').hidden = false;
   $('title').style.opacity = 0;
   setTimeout(() => ($('title').style.display = 'none'), 650);
 });
-if (location.search.includes('skip')) { started = true; $('title').style.display = 'none'; }
+if (location.search.includes('skip')) { started = true; document.body.classList.add('playing'); $('title').style.display = 'none'; $('helpbtn').hidden = false; }
 
 camera.position.set(0, 20, 30);
 frame();
