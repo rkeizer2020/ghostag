@@ -730,23 +730,23 @@ function buildHair() {
   // dense layer over the whole scalp, longer wild locks on top, swept back and outward
   for (let i = 0; i < 120; i++) {
     const top = i < 70;
-    const x = srange(-0.5, 0.5), z = srange(-0.48, 0.48);
+    const x = srange(-0.45, 0.45), z = srange(-0.42, 0.42);
     const start = new THREE.Vector3(x, 0.52 + (top ? 0 : -srange(0, 0.15)), z);
     const out = new THREE.Vector3(x * 1.2, 0, z * 1.2 - 0.12);
     if (out.lengthSq() < 0.01) out.set(srange(-1, 1), 0, srange(-1, 1));
     out.normalize();
-    v.copy(out).multiplyScalar(top ? srange(0.35, 0.8) : srange(0.5, 1.0));
-    v.y = top ? srange(0.7, 1.4) : srange(-0.1, 0.4);
+    v.copy(out).multiplyScalar(top ? srange(0.5, 1.0) : srange(0.6, 1.1));
+    v.y = top ? srange(0.35, 0.8) : srange(-0.2, 0.2);
     v.x += srange(-0.25, 0.25); v.z += srange(-0.25, 0.25) - 0.1;
     v.normalize();
-    strands.push(hairStrand(start, v.clone(), top ? srange(0.65, 1.15) : srange(0.5, 0.8), srange(-1, 1), top ? srange(0.05, 0.075) : 0.06, srange(0.8, 1.1)));
+    strands.push(hairStrand(start, v.clone(), top ? srange(0.3, 0.55) : srange(0.25, 0.42), srange(-1, 1), top ? srange(0.05, 0.075) : 0.06, srange(0.8, 1.1)));
   }
   // fringe falling over the forehead (kept above the eye)
   for (let i = 0; i < 16; i++) {
     const x = -0.5 + (i / 15) * 1.0;
     const start = new THREE.Vector3(x, 0.5, 0.42 + srange(0, 0.08));
     const dir = new THREE.Vector3(x * 0.4 + srange(-0.15, 0.15), -0.25, 0.75).normalize();
-    strands.push(hairStrand(start, dir, srange(0.3, 0.5), srange(-0.6, 0.6), 0.055, srange(0.85, 1.05)));
+    strands.push(hairStrand(start, dir, srange(0.2, 0.32), srange(-0.6, 0.6), 0.05, srange(0.85, 1.05)));
   }
   const mesh = new THREE.Mesh(mergeGeos(strands), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.05 }));
   mesh.castShadow = true;
