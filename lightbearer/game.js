@@ -586,67 +586,139 @@ const darkMat = stdMat({ color: 0x23262b });
 const shieldMat = stdMat({ color: 0xc89a6e, roughness: 0.6 });
 
 // ---------- player ------------------------------------------------------
+// merge indexed geometries (position/normal/color) into one
+function mergeGeos(list) {
+  let vc = 0, ic = 0;
+  list.forEach((g) => { vc += g.attributes.position.count; ic += g.index.count; });
+  const pos = new Float32Array(vc * 3), nor = new Float32Array(vc * 3), col = new Float32Array(vc * 3), idx = new Uint32Array(ic);
+  let vo = 0, io = 0;
+  list.forEach((g) => {
+    pos.set(g.attributes.position.array, vo * 3); nor.set(g.attributes.normal.array, vo * 3); col.set(g.attributes.color.array, vo * 3);
+    for (let i = 0; i < g.index.count; i++) idx[io + i] = g.index.array[i] + vo;
+    vo += g.attributes.position.count; io += g.index.count;
+  });
+  const m = new THREE.BufferGeometry();
+  m.setAttribute('position', new THREE.BufferAttribute(pos, 3)); m.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); m.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  m.setIndex(new THREE.BufferAttribute(idx, 1));
+  return m;
+}
+
+// one tapered, curved, coloured strand of hair
+function hairStrand(start, dir, len, curl, width, tint) {
+  const pts = [];
+  const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
+  for (let i = 0; i <= 4; i++) {
+    const t = i / 4;
+    pts.push(start.clone().addScaledVector(dir, len * t).addScaledVector(side, Math.sin(t * 2.2) * curl * len * 0.3).add(new THREE.Vector3(0, -t * t * len * 0.28, 0)));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const SEG = 8, RAD = 5;
+  const g = new THREE.TubeGeometry(curve, SEG, width, RAD, false);
+  const p = g.attributes.position, n = p.count;
+  const cols = new Float32Array(n * 3);
+  const root = new THREE.Color(0x8a6238), tip = new THREE.Color(0xf0d3a0), c = new THREE.Color();
+  const cp = new THREE.Vector3(), v = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    const ring = Math.floor(i / (RAD + 1)), t = ring / SEG;
+    curve.getPointAt(t, cp);
+    v.fromBufferAttribute(p, i).sub(cp).multiplyScalar(Math.max(0.05, 1 - Math.pow(t, 1.3) * 0.95)).add(cp);
+    p.setXYZ(i, v.x, v.y, v.z);
+    c.copy(root).lerp(tip, Math.pow(t, 0.8)).multiplyScalar(tint);
+    cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+function buildHair() {
+  const strands = [];
+  const v = new THREE.Vector3();
+  // dense layer over the whole scalp, longer wild locks on top, swept back and outward
+  for (let i = 0; i < 120; i++) {
+    const top = i < 70;
+    const x = srange(-0.5, 0.5), z = srange(-0.48, 0.48);
+    const start = new THREE.Vector3(x, 0.52 + (top ? 0 : -srange(0, 0.15)), z);
+    const out = new THREE.Vector3(x * 1.2, 0, z * 1.2 - 0.12);
+    if (out.lengthSq() < 0.01) out.set(srange(-1, 1), 0, srange(-1, 1));
+    out.normalize();
+    v.copy(out).multiplyScalar(top ? srange(0.35, 0.8) : srange(0.5, 1.0));
+    v.y = top ? srange(0.7, 1.4) : srange(-0.1, 0.4);
+    v.x += srange(-0.25, 0.25); v.z += srange(-0.25, 0.25) - 0.1;
+    v.normalize();
+    strands.push(hairStrand(start, v.clone(), top ? srange(0.65, 1.15) : srange(0.5, 0.8), srange(-1, 1), top ? srange(0.05, 0.075) : 0.06, srange(0.8, 1.1)));
+  }
+  // fringe falling over the forehead (kept above the eye)
+  for (let i = 0; i < 16; i++) {
+    const x = -0.5 + (i / 15) * 1.0;
+    const start = new THREE.Vector3(x, 0.5, 0.42 + srange(0, 0.08));
+    const dir = new THREE.Vector3(x * 0.4 + srange(-0.15, 0.15), -0.25, 0.75).normalize();
+    strands.push(hairStrand(start, dir, srange(0.3, 0.5), srange(-0.6, 0.6), 0.055, srange(0.85, 1.05)));
+  }
+  const mesh = new THREE.Mesh(mergeGeos(strands), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.05 }));
+  mesh.castShadow = true;
+  return mesh;
+}
+
 function buildPlayer() {
   const root = new THREE.Group();
   const model = new THREE.Group(); root.add(model);
   const pivot = new THREE.Group(); pivot.position.y = 1.5; model.add(pivot);
   const rig = new THREE.Group(); rig.position.y = -1.5; pivot.add(rig);
   const S = {};
+  const sph = (r, sx = 1, sy = 1, sz = 1) => new THREE.SphereGeometry(r, 20, 14).scale(sx, sy, sz);
 
-  // legs
+  // legs: rounded limbs with green knee bands and a glowing gem
   const mkLeg = (x) => {
-    const pv = new THREE.Group(); pv.position.set(x, 1.15, 0);
-    pv.add(mk(new THREE.BoxGeometry(0.62, 1.15, 0.68), scribbleMat, 0, -0.55, 0));
-    pv.add(mk(new THREE.BoxGeometry(0.64, 0.3, 0.7), greenMat, 0, -0.55, 0, { thick: 1.05 }));
-    const g = mk(new THREE.OctahedronGeometry(0.15, 0).scale(0.8, 1.3, 0.5), gemMat, 0, -0.55, 0.36, { outline: false, cast: false });
-    pv.add(g);
-    pv.add(mk(new THREE.BoxGeometry(0.66, 0.22, 0.85), darkMat, 0, -1.07, 0.08, { thick: 1.04 }));
+    const pv = new THREE.Group(); pv.position.set(x, 1.2, 0);
+    pv.add(mk(new THREE.CapsuleGeometry(0.27, 0.62, 6, 14), scribbleMat, 0, -0.55, 0, { thick: 1.08 }));
+    pv.add(mk(new THREE.CylinderGeometry(0.295, 0.295, 0.24, 16), greenMat, 0, -0.58, 0, { thick: 1.06 }));
+    pv.add(mk(new THREE.OctahedronGeometry(0.13, 0).scale(0.8, 1.3, 0.5), gemMat, 0, -0.58, 0.3, { outline: false, cast: false }));
+    pv.add(mk(sph(0.34, 1, 0.62, 1.35), darkMat, 0, -1.08, 0.1, { thick: 1.07 }));
     rig.add(pv); return pv;
   };
-  S.legL = mkLeg(0.36); S.legR = mkLeg(-0.36);
+  S.legL = mkLeg(0.34); S.legR = mkLeg(-0.34);
 
-  // torso
-  rig.add(mk(new THREE.BoxGeometry(1.5, 1.35, 0.8), scribbleMat, 0, 1.9, 0));
-  rig.add(mk(new THREE.BoxGeometry(1.52, 0.34, 0.82), greenMat, 0, 2.38, 0, { thick: 1.04 }));
-  const belly = mk(new THREE.SphereGeometry(0.5, 14, 10).scale(1, 0.85, 0.16), tanMat, 0, 1.78, 0.4, { outline: true, thick: 1.08 });
-  rig.add(belly);
-  S.bellyGem = mk(new THREE.OctahedronGeometry(0.2, 0).scale(0.75, 1.5, 0.45), gemMat, 0, 1.8, 0.5, { outline: false, cast: false });
+  // body: rounded hips + torso
+  rig.add(mk(sph(0.72, 1, 0.62, 0.78), scribbleMat, 0, 1.3, 0, { thick: 1.07 }));
+  rig.add(mk(new THREE.CapsuleGeometry(0.62, 0.75, 8, 18).scale(1, 1, 0.78), scribbleMat, 0, 1.95, 0, { thick: 1.07 }));
+  rig.add(mk(new THREE.CylinderGeometry(0.645, 0.645, 0.3, 20).scale(1, 1, 0.8), greenMat, 0, 2.3, 0, { thick: 1.04 }));
+  rig.add(mk(sph(0.5, 1, 0.85, 0.16), tanMat, 0, 1.78, 0.46, { thick: 1.08 }));
+  S.bellyGem = mk(new THREE.OctahedronGeometry(0.2, 0).scale(0.75, 1.5, 0.45), gemMat, 0, 1.8, 0.56, { outline: false, cast: false });
   rig.add(S.bellyGem);
+  rig.add(mk(new THREE.CylinderGeometry(0.28, 0.34, 0.3, 12), greenMat, 0, 2.72, 0, { thick: 1.06 }));   // neck
+  rig.add(mk(sph(0.3), scribbleMat, -0.8, 2.45, 0, { thick: 1.08 }), mk(sph(0.3), scribbleMat, 0.8, 2.45, 0, { thick: 1.08 }));   // shoulders
 
-  // head
+  // head: the one blocky part
   const head = new THREE.Group(); head.position.set(0, 3.2, 0); rig.add(head); S.head = head;
   head.add(mk(new THREE.BoxGeometry(1.1, 1.1, 1.0), greenMat, 0, 0, 0));
   const eye = new THREE.Group(); eye.position.set(0, 0.0, 0.52); head.add(eye); S.eye = eye;
-  const ring = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), yellowMat); eye.add(ring);
+  eye.add(new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), yellowMat));
   const white = new THREE.Mesh(new THREE.CircleGeometry(0.3, 20).scale(1.15, 0.8, 1), new THREE.MeshBasicMaterial({ color: 0xf4f4ee })); white.position.z = 0.01; eye.add(white);
   const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.13, 14), new THREE.MeshBasicMaterial({ color: 0x15171a })); pupil.position.z = 0.02; eye.add(pupil); S.pupil = pupil;
-  for (let i = 0; i < 13; i++) {                     // wild spiky hair
-    const sp = mk(new THREE.ConeGeometry(0.17, srange(0.5, 0.85), 5), hairMat, srange(-0.5, 0.5), 0.62, srange(-0.45, 0.45), { thick: 1.1 });
-    sp.rotation.set(srange(-0.5, 0.5) + (sp.position.z > 0 ? 0.2 : -0.1), 0, srange(-0.55, 0.55) - sp.position.x * 0.5);
-    head.add(sp);
-  }
-  head.add(mk(new THREE.BoxGeometry(1.16, 0.28, 1.06), hairMat, 0, 0.5, 0, { thick: 1.06 }));
+  const scalp = new THREE.Mesh(sph(0.62, 1, 0.45, 0.58), new THREE.MeshStandardMaterial({ color: 0x9a7242, roughness: 0.6 }));
+  scalp.position.y = 0.5; head.add(scalp);
+  head.add(buildHair());
 
-  // sword arm  (+z along arm / blade)
-  const sw = new THREE.Group(); sw.position.set(-0.98, 2.5, 0); sw.rotation.order = 'YXZ'; rig.add(sw); S.sword = sw;
-  sw.add(mk(new THREE.BoxGeometry(0.4, 0.4, 1.0), scribbleMat, 0, 0, 0.45));
-  sw.add(mk(new THREE.BoxGeometry(0.46, 0.46, 0.4), greenMat, 0, 0, 1.0));
-  sw.add(mk(new THREE.BoxGeometry(0.85, 0.1, 0.14), yellowMat, 0, 0, 1.28, { thick: 1.05 }));
-  const blade = mk(new THREE.BoxGeometry(0.26, 0.07, 2.0), bladeMat, 0, 0, 2.3, { thick: 1.08 }); sw.add(blade);
-  const tip = mk(new THREE.ConeGeometry(0.13, 0.4, 4).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(1, 0.3, 1), bladeMat, 0, 0, 3.5, { outline: false }); sw.add(tip);
+  // sword arm (+z along arm / blade)
+  const sw = new THREE.Group(); sw.position.set(-0.95, 2.45, 0); sw.rotation.order = 'YXZ'; rig.add(sw); S.sword = sw;
+  sw.add(mk(new THREE.CapsuleGeometry(0.2, 0.62, 6, 12).rotateX(Math.PI / 2), scribbleMat, 0, 0, 0.45, { thick: 1.1 }));
+  sw.add(mk(sph(0.27), greenMat, 0, 0, 0.98, { thick: 1.08 }));
+  sw.add(mk(new THREE.TorusGeometry(0.34, 0.06, 8, 16, Math.PI).rotateY(Math.PI / 2).rotateX(0), yellowMat, 0, 0, 1.25, { thick: 1.08 }));
+  sw.add(mk(new THREE.BoxGeometry(0.26, 0.07, 2.0), bladeMat, 0, 0, 2.3, { thick: 1.08 }));
+  sw.add(mk(new THREE.ConeGeometry(0.13, 0.4, 4).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(1, 0.3, 1), bladeMat, 0, 0, 3.5, { outline: false }));
 
   // shield arm
-  const sa = new THREE.Group(); sa.position.set(0.98, 2.5, 0); sa.rotation.order = 'YXZ'; rig.add(sa); S.shieldArm = sa;
-  sa.add(mk(new THREE.BoxGeometry(0.4, 1.0, 0.4), scribbleMat, 0, -0.5, 0));
-  sa.add(mk(new THREE.BoxGeometry(0.46, 0.4, 0.46), greenMat, 0, -1.0, 0));
+  const sa = new THREE.Group(); sa.position.set(0.95, 2.45, 0); sa.rotation.order = 'YXZ'; rig.add(sa); S.shieldArm = sa;
+  sa.add(mk(new THREE.CapsuleGeometry(0.2, 0.62, 6, 12), scribbleMat, 0, -0.5, 0, { thick: 1.1 }));
+  sa.add(mk(sph(0.27), greenMat, 0, -1.0, 0, { thick: 1.08 }));
   const sh = new THREE.Group(); rig.add(sh); S.shield = sh;
-  const disc = mk(new THREE.CylinderGeometry(0.92, 0.92, 0.16, 20).rotateZ(Math.PI / 2), shieldMat, 0, 0, 0, { thick: 1.05 }); sh.add(disc);
-  const rim = mk(new THREE.TorusGeometry(0.92, 0.07, 6, 24).rotateY(Math.PI / 2), stdMat({ color: 0x6a4a30 }), 0, 0, 0, { outline: false }); sh.add(rim);
+  sh.add(mk(new THREE.CylinderGeometry(0.92, 0.92, 0.16, 24).rotateZ(Math.PI / 2), shieldMat, 0, 0, 0, { thick: 1.05 }));
+  sh.add(mk(new THREE.TorusGeometry(0.92, 0.07, 8, 28).rotateY(Math.PI / 2), stdMat({ color: 0x6a4a30 }), 0, 0, 0, { outline: false }));
   S.shieldGlowMat = new THREE.MeshBasicMaterial({ color: 0xffd77a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  const sglow = new THREE.Mesh(new THREE.CircleGeometry(1.1, 20).rotateY(Math.PI / 2), S.shieldGlowMat); sglow.position.x = 0.12; sh.add(sglow);
-  const fist = mk(new THREE.BoxGeometry(0.1, 0.55, 0.55), greenMat, 0.12, 0, 0, { thick: 1.06 }); sh.add(fist);
-  for (let i = 0; i < 4; i++) sh.add(mk(new THREE.BoxGeometry(0.1, 0.14, 0.1), stdMat({ color: 0x2a7a60 }), 0.16, -0.27, -0.2 + i * 0.13, { outline: false }));
-
+  const sglow = new THREE.Mesh(new THREE.CircleGeometry(1.1, 24).rotateY(Math.PI / 2), S.shieldGlowMat); sglow.position.x = 0.12; sh.add(sglow);
+  sh.add(mk(sph(0.3, 0.45, 1, 1), greenMat, 0.14, 0, 0, { thick: 1.06 }));
+  for (let i = 0; i < 4; i++) sh.add(mk(sph(0.07), stdMat({ color: 0xe8f0d8 }), 0.2, -0.27, -0.2 + i * 0.13, { outline: false }));
   root.scale.setScalar(0.8);
   root.traverse((o) => { if (o.isMesh && !o.castShadow) o.receiveShadow = false; });
   return { root, model, pivot, rig, S };
