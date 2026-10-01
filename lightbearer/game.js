@@ -955,7 +955,8 @@ function updatePops(dt) {
 
 // ---------- game state --------------------------------------------------
 let hitstop = 0, shake = 0, timeNow = 0, started = false, won = false, hintText = '';
-const mouse = { x: innerWidth / 2, y: innerHeight / 2, down: [false, false, false] };
+const HOLD_TO_WALK = 0.22;   // hold the left mouse button longer than this to walk towards the cursor
+const mouse = { x: innerWidth / 2, y: innerHeight / 2, down: [false, false, false], hold: 0 };
 const keys = {};
 const aimPoint = new THREE.Vector3(0, 0, 0);
 const raycaster = new THREE.Raycaster();
@@ -965,10 +966,14 @@ addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY;
 addEventListener('mousedown', (e) => {
   if (!started || e.target.closest('#title')) return;
   mouse.down[e.button] = true;
-  if (e.button === 0) player.queuedSlash = 0.18;
+  if (e.button === 0) mouse.hold = 0;
   if (e.button === 2) pressBlock();
 });
-addEventListener('mouseup', (e) => { mouse.down[e.button] = false; if (e.button === 2) releaseBlock(); });
+addEventListener('mouseup', (e) => {
+  if (e.button === 0 && mouse.down[0] && started && mouse.hold < HOLD_TO_WALK) player.queuedSlash = 0.18;   // quick click = sword slash
+  mouse.down[e.button] = false;
+  if (e.button === 2) releaseBlock();
+});
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
   keys[e.code] = true;
@@ -1050,7 +1055,14 @@ function moveInput() {
   if (keys.KeyS || keys.ArrowDown) iz += 1;
   if (keys.KeyA || keys.ArrowLeft) ix -= 1;
   if (keys.KeyD || keys.ArrowRight) ix += 1;
-  if (!ix && !iz) return { x: 0, z: 0 };
+  if (!ix && !iz) {
+    // holding the left mouse button: walk towards where the cursor is
+    if (mouse.down[0] && mouse.hold >= HOLD_TO_WALK && player.dead <= 0) {
+      const dx = aimPoint.x - player.x, dz = aimPoint.z - player.z, d = Math.hypot(dx, dz);
+      if (d > 0.8) return { x: dx / d, z: dz / d };
+    }
+    return { x: 0, z: 0 };
+  }
   // camera-relative: W goes "up the screen"
   const fx = -Math.sin(CAM_YAW), fz = -Math.cos(CAM_YAW), rx = -fz, rz = fx;
   const x = rx * ix + fx * -iz, z = rz * ix + fz * -iz;
@@ -1329,6 +1341,7 @@ function strikeSword(d) {
 // ---------- player update -----------------------------------------------
 function updatePlayer(dt) {
   const P = player;
+  if (mouse.down[0]) mouse.hold += dt;
   const move = moveInput();
 
   if (P.dead > 0) {
