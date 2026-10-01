@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
 /* =========================================================================
@@ -57,6 +58,23 @@ composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.62, 0.65, 0.82);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
+// cinematic colour grade: teal shadows, warm highlights, a little contrast + vignette
+composer.addPass(new ShaderPass({
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse; varying vec2 vUv;
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      float l = dot(c, vec3(0.299, 0.587, 0.114));
+      c = mix(vec3(l), c, 1.18);                                   // saturation
+      c = (c - 0.5) * 1.10 + 0.5;                                  // contrast
+      c = mix(c * vec3(0.92, 1.0, 1.06), c * vec3(1.07, 1.0, 0.93), smoothstep(0.25, 0.8, l));   // split tone
+      vec2 q = vUv - 0.5; float v = smoothstep(0.85, 0.25, length(q * vec2(1.0, 1.15)));
+      c *= mix(0.55, 1.0, v);
+      gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+    }`,
+}));
 
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
@@ -270,18 +288,45 @@ const runes = new THREE.Mesh(new THREE.CircleGeometry(7.2, 64).rotateX(-Math.PI 
 runes.position.set(0, 0.03, 1);
 world.add(runes);
 
+// ---------- second chamber (the Warden's room) -------------------------
+const ROOM2 = { x: 0, z: -38 };
+const room2R = (a) => 11.5 + 1.6 * Math.sin(2 * a + 1.2) + 1.0 * Math.sin(3 * a + 0.4);
+const CORR = { half: 2.7, z0: -6, z1: -29 };
+function walkable(x, z, r = 0) {
+  if (Math.hypot(x, z) < caveR(Math.atan2(-z, x)) - 0.6 - r) return true;
+  if (Math.abs(x) < CORR.half - r && z < CORR.z0 && z > CORR.z1) return true;
+  const dx = x - ROOM2.x, dz = z - ROOM2.z;
+  return Math.hypot(dx, dz) < room2R(Math.atan2(-dz, dx)) - 0.6 - r;
+}
+{
+  const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, bumpMap: floorTex, bumpScale: 1.6, roughness: 0.92, metalness: 0, color: 0xd2dcd8 });
+  const finish = (geo, y) => {
+    const uv = geo.attributes.uv, pos = geo.attributes.position;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i), pos.getZ(i));
+    const m = new THREE.Mesh(geo, floorMat); m.position.y = y; m.receiveShadow = true; world.add(m);
+  };
+  const pts = [];
+  for (let i = 0; i < 140; i++) { const a = (i / 140) * TAU, r = room2R(a) + 2.2; pts.push(new THREE.Vector2(ROOM2.x + Math.cos(a) * r, -(ROOM2.z - Math.sin(a) * r))); }
+  // shape y maps to -z after rotateX(-90deg): world z = ROOM2.z - sin(a)*r  => shape y = -(that)
+  const g2 = new THREE.ShapeGeometry(new THREE.Shape(pts), 1); g2.rotateX(-Math.PI / 2); finish(g2, 0.01);
+  const gc = new THREE.PlaneGeometry(CORR.half * 2 + 1.6, Math.abs(CORR.z1 - CORR.z0) + 3).rotateX(-Math.PI / 2).translate(0, 0, (CORR.z0 + CORR.z1) / 2); finish(gc, 0.012);
+}
+
 // ---------- colliders ---------------------------------------------------
 const colliders = [];   // {x,z,r,tag}
 const addCollider = (x, z, r, tag) => { const c = { x, z, r, tag }; colliders.push(c); return c; };
 
-function pushOut(p, radius) {
+function pushOut(p, radius, prev, skip) {
   for (const c of colliders) {
+    if (c === skip) continue;
     const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz), min = radius + c.r;
     if (d < min && d > 1e-4) { p.x = c.x + (dx / d) * min; p.z = c.z + (dz / d) * min; }
   }
-  const a = Math.atan2(-p.z, p.x), lim = caveR(a) - 0.6 - radius;
-  const d = Math.hypot(p.x, p.z);
-  if (d > lim) { p.x *= lim / d; p.z *= lim / d; }
+  if (!walkable(p.x, p.z, radius)) {                      // slide along the wall, or stay put
+    if (prev && walkable(prev.x, p.z, radius)) p.x = prev.x;
+    else if (prev && walkable(p.x, prev.z, radius)) p.z = prev.z;
+    else if (prev) { p.x = prev.x; p.z = prev.z; }
+  }
 }
 
 // ---------- rocks -------------------------------------------------------
@@ -319,20 +364,38 @@ function makeRock(w, h, d, mossy = 0.5) {
 
 // camera-facing side gets lower walls so the view isn't blocked
 const camAzimuth = Math.atan2(-Math.cos(CAM_YAW), Math.sin(CAM_YAW)); // direction (x,-z) of camera from centre as polar angle
-for (let layer = 0; layer < 3; layer++) {
-  const count = layer === 0 ? 120 : 90;
-  for (let i = 0; i < count; i++) {
-    const a = (i / count) * TAU + srange(-0.02, 0.02);
-    const facing = Math.max(0, Math.cos(a - camAzimuth));       // 1 = toward camera
-    const hMul = 1 - facing * (0.5 + layer * 0.18);
-    const r = caveR(a) + 0.7 + layer * 2.6 + srange(0, 1.2);
-    const s = srange(1.4, 2.5) + layer * 0.5;
-    const h = (srange(1.6, 3.0) + layer * 1.6 * (1 - facing * 0.8)) * hMul;
-    const rock = makeRock(s, h, s * srange(0.8, 1.3), 0.55);
-    rock.position.set(Math.cos(a) * r, h * 0.35, -Math.sin(a) * r);
-    rock.rotation.y = srand() * TAU;
-    world.add(rock);
-    if (layer === 0) addCollider(rock.position.x, rock.position.z, s * 0.8, 'rock');
+function ringRocks(cx, cz, radFn, skip) {
+  for (let layer = 0; layer < 3; layer++) {
+    const count = layer === 0 ? 120 : 90;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * TAU + srange(-0.02, 0.02);
+      const facing = Math.max(0, Math.cos(a - camAzimuth));       // 1 = toward camera
+      const hMul = 1 - facing * (0.5 + layer * 0.18);
+      const r = radFn(a) + 0.7 + layer * 2.6 + srange(0, 1.2);
+      const s = srange(1.4, 2.5) + layer * 0.5;
+      const h = (srange(1.6, 3.0) + layer * 1.6 * (1 - facing * 0.8)) * hMul;
+      const x = cx + Math.cos(a) * r, z = cz - Math.sin(a) * r;
+      if (skip(x, z)) continue;
+      const rock = makeRock(s, h, s * srange(0.8, 1.3), 0.55);
+      rock.position.set(x, h * 0.35, z);
+      rock.rotation.y = srand() * TAU;
+      world.add(rock);
+      if (layer === 0) addCollider(x, z, s * 0.8, 'rock');
+    }
+  }
+}
+ringRocks(0, 0, caveR, (x, z) => Math.abs(x) < CORR.half + 1.6 && z < -7 && z > -26);
+ringRocks(ROOM2.x, ROOM2.z, room2R, (x, z) => Math.abs(x) < CORR.half + 1.6 && z > -33 && z < -22);
+// corridor walls
+for (let z = CORR.z0 - 3; z > CORR.z1 + 1; z -= 2.2) {
+  for (const side of [-1, 1]) {
+    for (let layer = 0; layer < 2; layer++) {
+      const s = srange(1.5, 2.3), h = (srange(1.6, 2.6) + layer * 0.9) * (side > 0 ? 0.6 : 1);
+      const x = side * (CORR.half + 0.9 + layer * 2.2 + srange(0, 0.5));
+      const rock = makeRock(s, h, s * srange(0.9, 1.3), 0.6);
+      rock.position.set(x, h * 0.35, z + srange(-0.4, 0.4)); rock.rotation.y = srand() * TAU; world.add(rock);
+      if (layer === 0) addCollider(x, rock.position.z, s * 0.8, 'rock');
+    }
   }
 }
 
@@ -480,7 +543,7 @@ async function place(name, height, x, z, rotY = 0, collideR = 0, scaleMul = 1) {
 const faceCentre = (x, z) => Math.atan2(-x, -z);
 (function placeRuins() {
   // gateways at the edge of the plaza
-  place('Arch_Gothic', 6.2, -2.5, -12.6, faceCentre(-2.5, -12.6), 0);
+  place('Arch_Gothic', 6.4, 0, -13.2, 0, 0);
   place('Arch_Round_RoundColumn', 6.0, 12.2, 1.2, faceCentre(12.2, 1.2));
   place('Arch_Gothic_RoundColumn', 5.6, -12.8, 8.0, faceCentre(-12.8, 8.0));
   // library nook
@@ -491,7 +554,7 @@ const faceCentre = (x, z) => Math.atan2(-x, -z);
   // bear traps scattered on the floor
   [[-1.2, 6.5, 'BearTrap_Open'], [3.5, -4.5, 'BearTrap_Closed'], [-5.5, -3.8, 'BearTrap_Open'], [7.5, 5.0, 'BearTrap_Closed']].forEach(([x, z, n], i) => place(n, 1.1, x, z, i * 1.7));
   // bushes growing along the cave edge
-  [['Bush_2x2', 3.0, -10.5, 11.5], ['Bush_2x1', 3.0, 9.0, 11.5], ['Bush_1x1', 1.6, 12.0, -3.5], ['Bush_2x2', 3.0, 10.8, -7.8], ['Bush_1x1', 1.6, -11.8, 2.2], ['Bush_2x1', 3.0, 0.8, -12.4], ['Bush_1x1', 1.6, -2.8, 12.6]].forEach(([n, h, x, z], i) => place(n, h, x, z, i * 2.1, 0.7));
+  [['Bush_2x2', 3.0, -10.5, 11.5], ['Bush_2x1', 3.0, 9.0, 11.5], ['Bush_1x1', 1.6, 12.0, -3.5], ['Bush_2x2', 3.0, 10.8, -7.8], ['Bush_1x1', 1.6, -11.8, 2.2], ['Bush_1x1', 1.6, -2.8, 12.6]].forEach(([n, h, x, z], i) => place(n, h, x, z, i * 2.1, 0.7));
   // brick piles and a broken bridge section
   place('Bricks', 1.6, 6.0, -8.3, 0.6, 0.6); place('Bricks', 1.5, -7.8, -8.4, 2.2, 0.6);
   place('BridgeSection', 4.5, 3.0, 11.0, faceCentre(3.0, 11.0) + Math.PI / 2, 0);
@@ -499,7 +562,7 @@ const faceCentre = (x, z) => Math.atan2(-x, -z);
   place('Column_Round', 4.0, 5.5, 8.5, 0, 0.7); place('Column_Round_Short', 2.2, -3.2, 9.6, 0, 0.7); place('Column_Square', 3.6, -8.0, -9.8, 0, 0.7);
   place('Crate', 1.2, 9.6, 9.6, 0.4, 0.7); place('Crate', 1.2, 10.9, 9.9, 1.2, 0.7); place('Crate', 1.1, 10.2, 11.0, 0.1, 0.7);
   place('Chest', 1.0, -10.2, 9.6, faceCentre(-10.2, 9.6), 0.7); place('Chest_Gold', 1.0, 11.0, -8.6, faceCentre(11.0, -8.6), 0.7);
-  place('Cart', 3.2, 4.8, -11.2, 0.5, 1.0);
+  place('Cart', 3.2, 8.0, -9.4, 0.5, 1.0);
   place('Candles_1', 0.7, -9.0, -2.4, 0); place('Candles_2', 0.7, 10.2, -3.0, 0); place('Candles_1', 0.6, 0.5, 11.3, 0);
   place('DeadTree_1', 5.0, -13.0, -8.0, 0.4, 0.5); place('DeadTree_2', 4.5, 12.5, -4.5, 1.1, 0.5); place('DeadTree_3', 4.5, 13.2, 6.5, 2.2, 0.5);
   place('Bush_Large', 2.4, -9.3, -11.0, 0.8, 0.8); place('Bush_Round', 1.8, 8.0, 12.2, 0, 0.7);
@@ -508,7 +571,7 @@ const faceCentre = (x, z) => Math.atan2(-x, -z);
   [[-10.0, -0.8], [11.6, 0.6], [-3.8, 12.2], [7.4, -11.8], [-7.2, -11.2], [12.2, -1.8]].forEach(([x, z], i) => place('Torch', 2.0, x, z, i));
   [['Pot1', -7.8, 9.2], ['Pot2', -6.9, 9.9], ['Pot3', 6.6, 11.0], ['Pot1_Broken', 8.0, 10.4], ['Pot2_Broken', -2.4, -3.0], ['Pot3_Broken', 2.0, 5.0], ['Pot1', 11.0, 4.4], ['Pot3', -11.5, 3.6]].forEach(([n, x, z], i) => place(n, 1.1, x, z, i * 1.9, 0.4));
   place('Skull', 0.4, 1.8, 2.8, 0.5); place('Skull', 0.4, -4.0, -5.6, 2.1);
-  place('Tree_1', 4.6, -13.0, 5.6, 0.2, 0.5); place('Tree_2', 4.6, 4.2, -12.8, 1.0, 0.5); place('Tree_3', 4.8, -6.2, 13.0, 2.0, 0.5);
+  place('Tree_1', 4.6, -13.0, 5.6, 0.2, 0.5); place('Tree_2', 4.6, 6.6, -12.4, 1.0, 0.5); place('Tree_3', 4.8, -6.2, 13.0, 2.0, 0.5);
   [[-5.5, 0.4], [3.4, 2.4], [-1.0, -7.4], [8.6, 2.6], [0.4, 8.0]].forEach(([x, z], i) => place('Grass', 1.0, x, z, i * 1.3));
   place('Wall_ArchRound_Broken', 3.4, 9.5, -6.4, faceCentre(9.5, -6.4) + Math.PI / 2, 0); place('Wall_ArchGothic', 3.4, -10.4, -4.6, faceCentre(-10.4, -4.6) + Math.PI / 2, 0);
   place('Trapdoor', 1.8, -0.5, -3.0, 0.3); place('Stairs', 2.0, 12.8, -0.8, faceCentre(12.8, -0.8), 0);
@@ -520,10 +583,21 @@ const faceCentre = (x, z) => Math.atan2(-x, -z);
   }
 })();
 
+(function placeRoom2() {
+  const cz = ROOM2.z;
+  [[-6.2, cz + 2.0], [6.2, cz + 2.0], [-6.2, cz - 5.0], [6.2, cz - 5.0]].forEach(([x, z], i) => place(i % 2 ? 'Column_Round' : 'Column_Round_Short', i % 2 ? 4.4 : 3.2, x, z, 0, 0.7));
+  place('Statue_Stag', 3.6, -7.5, cz - 8.0, faceCentre(-7.5, -8.0), 0.9); place('Statue_Fox', 3.2, 7.5, cz - 8.0, faceCentre(7.5, -8.0), 0.9);
+  [[-4.5, cz + 7.5], [4.5, cz + 7.5], [-9.0, cz - 1.0], [9.0, cz - 1.0]].forEach(([x, z], i) => place('Torch', 2.0, x, z, i));
+  place('Skull', 0.4, -2.0, cz + 3.5, 0.4); place('Skull', 0.4, 3.0, cz - 1.5, 2.0); place('Bricks', 1.6, -3.5, cz + 4.5, 0.4, 0.6); place('Brick', 0.5, 2.0, cz + 2.0, 1.2);
+  place('DeadTree_1', 5.0, -9.5, cz + 4.0, 0.7, 0.5); place('DeadTree_3', 4.5, 9.5, cz + 5.0, 1.9, 0.5);
+  place('Bush_Large', 2.4, -8.5, cz - 4.5, 0.4, 0.8); place('Bush_Round', 1.8, 8.5, cz - 4.0, 0, 0.7); place('Grass', 1.0, 0.5, cz + 3.0, 0); place('Grass', 1.0, -3.0, cz - 3.0, 1);
+  place('Chest', 1.0, -3.2, cz - 11.0, 0.3, 0.7); place('Pot1', 1.1, 3.4, cz - 10.8, 0, 0.4); place('Pot2_Broken', 1.1, 5.0, cz - 9.6, 1, 0.4);
+})();
+
 // ---------- braziers ----------------------------------------------------
 const braziers = [];
 const flameGlowMat = (tex, color) => new THREE.SpriteMaterial({ map: tex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-const brazierSpots = [[-9.5, -3.5], [-1.5, -11.5], [8.2, -3.2], [11.5, 3.5], [-8.5, 9.8], [2.5, 10.2]];
+const brazierSpots = [[-9.5, -3.5], [-6.6, -10.2], [8.2, -3.2], [11.5, 3.5], [-8.5, 9.8], [2.5, 10.2]];
 brazierSpots.forEach(([x, z], i) => {
   const g = new THREE.Group();
   const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.5, 1.0, 8), stoneMat); ped.position.y = 0.5;
@@ -544,6 +618,121 @@ brazierSpots.forEach(([x, z], i) => {
   scene.add(flame, flame2, halo, light);
   braziers.push({ i, x, z, lit: false, t: 0, flame, flame2, halo, light, coals, phase: Math.random() * 10 });
 });
+
+
+// ---------- the Lightcore: twisted scaly vines with a light blossom on top
+const scaleTex = canvasTex(256, (ctx, s) => {
+  ctx.fillStyle = '#3f6a30'; ctx.fillRect(0, 0, s, s);
+  for (let row = 0; row < 14; row++) {
+    for (let col = -1; col < 10; col++) {
+      const x = col * 28 + (row % 2) * 14, y = row * 19;
+      const g = ctx.createLinearGradient(x, y - 12, x, y + 16);
+      g.addColorStop(0, '#9fcf6a'); g.addColorStop(0.55, '#5f9a3e'); g.addColorStop(1, '#2d5424');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.quadraticCurveTo(x + 15, y - 2, x, y + 17); ctx.quadraticCurveTo(x - 15, y - 2, x, y - 12); ctx.fill();
+      ctx.strokeStyle = 'rgba(15,35,10,.65)'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+  }
+}, { repeat: true });
+scaleTex.repeat.set(10, 2.2);
+
+function makeVine(phase, turns, H, r0, r1, t0, t1) {
+  const pts = [];
+  for (let i = 0; i <= 44; i++) { const t = i / 44, rad = lerp(r0, r1, Math.pow(t, 0.8)), a = phase + t * turns * TAU; pts.push(new THREE.Vector3(Math.cos(a) * rad, t * H, Math.sin(a) * rad)); }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const SEG = 140, RAD = 12;
+  const g = new THREE.TubeGeometry(curve, SEG, 1, RAD, false);
+  const p = g.attributes.position, cp = new THREE.Vector3(), v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    const t = Math.floor(i / (RAD + 1)) / SEG;
+    curve.getPointAt(t, cp);
+    const rr = lerp(t0, t1, t) * (1 + 0.12 * Math.sin(t * 38 + phase * 3));       // knobbly trunk
+    v.fromBufferAttribute(p, i).sub(cp).multiplyScalar(rr).add(cp);
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+function buildLightcore(x, z) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); world.add(g);
+  const H = 7.4;
+  const vineMat = new THREE.MeshStandardMaterial({ map: scaleTex, color: 0xb8d8a0, roughness: 0.62, emissive: 0xd8ffb0, emissiveMap: scaleTex, emissiveIntensity: 0.0 });
+  [0, 2.094, 4.189].forEach((ph, i) => {
+    const m = new THREE.Mesh(makeVine(ph, 1.25, H, 1.25, 0.32, 0.62, 0.3), vineMat);
+    m.castShadow = true; m.receiveShadow = true; g.add(m);
+  });
+  for (let i = 0; i < 6; i++) {                       // roots spreading over the floor
+    const a = (i / 6) * TAU + 0.3, pts = [new THREE.Vector3(Math.cos(a) * 0.8, 1.0, Math.sin(a) * 0.8), new THREE.Vector3(Math.cos(a) * 2.0, 0.45, Math.sin(a) * 2.0), new THREE.Vector3(Math.cos(a + 0.25) * 3.4, 0.12, Math.sin(a + 0.25) * 3.4)];
+    const tg = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 18, 0.34, 8, false);
+    const p = tg.attributes.position; const cc = new THREE.CatmullRomCurve3(pts), cp = new THREE.Vector3(), v = new THREE.Vector3();
+    for (let k = 0; k < p.count; k++) { const t = Math.floor(k / 9) / 18; cc.getPointAt(t, cp); v.fromBufferAttribute(p, k).sub(cp).multiplyScalar(1 - t * 0.8).add(cp); p.setXYZ(k, v.x, v.y, v.z); }
+    tg.computeVertexNormals();
+    const rm = new THREE.Mesh(tg, vineMat); rm.castShadow = true; g.add(rm);
+  }
+  const mound = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 2.7, 0.7, 14, 1), new THREE.MeshStandardMaterial({ color: 0x4a5a4a, roughness: 1, flatShading: true }));
+  mound.position.y = 0.3; mound.receiveShadow = true; mound.castShadow = true; g.add(mound);
+
+  // the blossom
+  const blossom = new THREE.Group(); blossom.position.y = H + 0.1; g.add(blossom);
+  const petalMat = new THREE.MeshStandardMaterial({ color: 0xe8fbff, roughness: 0.4, emissive: 0xa8f0ff, emissiveIntensity: 0.0, transparent: true, opacity: 0.96, side: THREE.DoubleSide });
+  const petalGeo = new THREE.SphereGeometry(0.5, 16, 10).scale(0.62, 1.9, 0.16).translate(0, 0.95, 0);
+  const petals = [];
+  [[7, 0.0, 1.0], [9, 0.45, 1.3], [11, 0.9, 1.6]].forEach(([n, off, sc], ring) => {
+    for (let i = 0; i < n; i++) {
+      const pg = new THREE.Group(); pg.rotation.y = (i / n) * TAU + off;
+      const pm = new THREE.Mesh(petalGeo, petalMat); pm.scale.setScalar(sc * 1.05); pm.rotation.z = 0.2; pg.add(pm); blossom.add(pg);
+      petals.push({ pm, ring });
+    }
+  });
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 14), new THREE.MeshBasicMaterial({ color: 0xdffcff })); blossom.add(orb);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xaef4ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  glow.position.y = H + 0.7; glow.scale.setScalar(0.01); g.add(glow);
+
+  // seal: red rune ring on the floor + glowing ring in the air
+  const sealMat = new THREE.MeshBasicMaterial({ map: runeTex, color: 0xff3a4a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  const seal = new THREE.Mesh(new THREE.CircleGeometry(4.3, 48).rotateX(-Math.PI / 2), sealMat); seal.position.y = 0.05; g.add(seal);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xff4a58, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.9, 0.07, 8, 48).rotateX(Math.PI / 2), ringMat); ring.position.y = 2.3; g.add(ring);
+
+  const light = new THREE.PointLight(0xbff4ff, 0, 34, 1.3); light.position.set(x, H, z); scene.add(light);
+  addCollider(x, z, 1.9, 'core');
+  const core = { i: 'core', core: true, x, z, lit: false, locked: true, t: 0, light, g, blossom, petals, petalMat, vineMat, orb, glow, seal, sealMat, ring, ringMat, phase: 1.7, H, msgT: 0 };
+  braziers.push(core);
+  return core;
+}
+const lightcore = buildLightcore(ROOM2.x, ROOM2.z - 8.6);
+
+function animateCore(b, dt) {
+  if (b.lit) b.t = Math.min(1, b.t + dt * 0.45);
+  const e = b.t * b.t * (3 - 2 * b.t);                      // eased 0..1
+  b.petals.forEach((p, i) => {
+    const closed = 0.12 + p.ring * 0.1, open = 1.0 + p.ring * 0.33;
+    p.pm.rotation.z = lerp(closed, open, e) + Math.sin(timeNow * 1.3 + i) * 0.03 * e;
+  });
+  b.blossom.rotation.y += dt * (0.12 + 0.25 * e);
+  b.petalMat.emissiveIntensity = 0.08 + e * 2.4;
+  b.petalMat.color.setHex(e > 0.01 ? 0xf2fdff : 0x8a9aa0);
+  b.vineMat.emissiveIntensity = e * 0.9;
+  b.orb.scale.setScalar(0.6 + e * 1.1 + Math.sin(timeNow * 3) * 0.05 * e);
+  const fl = 0.92 + Math.sin(timeNow * 4.3) * 0.05 + Math.sin(timeNow * 9.1) * 0.03;
+  b.light.intensity = e * 70 * fl + (b.locked ? 0 : 3);
+  b.glow.scale.setScalar(e * 8 * fl + 0.01);
+  if (!b.locked) { b.sealMat.opacity = Math.max(0, b.sealMat.opacity - dt * 1.2); b.ringMat.opacity = Math.max(0, b.ringMat.opacity - dt * 1.2); }
+  else { b.sealMat.opacity = 0.6 + Math.sin(timeNow * 2.2) * 0.2; b.ring.rotation.y += dt * 0.8; b.ring.position.y = 2.3 + Math.sin(timeNow * 1.5) * 0.15; }
+  b.seal.visible = b.sealMat.opacity > 0.01; b.ring.visible = b.ringMat.opacity > 0.01;
+  if (b.lit && Math.random() < dt * 40) emit(b.x + rand(-1.5, 1.5), b.H + rand(-0.5, 1), b.z + rand(-1.5, 1.5), 1, 0xbff4ff, 0.9, 1.8, -0.6, 1.0);
+  if (b.locked && Math.random() < dt * 6) emit(b.x + Math.cos(timeNow * 2) * 1.9, 2.3, b.z + Math.sin(timeNow * 2) * 1.9, 1, 0xff4a58, 0.6, 0.9, -0.3, 0.5);
+  b.msgT = Math.max(0, b.msgT - dt);
+}
+
+// decoration for the Warden's chamber
+{
+  const R2 = (a, r) => [ROOM2.x + Math.cos(a) * r, ROOM2.z - Math.sin(a) * r];
+  for (let i = 0; i < 16; i++) { const a = srange(0, TAU); const [x, z] = R2(a, room2R(a) - srange(1.4, 3.4)); if (Math.abs(x) < 4 && z > -33) continue; addFern(x, z, srange(0.9, 1.6)); }
+  for (let i = 0; i < 6; i++) { const a = srange(0, TAU); const [x, z] = R2(a, room2R(a) - srange(1.4, 3.0)); if (Math.abs(x) < 4 && z > -33) continue; addMushrooms(x, z); }
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU + 0.3; const [x, z] = R2(a, room2R(a) - srange(1.0, 2.0)); if (Math.abs(x) < 4 && z > -33) continue; addCrystals(x, z, i % 2 === 0); }
+}
 
 // ---------- particles ---------------------------------------------------
 const MAXP = 600;
@@ -853,7 +1042,44 @@ function trackMats(group) {
   return list;
 }
 
+function buildWarden() {
+  const root = new THREE.Group(), yaw = new THREE.Group(), body = new THREE.Group();
+  root.add(yaw); yaw.add(body);
+  const stone = stdMat({ color: 0x5b6a5a, roughness: 0.85 }), moss = stdMat({ color: 0x3f7a42, roughness: 0.9 }), dark = stdMat({ color: 0x2a3330, roughness: 0.7, metalness: 0.2 });
+  const sph = (r, sx = 1, sy = 1, sz = 1) => new THREE.SphereGeometry(r, 18, 14).scale(sx, sy, sz);
+  const legs = [];
+  [-0.42, 0.42].forEach((x) => {
+    const pv = new THREE.Group(); pv.position.set(x, 1.5, 0);
+    pv.add(mk(new THREE.CapsuleGeometry(0.34, 0.9, 6, 14), stone, 0, -0.75, 0));
+    pv.add(mk(sph(0.46, 1, 0.7, 1.35), dark, 0, -1.5, 0.12));
+    body.add(pv); legs.push(pv);
+  });
+  body.add(mk(sph(0.9, 1, 0.6, 0.8), dark, 0, 1.6, 0));
+  body.add(mk(new THREE.CapsuleGeometry(0.78, 0.9, 8, 18).scale(1, 1, 0.8), stone, 0, 2.55, 0));
+  body.add(mk(new THREE.CylinderGeometry(0.8, 0.8, 0.28, 18).scale(1, 1, 0.82), moss, 0, 2.2, 0, { thick: 1.05 }));
+  [-1.0, 1.0].forEach((x) => body.add(mk(sph(0.55, 1, 0.8, 1), moss, x, 3.15, 0)));
+  const head = new THREE.Group(); head.position.set(0, 3.75, 0); body.add(head);
+  head.add(mk(sph(0.62, 1, 1.05, 1), dark, 0, 0, 0));
+  head.add(mk(new THREE.ConeGeometry(0.3, 0.8, 6), moss, 0, 0.78, 0));
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff5a2a });
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.12, 0.06), eyeMat); visor.position.set(0, 0.04, 0.58); head.add(visor);
+  const arm = new THREE.Group(); arm.position.set(-1.2, 3.1, 0); arm.rotation.order = 'YXZ'; body.add(arm);
+  arm.add(mk(new THREE.CapsuleGeometry(0.27, 0.8, 6, 12).rotateX(Math.PI / 2), stone, 0, 0, 0.55));
+  arm.add(mk(sph(0.34), moss, 0, 0, 1.15));
+  arm.add(mk(new THREE.BoxGeometry(1.1, 0.14, 0.18), dark, 0, 0, 1.45));
+  arm.add(mk(new THREE.BoxGeometry(0.34, 0.1, 2.9), bladeMat, 0, 0, 3.0));
+  arm.add(mk(new THREE.ConeGeometry(0.17, 0.6, 4).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(1, 0.3, 1), bladeMat, 0, 0, 4.7, { outline: false }));
+  const swordGlow = new THREE.MeshBasicMaterial({ color: 0xff4a1a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  arm.add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 3.1), swordGlow).translateZ(3.05));
+  const sa = new THREE.Group(); sa.position.set(1.2, 2.9, 0.1); body.add(sa);
+  sa.add(mk(new THREE.CapsuleGeometry(0.27, 0.8, 6, 12), stone, 0, -0.5, 0));
+  sa.add(mk(new THREE.CylinderGeometry(0.95, 0.95, 0.2, 20).rotateZ(Math.PI / 2), moss, 0.45, -0.7, 0.45, { thick: 1.05 }));
+  root.scale.setScalar(1.35);
+  return { root, yaw, body, head, parts: { arm }, eyeMat, swordGlow, legs };
+}
+
 function buildDummy(kind) {
+  if (kind === 'warden') return buildWarden();
   const root = new THREE.Group();
   const yaw = new THREE.Group(); root.add(yaw);
   const body = new THREE.Group(); yaw.add(body);
@@ -924,7 +1150,8 @@ function addDummy(kind, x, z, maxHp, name, faceAngle = 0) {
   d.stars = new THREE.Group(); d.stars.visible = false; d.stars.position.y = 3.5;
   for (let i = 0; i < 3; i++) d.stars.add(new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), new THREE.MeshBasicMaterial({ color: 0xffe36a })));
   d.root.add(d.stars);
-  addCollider(x, z, 0.7, 'dummy');
+  if (kind === 'warden') { d.col = addCollider(x, z, 1.1, 'warden'); d.killable = true; d.range = 4.3; d.barY = 5.4; d.r = 1.2; d.home = { x, z }; }
+  else addCollider(x, z, 0.7, 'dummy');
   dummies.push(d);
   return d;
 }
@@ -932,6 +1159,7 @@ function addDummy(kind, x, z, maxHp, name, faceAngle = 0) {
 const archer = addDummy('archer', -3.5, -9.2, 10, 'Archer Dummy', Math.PI);
 const swordsman = addDummy('sword', 5.2, -1.0, 12, 'Sword Dummy', Math.PI * 0.6);
 const sandbag = addDummy('idle', -7.3, 1.2, 20, 'Training Dummy', 0.8);
+const warden = addDummy('warden', ROOM2.x, ROOM2.z + 1.5, 24, 'Warden', 0);
 
 // ---------- floating text ----------------------------------------------
 const pops = [];
@@ -1028,15 +1256,16 @@ function tryLight() {
 }
 const nearestUnlit = (range) => {
   let best = null, bd = range;
-  for (const b of braziers) if (!b.lit) { const d = Math.hypot(b.x - player.x, b.z - player.z); if (d < bd) { bd = d; best = b; } }
+  for (const b of braziers) if (!b.lit) { const d = Math.hypot(b.x - player.x, b.z - player.z) - (b.core ? 1.9 : 0); if (d < bd) { bd = d; best = b; } }
   return best;
 };
 function lightBrazier(b) {
   if (b.lit) return;
+  if (b.locked) { if (b.msgT <= 0) { b.msgT = 1.2; pop(b.x, 3.2, b.z, 'Sealed', '#ff6a7a', 20); Sfx.block(); } return; }
   b.lit = true;
   Sfx.light();
-  emit(b.x, 1.4, b.z, 40, 0xffb060, 5, 0.9, 2, 1.2);
-  pop(b.x, 2.6, b.z, 'LIT', '#ffd77a', 22);
+  emit(b.x, b.core ? 9 : 1.4, b.z, 40, b.core ? 0xbff4ff : 0xffb060, 5, 0.9, 2, 1.2);
+  pop(b.x, b.core ? 5 : 2.6, b.z, 'LIT', '#ffd77a', 22);
   shake = Math.max(shake, 0.12);
   const n = braziers.filter((q) => q.lit).length;
   updateLightHud();
@@ -1046,7 +1275,7 @@ function lightBrazier(b) {
 function winSequence() {
   Sfx.victory();
   const bn = $('banner');
-  bn.innerHTML = 'THE CAVE AWAKENS<small>All lights are lit &mdash; demo complete. Keep practising on the dummies!</small>';
+  bn.innerHTML = 'THE CAVE AWAKENS<small>Every light is lit &mdash; demo complete. Keep practising on the dummies!</small>';
   bn.style.opacity = 1;
   setTimeout(() => (bn.style.opacity = 0), 6500);
 }
@@ -1101,12 +1330,32 @@ function damageDummy(d, dmg, dirX, dirZ, opts = {}) {
   emit(d.x, 1.7, d.z, opts.big ? 26 : 12, opts.big ? 0xffe9a0 : 0xd9a066, opts.big ? 7 : 5, 0.5);
   pop(d.x + rand(-0.3, 0.3), 3.3, d.z, '-' + dmg, opts.big ? '#ffd77a' : '#fff', opts.big ? 28 : 21);
   Sfx.hit();
+  if (d.hp <= 0 && d.killable) { killWarden(d); return; }
   if (d.hp <= 0) {
     d.hp = 0; d.reset = 1.6; d.stun = 0; d.state = 'idle'; d.st = 0;
     emit(d.x, 1.5, d.z, 60, 0xc9954f, 8, 1, 9);
     Sfx.shatter();
     pop(d.x, 3.8, d.z, 'Dummies never die!', '#9fe0ff', 17);
   }
+}
+
+function killWarden(d) {
+  d.hp = 0; d.dead = true; d.deadT = 0; d.reset = 1e9; d.stun = 0; d.state = 'idle';
+  d.col.r = 0; d.col.x = d.col.z = 9999;
+  emit(d.x, 2.5, d.z, 90, 0x9fe8ff, 9, 1.3, 5); emit(d.x, 2.0, d.z, 40, 0xffe9a0, 6, 1, 6);
+  Sfx.shatter(); Sfx.parry(); shake = Math.max(shake, 0.9); hitstop = 0.18;
+  pop(d.x, 5.4, d.z, 'WARDEN DEFEATED', '#ffd77a', 30);
+  setTimeout(() => {
+    lightcore.locked = false;
+    Sfx.light(); shake = Math.max(shake, 0.5);
+    emit(lightcore.x, 2.4, lightcore.z, 70, 0xff6a7a, 7, 1.2, 1, 1);
+    pop(lightcore.x, 5.0, lightcore.z, 'THE LIGHTCORE IS UNSEALED', '#9fe8ff', 22);
+  }, 1300);
+}
+function resetWarden(d) {
+  if (d.dead) return;
+  d.hp = d.maxHp; d.x = d.home.x; d.z = d.home.z; d.aggro = false; d.state = 'idle'; d.st = 0; d.stun = 0;
+  d.root.position.set(d.x, 0, d.z); d.col.x = d.x; d.col.z = d.z;
 }
 
 function stunDummy(d, t) {
@@ -1172,11 +1421,10 @@ function updateArrows(dt) {
     // walls & rocks
     let hitWall = false;
     for (const c of colliders) {
-      if (c.tag === 'dummy' || c.tag === 'urn') continue;
+      if (c.tag === 'dummy' || c.tag === 'urn' || c.tag === 'warden') continue;
       if (Math.hypot(a.x - c.x, a.z - c.z) < c.r) { hitWall = true; break; }
     }
-    const ang = Math.atan2(-a.z, a.x);
-    if (Math.hypot(a.x, a.z) > caveR(ang)) hitWall = true;
+    if (!walkable(a.x, a.z, -0.4)) hitWall = true;
     if (hitWall) { emit(a.x, a.y, a.z, 8, 0xccccbb, 3, 0.3); killArrow(a); continue; }
 
     if (a.owner === 'enemy' && !a.reflected) {
@@ -1217,7 +1465,68 @@ function updateArrows(dt) {
 }
 
 // ---------- dummy AI ----------------------------------------------------
+function moveActor(d, vx, vz, dt) {
+  const nx = d.x + vx * dt, nz = d.z + vz * dt, p = { x: nx, z: nz };
+  if (Math.hypot(nx - player.x, nz - player.z) < 1.6 + 0.5) return false;
+  const prev = { x: d.x, z: d.z };
+  pushOut(p, 1.0, prev, d.col);
+  d.x = p.x; d.z = p.z; d.root.position.set(d.x, 0, d.z); d.col.x = d.x; d.col.z = d.z;
+  return true;
+}
+
+function updateWarden(d, dt, dist, toPlayer) {
+  const arm = d.parts.arm;
+  const inRoom = Math.hypot(player.x - ROOM2.x, player.z - ROOM2.z) < 15.5 || (player.z < -24 && Math.abs(player.x) < 6);
+  if (player.dead > 0 || !inRoom) { if (d.aggro && (player.dead > 0 || dist > 22)) d.aggro = false; }
+  else if (dist < 17) d.aggro = true;
+  let moving = false;
+  if (d.state === 'idle') {
+    arm.rotation.x = damp(arm.rotation.x, -1.3, 8, dt); arm.rotation.y = damp(arm.rotation.y, 0, 8, dt);
+    d.swordGlow.opacity = damp(d.swordGlow.opacity, 0, 10, dt);
+    d.eyeMat.color.setRGB(1, 0.35, 0.16);
+    if (d.aggro) {
+      d.face += clamp(angDiff(toPlayer, d.face), -4.0 * dt, 4.0 * dt);
+      if (dist > 3.0) { moving = moveActor(d, Math.sin(d.face) * 3.4, Math.cos(d.face) * 3.4, dt); }
+      d.cd -= dt;
+      if (dist < 4.1 && d.cd <= 0 && player.dead <= 0) { d.state = 'windup'; d.st = 0; Sfx.windup(); }
+    } else {
+      d.patrolT = (d.patrolT || 0) - dt;
+      if (d.patrolT <= 0 || !d.patrol) { const a = rand(0, TAU), r = rand(2, 7); d.patrol = { x: d.home.x + Math.cos(a) * r, z: d.home.z + Math.sin(a) * r * 0.8 }; d.patrolT = rand(3, 6); }
+      const pdx = d.patrol.x - d.x, pdz = d.patrol.z - d.z, pd = Math.hypot(pdx, pdz);
+      if (pd > 0.8) { d.face += clamp(angDiff(Math.atan2(pdx, pdz), d.face), -2 * dt, 2 * dt); moving = moveActor(d, Math.sin(d.face) * 1.5, Math.cos(d.face) * 1.5, dt); }
+    }
+  } else if (d.state === 'windup') {
+    d.st += dt;
+    d.face += clamp(angDiff(toPlayer, d.face), -1.4 * dt, 1.4 * dt);
+    const k = clamp(d.st / 0.7, 0, 1);
+    arm.rotation.x = lerp(-1.3, -2.55, k * k); arm.rotation.y = 0;
+    d.swordGlow.opacity = 0.2 + 0.7 * k * (0.7 + 0.3 * Math.sin(timeNow * 40));
+    d.eyeMat.color.setRGB(1, 0.35 + 0.65 * k, 0.1);
+    if (d.st >= 0.7) { d.state = 'strike'; d.st = 0; strikeSword(d); }
+  } else if (d.state === 'strike') {
+    d.st += dt;
+    arm.rotation.x = lerp(-2.55, 0.35, clamp(d.st / 0.14, 0, 1));
+    d.swordGlow.opacity = 0.9 * (1 - d.st / 0.3);
+    if (d.st >= 0.32) { d.state = 'recover'; d.st = 0; }
+  } else if (d.state === 'recover') {
+    d.st += dt;
+    arm.rotation.x = damp(arm.rotation.x, -1.3, 5, dt);
+    if (d.st >= 0.85) { d.state = 'idle'; d.cd = rand(0.5, 1.0); }
+  }
+  d.walkPh = (d.walkPh || 0) + dt * (moving ? 7 : 0);
+  d.legs[0].rotation.x = Math.sin(d.walkPh) * 0.6; d.legs[1].rotation.x = -Math.sin(d.walkPh) * 0.6;
+  d.body.position.y = Math.abs(Math.sin(d.walkPh)) * 0.1;
+  d.yaw.rotation.y = d.face;
+}
+
 function updateDummy(d, dt) {
+  if (d.dead) {
+    d.deadT += dt;
+    const k = clamp(d.deadT / 1.6, 0, 1);
+    d.body.rotation.x = k * 1.25; d.root.position.y = -k * 1.2;
+    d.root.visible = k < 1; d.bar.style.display = 'none';
+    return;
+  }
   // wobble spring
   d.tvx += (-d.tiltX * 60 - d.tvx * 6) * dt; d.tvz += (-d.tiltZ * 60 - d.tvz * 6) * dt;
   d.tiltX += d.tvx * dt; d.tiltZ += d.tvz * dt;
@@ -1253,7 +1562,9 @@ function updateDummy(d, dt) {
   const dx = player.x - d.x, dz = player.z - d.z, dist = Math.hypot(dx, dz);
   const toPlayer = Math.atan2(dx, dz);
 
-  if (d.kind === 'sword') {
+  if (d.kind === 'warden') {
+    updateWarden(d, dt, dist, toPlayer);
+  } else if (d.kind === 'sword') {
     const arm = d.parts.arm;
     if (d.state === 'idle') {
       if (dist < 11 && player.dead <= 0) d.face += clamp(angDiff(toPlayer, d.face), -3 * dt, 3 * dt);
@@ -1328,8 +1639,8 @@ function strikeSword(d) {
   const dx = player.x - d.x, dz = player.z - d.z, dist = Math.hypot(dx, dz);
   const a = Math.atan2(dx, dz);
   emit(d.x + Math.sin(d.face) * 2.2, 0.6, d.z + Math.cos(d.face) * 2.2, 10, 0xffb070, 4, 0.3);
-  shake = Math.max(shake, 0.12);
-  if (dist > 3.5 || Math.abs(angDiff(a, d.face)) > 1.15) return;     // whiffed
+  shake = Math.max(shake, d.killable ? 0.3 : 0.12);
+  if (dist > (d.range || 3.5) || Math.abs(angDiff(a, d.face)) > 1.15) return;     // whiffed
   const r = resolveAttackOnPlayer(d.x, d.z);
   if (r === 'parry') {
     parryFx(player.x + Math.sin(player.fa) * 0.9, player.z + Math.cos(player.fa) * 0.9);
@@ -1350,7 +1661,7 @@ function updatePlayer(dt) {
     P.dead -= dt;
     if (P.dead <= 0) {
       P.lives = MAX_LIVES; P.stamina = 100; P.x = 0; P.z = 3; P.invuln = 1.5; P.knock.x = P.knock.z = 0;
-      $('banner').style.opacity = 0; updateHud();
+      $('banner').style.opacity = 0; updateHud(); resetWarden(warden);
       emit(P.x, 1.2, P.z, 40, 0xffd77a, 6, 0.8, 0, 1);
     }
     return;
@@ -1400,8 +1711,9 @@ function updatePlayer(dt) {
     P.vx = damp(P.vx, tvx, 18, dt); P.vz = damp(P.vz, tvz, 18, dt);
   }
   P.knock.x = damp(P.knock.x, 0, 9, dt); P.knock.z = damp(P.knock.z, 0, 9, dt);
+  const prevPos = { x: P.x, z: P.z };
   P.x += (P.vx + P.knock.x) * dt; P.z += (P.vz + P.knock.z) * dt;
-  pushOut(P, 0.5);
+  pushOut(P, 0.5, prevPos);
 
   // slash progression
   if (P.slashT >= 0) {
@@ -1420,7 +1732,7 @@ function updatePlayer(dt) {
 
   // interaction hint
   const b = nearestUnlit(2.8);
-  hintText = b ? 'Press E to light the flame' : '';
+  hintText = b ? (b.locked ? 'The Lightcore is sealed. Defeat the Warden.' : (b.core ? 'Press E to light the Lightcore' : 'Press E to light the flame')) : '';
 
   updateHud();
 }
@@ -1516,6 +1828,7 @@ function animatePlayer(dt) {
 function animateWorld(dt) {
   let lit = 0;
   for (const b of braziers) {
+    if (b.core) { animateCore(b, dt); if (b.lit) lit++; continue; }
     if (b.lit) { b.t = Math.min(1, b.t + dt * 1.6); lit++; }
     const f = 0.85 + Math.sin(timeNow * 11 + b.phase) * 0.08 + Math.sin(timeNow * 27 + b.phase * 2) * 0.06;
     b.light.intensity = b.t * 34 * f + (b.lit ? 0 : 0.8);
@@ -1569,9 +1882,9 @@ updateLightHud(); updateHud();
 
 function updateBars() {
   for (const d of dummies) {
-    const [sx, sy, vis] = worldToScreen(d.x, 3.55, d.z);
+    const [sx, sy, vis] = worldToScreen(d.x, d.barY || 3.55, d.z);
     const near = Math.hypot(d.x - player.x, d.z - player.z) < 17;
-    if (!vis || !near) { d.bar.style.display = 'none'; continue; }
+    if (!vis || !near || d.dead) { d.bar.style.display = 'none'; continue; }
     d.bar.style.display = 'block'; d.bar.style.left = sx + 'px'; d.bar.style.top = sy + 'px';
     d.bar.firstChild.style.width = (d.hp / d.maxHp) * 100 + '%';
     d.bar.lastChild.textContent = d.name + '  ' + d.hp + '/' + d.maxHp;
@@ -1636,4 +1949,4 @@ camera.position.set(0, 20, 30);
 frame();
 $('loading').style.display = 'none';
 
-window.__game = { player, dummies, braziers, arrows, camera, scene, renderer, keys, mouse, lightBrazier, get started() { return started; } };
+window.__game = { player, dummies, braziers, arrows, camera, scene, renderer, keys, mouse, lightBrazier, camTarget, lightcore, warden, get started() { return started; } };
