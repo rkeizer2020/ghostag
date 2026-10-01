@@ -91,7 +91,8 @@ const Net = {
     this.players = {};
 
     const ch = client.channel('lobby:' + code, {
-      config: { presence: { key: this.self.id }, broadcast: { self: false } },
+      // ack:false → fire-and-forget broadcasts (lower latency for position sync)
+      config: { presence: { key: this.self.id }, broadcast: { self: false, ack: false } },
     });
     this.channel = ch;
 
@@ -178,6 +179,8 @@ const Net = {
     const payload = {
       mode: this.lobby.mode,
       seed: Math.floor(Math.random() * 1e9),
+      // the host picks the map so every client rolls to and plays the same one
+      biome: (typeof Biomes !== 'undefined' && Biomes.pick) ? Biomes.pick().key : 'forest',
       hostId: this.self.id,
       players: this.playerList().map((p) => ({ id: p.id, name: p.name, char: p.char })),
       startAt: Date.now() + 600, // small countdown so clients line up

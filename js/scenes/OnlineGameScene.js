@@ -34,7 +34,8 @@ class OnlineGameScene extends Phaser.Scene {
     // world
     this.physics.world.setBounds(0, 0, WW, WH);
     this.cameras.main.setBounds(0, 0, WW, WH);
-    this.biome = Biomes.LIST.forest;
+    this.biome = (this.match.biome && Biomes.LIST[this.match.biome]) || Biomes.LIST.forest;
+    this.RENDER_DELAY = 120; // ms we render remote players behind, for smooth interpolation
     this.cameras.main.setBackgroundColor(this.biome.bg);
     this.add.tileSprite(0, 0, WW, WH, this.biome.ground).setOrigin(0).setDepth(-10);
 
@@ -140,6 +141,7 @@ class OnlineGameScene extends Phaser.Scene {
       id: p.id, name: p.name || 'Player', char: p.char || 'blue',
       sprite, label, sword, baseTex: tex,
       x, y, tx: x, ty: y, flip: false, dead: false, isSpook: false,
+      buf: [], // timestamped position samples for smooth interpolation
     };
   }
 
@@ -159,7 +161,11 @@ class OnlineGameScene extends Phaser.Scene {
     if (!m || this.over) return;
     if (m.t === 'p') {
       const pl = this.roster[m.id];
-      if (pl && m.id !== this.myId) { pl.tx = m.x; pl.ty = m.y; pl.flip = !!m.f; }
+      if (pl && m.id !== this.myId) {
+        pl.tx = m.x; pl.ty = m.y; pl.flip = !!m.f;
+        pl.buf.push({ t: this.time.now, x: m.x, y: m.y });
+        if (pl.buf.length > 12) pl.buf.shift();
+      }
     } else if (m.t === 's' && !this.amHost) {
       this._applyState(m);
     } else if (m.t === 'k') {
@@ -248,12 +254,31 @@ class OnlineGameScene extends Phaser.Scene {
     // ---- broadcast my position ----
     if (time - this.lastPosSent > 1000 / GAME.TAG_POS_HZ) { this.lastPosSent = time; this._sendPos(); }
 
-    // ---- interpolate remote players ----
+    // ---- interpolate remote players (render ~120ms in the past so the
+    // stream of updates plays back smoothly instead of snapping each packet) ----
+    const rt = time - this.RENDER_DELAY;
     Object.values(this.roster).forEach((pl) => {
       if (pl.id === this.myId) return;
-      pl.x = Phaser.Math.Linear(pl.x, pl.tx, 0.25);
-      pl.y = Phaser.Math.Linear(pl.y, pl.ty, 0.25);
-      pl.sprite.setPosition(pl.x, pl.y);
+      const b = pl.buf;
+      if (!b.length) { pl.sprite.setPosition(pl.x, pl.y); return; }
+      let nx, ny;
+      if (b.length === 1 || rt <= b[0].t) {
+        nx = b[0].x; ny = b[0].y;
+      } else if (rt >= b[b.length - 1].t) {
+        // no newer sample yet: ease toward the latest so it keeps gliding
+        nx = Phaser.Math.Linear(pl.x, b[b.length - 1].x, 0.3);
+        ny = Phaser.Math.Linear(pl.y, b[b.length - 1].y, 0.3);
+      } else {
+        let i = 1;
+        while (i < b.length - 1 && b[i].t < rt) i++;
+        const a = b[i - 1], c = b[i];
+        const u = Phaser.Math.Clamp((rt - a.t) / Math.max(1, c.t - a.t), 0, 1);
+        nx = Phaser.Math.Linear(a.x, c.x, u);
+        ny = Phaser.Math.Linear(a.y, c.y, u);
+        while (b.length > 2 && b[1].t < rt) b.shift(); // prune consumed samples
+      }
+      pl.x = nx; pl.y = ny;
+      pl.sprite.setPosition(nx, ny);
     });
 
     // ---- host authoritative logic ----

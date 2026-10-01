@@ -10,14 +10,19 @@ class MapRollScene extends Phaser.Scene {
     super('MapRoll');
   }
 
+  init(data) { this.opts = data || {}; }
+
   create() {
     const W = this.scale.width, H = this.scale.height, cx = W / 2, cy = H / 2;
 
     // dim forest backdrop behind the panel
     UI.backdrop(this);
 
-    // decide the map up front so the roulette can land on it
-    this.chosen = Biomes.pick();
+    // decide the map up front so the roulette can land on it. For an online
+    // match the host already chose the map (in the start payload) so every
+    // client rolls to and plays the SAME one.
+    const forced = this.opts.online && this.opts.payload && this.opts.payload.biome;
+    this.chosen = forced ? (Biomes.LIST[this.opts.payload.biome] || Biomes.pick()) : Biomes.pick();
     Biomes.setNext(this.chosen);
 
     this.add.text(cx, H * 0.16, 'Rolling map…', {
@@ -95,7 +100,7 @@ class MapRollScene extends Phaser.Scene {
   _drawCard(biome, highlight) {
     if (!biome) biome = this.chosen;
     const cx = this._cx, cy = this._cy, cardW = this._cardW, cardH = this._cardH;
-    const accent = { forest: 0x6fce6a, graveyard: 0x9fb0a0, snow: 0xbfe0ff }[biome.key] || 0x6fb8ff;
+    const accent = { forest: 0x6fce6a, graveyard: 0x9fb0a0, snow: 0xbfe0ff, city: 0xffe6a0 }[biome.key] || 0x6fb8ff;
     this.panel.clear();
     this.panel.fillStyle(0x0d0a06, 0.92);
     this.panel.fillRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 18);
@@ -153,6 +158,7 @@ class MapRollScene extends Phaser.Scene {
   launch() {
     if (this.launched) return;
     this.launched = true;
-    this.scene.start('Game');
+    if (this.opts.online && this.opts.payload) this.scene.start('OnlineGame', this.opts.payload);
+    else this.scene.start('Game');
   }
 }

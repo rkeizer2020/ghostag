@@ -387,7 +387,10 @@ const UI = {
     Net.on('start', (payload) => {
       if (this._onlinePanel) this._onlinePanel.style.display = 'none';
       try {
-        if (window.game && window.game.scene.getScene('OnlineGame')) {
+        // roll the map first (same chosen biome on every client), then play
+        if (window.game && window.game.scene.getScene('MapRoll')) {
+          window.game.scene.start('MapRoll', { online: true, payload });
+        } else if (window.game && window.game.scene.getScene('OnlineGame')) {
           window.game.scene.start('OnlineGame', payload);
         }
       } catch (e) { /* ignore */ }
