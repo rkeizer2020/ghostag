@@ -58,8 +58,11 @@ class OnlineGameScene extends Phaser.Scene {
     if (this.amHost) {
       const ids = Array.from(this.alive);
       this.spookId = ids[Math.floor(this.rng() * ids.length)] || ids[0];
-      this.roundEndsAt = this.time.now + GAME.TAG_ROUND_MS;
-      this.lastTagAt = 0;
+      // seed the round timer from the FIRST update() tick, not this.time.now in
+      // create() (which isn't synced to the update clock and made the Spook die
+      // instantly as roundEndsAt - time went negative on frame one).
+      this.roundEndsAt = null;
+      this._graceDone = false;
     }
 
     // input
@@ -308,7 +311,11 @@ class OnlineGameScene extends Phaser.Scene {
   }
 
   _hostStep(time, dt) {
-    // countdown
+    // seed timer + brief spawn grace on the first real tick (time is valid here)
+    if (this.roundEndsAt === null) this.roundEndsAt = time + GAME.TAG_ROUND_MS;
+    if (!this._graceDone) { this._graceDone = true; this.passGraceUntil = time + 1500; }
+
+    // wall-accurate countdown from the update clock
     this.timeLeft = Math.max(0, this.roundEndsAt - time);
 
     // tag detection: Spook touches a living non-Spook

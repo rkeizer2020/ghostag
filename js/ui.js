@@ -360,8 +360,14 @@ const UI = {
   // ---- Online: create/join a lobby (Supabase Realtime) ----
   _onlinePanel: null,
   _onlineBound: false,
+  // While a DOM overlay is up, turn OFF Phaser input so taps on the overlay
+  // don't also fall through to the menu buttons behind it (Phaser listens for
+  // pointer events at the window level, so a full-screen div doesn't block it).
+  _setGameInput(on) {
+    try { if (window.game && window.game.input) window.game.input.enabled = on; } catch (e) { /* ignore */ }
+  },
   onlinePanel() {
-    if (this._onlinePanel) { this._onlinePanel.style.display = 'flex'; this._onlineHome(); return; }
+    if (this._onlinePanel) { this._onlinePanel.style.display = 'flex'; this._setGameInput(false); this._onlineHome(); return; }
     const wrap = document.createElement('div');
     wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(6,8,10,0.74);font-family:system-ui,-apple-system,sans-serif;';
     const card = document.createElement('div');
@@ -372,11 +378,13 @@ const UI = {
     this._onlineCard = card;
     wrap.addEventListener('pointerdown', (e) => { if (e.target === wrap) this.closeOnline(true); });
     this._onlineBindMatch();
+    this._setGameInput(false);
     this._onlineHome();
   },
 
   closeOnline(leave) {
     if (this._onlinePanel) this._onlinePanel.style.display = 'none';
+    this._setGameInput(true);
     if (leave && typeof Net !== 'undefined' && Net.inLobby() && !(Net.lobby && Net.lobby.started)) Net.leave();
   },
 
@@ -386,6 +394,7 @@ const UI = {
     this._onlineBound = true;
     Net.on('start', (payload) => {
       if (this._onlinePanel) this._onlinePanel.style.display = 'none';
+      this._setGameInput(true); // the match scene needs input back on
       try {
         // roll the map first (same chosen biome on every client), then play
         if (window.game && window.game.scene.getScene('MapRoll')) {
