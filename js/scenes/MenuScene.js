@@ -97,7 +97,10 @@ class MenuScene extends Phaser.Scene {
   startGame() {
     SFX.unlock();
     SFX.click();
-    this.scene.start('MapRoll');
+    // explicit {online:false} overwrites any stale online match data Phaser
+    // kept on the MapRoll scene, so single-player Play never routes online.
+    if (typeof Net !== 'undefined' && Net.inLobby()) { try { Net.leave(); } catch (e) { /* ignore */ } }
+    this.scene.start('MapRoll', { online: false });
   }
 
   makeMuteButton() {
