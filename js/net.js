@@ -96,7 +96,9 @@ const Net = {
     });
     this.channel = ch;
 
+    this._sawHost = false;
     ch.on('presence', { event: 'sync' }, () => this._syncPresence());
+    ch.on('presence', { event: 'leave' }, ({ leftPresences }) => this._onLeave(leftPresences));
     ch.on('broadcast', { event: 'start' }, ({ payload }) => this._emit('start', payload));
     ch.on('broadcast', { event: 'g' }, ({ payload }) => this._emit('g', payload));
 
@@ -140,10 +142,17 @@ const Net = {
     });
     this.players = players;
     const host = Object.values(players).find((p) => p.isHost);
-    if (host) this.lobby = { locked: !!host.locked, started: !!host.started, mode: host.mode || 'tag' };
-    // host left mid-lobby -> notify
-    if (!host && !this.isHost) this._emit('hostleft', {});
+    if (host) { this.lobby = { locked: !!host.locked, started: !!host.started, mode: host.mode || 'tag' }; this._sawHost = true; }
+    // NOTE: a missing host here is NOT treated as "host left" — Supabase fires
+    // transient/empty presence syncs (e.g. right as a match starts) that would
+    // false-positive. A genuine departure comes through the 'leave' event below.
     this._onUpdate();
+  },
+
+  // Fired when presence(s) actually drop off the channel.
+  _onLeave(left) {
+    const hostLeft = (left || []).some((m) => m && m.isHost);
+    if (hostLeft && this._sawHost && !this.isHost) this._emit('hostleft', {});
   },
 
   playerList() {
