@@ -18,10 +18,18 @@ class MapRollScene extends Phaser.Scene {
     // dim forest backdrop behind the panel
     UI.backdrop(this);
 
+    // This is an online roll ONLY if we were given a payload AND we're actually
+    // in a lobby right now. Phaser merges scene data across scene.start() calls
+    // and never clears it, so after an online match the stale {online:true}
+    // data lingers — without the lobby check, pressing Play (single-player)
+    // would wrongly route into the online scene and bounce back to the menu.
+    this._online = !!(this.opts.online && this.opts.payload
+      && typeof Net !== 'undefined' && Net.inLobby());
+
     // decide the map up front so the roulette can land on it. For an online
     // match the host already chose the map (in the start payload) so every
     // client rolls to and plays the SAME one.
-    const forced = this.opts.online && this.opts.payload && this.opts.payload.biome;
+    const forced = this._online && this.opts.payload.biome;
     this.chosen = forced ? (Biomes.LIST[this.opts.payload.biome] || Biomes.pick()) : Biomes.pick();
     Biomes.setNext(this.chosen);
 
@@ -158,7 +166,7 @@ class MapRollScene extends Phaser.Scene {
   launch() {
     if (this.launched) return;
     this.launched = true;
-    if (this.opts.online && this.opts.payload) this.scene.start('OnlineGame', this.opts.payload);
+    if (this._online && this.opts.payload) this.scene.start('OnlineGame', this.opts.payload);
     else this.scene.start('Game');
   }
 }
