@@ -235,6 +235,11 @@ const GAME = {
   UI2_SPEED_MS: 4000,          // ms of the 4x speed buff after a counter
   UI2_SPEED_MULT: 4,           // speed multiplier during the counter buff
 
+  // Hacker ghost: dive into a computer and beat one of five mini-games.
+  HACK_COOLDOWN: 15000,        // ms between hacks (long — the payoff is big)
+  HACK_STUN_MS: 5000,          // ms the Spook is stunned on a successful hack
+  HACK_POINTS: 1500,           // points for a successful hack
+
   // ---- Online "Spook Tag" mode (host-authoritative multiplayer) ----
   TAG_ROUND_MS: 60000,         // the shared 60s hot-potato countdown
   TAG_CATCH_DIST: 52,          // how close the Spook must be to tag someone
@@ -276,6 +281,7 @@ const GAME = {
     ghostSpider: 0x243024,
     ghostCat: 0x15121c,
     ghostSuperCat: 0xffd24a,
+    ghostHacker: 0x0f2a18,
   },
 };
 
@@ -566,6 +572,11 @@ const Settings = {
       // cooldowns: GAME.WEB_COOLDOWN / GAME.ZIP_COOLDOWN
       desc: 'Shift swaps: drop a web that roots the Spook in place 2s, or zip to the farthest tree for a big escape.',
     },
+    hacker: {
+      label: 'Hacker Ghost', tex: 'ghostHacker', ability: 'hack', unlock: 3000,
+      abilityName: 'Hack', icon: '💻', speedMul: 1.0, lives: 1, cooldown: 15000,
+      desc: 'Dive into a computer and beat a hacking mini-game (1 of 5). Win → the Spook is stunned 5s and you bank +1500!',
+    },
     // Admin-only. A black cat with golden eyes; 3 abilities on keys 1/2/3.
     // At 1004+ points press 4 to become Super Cat (golden Goku hair): the
     // abilities upgrade and each ultimate plays its own anime cutscene.
@@ -575,7 +586,7 @@ const Settings = {
       desc: 'ADMIN. 1 Claw (stun 3s) · 2 Moon Leap · 3 Ultra Instinct (3s untouchable). At 1004 pts press 4 → SUPER CAT: Comet Paw, Thunder Rush & Ultra Instinct 0.2, each with a cutscene.',
     },
   },
-  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja', 'chrono', 'void', 'spider', 'cat'],
+  CHAR_ORDER: ['blue', 'red', 'green', 'purple', 'yellow', 'brown', 'pink', 'black', 'magma', 'forest', 'volt', 'alien', 'lucky', 'ninja', 'chrono', 'void', 'spider', 'hacker', 'cat'],
 
   // A character is unlocked once your best score reaches its threshold.
   isUnlocked(key) {
@@ -634,7 +645,7 @@ const Settings = {
 
   // body colour for each character (used to tint the owner skin's face)
   charColor(key) {
-    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xbfc2d0, chrono: 0x7fe8e0, void: 0xb98fe0, spider: 0x8fe6a0, cat: 0xffcf33 }[key] || 0xbfe6ff;
+    return { blue: 0xbfe6ff, red: 0xff8a8a, green: 0x8fe6a0, purple: 0xc79cff, yellow: 0xffe066, brown: 0xb98a5e, pink: 0xff8fd0, black: 0xb0b0c8, magma: 0xff6a3a, forest: 0x8fe6a0, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xbfc2d0, chrono: 0x7fe8e0, void: 0xb98fe0, spider: 0x8fe6a0, hacker: 0x3bf38b, cat: 0xffcf33 }[key] || 0xbfe6ff;
   },
 
   getSkin() {

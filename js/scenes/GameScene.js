@@ -66,6 +66,7 @@ class GameScene extends Phaser.Scene {
     this.phasing = false;
     this.gameOver = false;
     this.lastWarnBeep = 0;
+    this.hacking = false; // Hacker ghost: a hacking mini-game overlay is open
 
     // Cat (admin): 3-ability form that transforms into Super Cat at 1004 pts.
     this.superCat = false;        // has the ultimate transform happened
@@ -321,7 +322,7 @@ class GameScene extends Phaser.Scene {
   }
 
   useAbility() {
-    if (this.gameOver) return;
+    if (this.gameOver || this.hacking) return;
     // the Cat has its own 1/2/3/4 controls (handled in useCatAbility)
     if (this.character.ability === 'cat') return;
     const now = this.time.now;
@@ -369,6 +370,10 @@ class GameScene extends Phaser.Scene {
         this.gamble(now);
         this.abilityReadyAt = now + this.abilityCooldown;
         break;
+      case 'hack':
+        this.startHack(now);
+        this.abilityReadyAt = now + this.abilityCooldown;
+        break;
       case 'log':
       default:
         this.dropLog();
@@ -376,6 +381,34 @@ class GameScene extends Phaser.Scene {
         break;
     }
     this.updateLogHud();
+  }
+
+  // Hacker ghost: freeze play, open the hacking mini-game overlay, and on a win
+  // stun the Spook 5s + award 1500 points.
+  startHack(now) {
+    if (typeof Hack === 'undefined' || this.hacking) return;
+    this.hacking = true;
+    this.physics.world.pause();
+    try { this.sys.game.input.enabled = false; } catch (e) { /* ignore */ }
+    this.floatText('💻 HACKING…', 0x3bf38b);
+    Hack.play((win) => {
+      this.hacking = false;
+      try { this.sys.game.input.enabled = true; } catch (e) { /* ignore */ }
+      if (this.gameOver) return;
+      this.physics.world.resume();
+      if (win) {
+        this.stunUntil = this.time.now + GAME.HACK_STUN_MS;
+        this.enemy.setVelocity(0, 0);
+        this.score += GAME.HACK_POINTS;
+        SFX.caught && SFX.caught();
+        this.cameras.main.shake(180, 0.012);
+        if (this.enemyBurst) this.enemyBurst(0x3bf38b);
+        this.floatText('💻 HACKED! +' + GAME.HACK_POINTS, 0x3bf38b);
+      } else {
+        this.floatText('💻 hack failed', 0x8a9aa4);
+      }
+      this.updateLogHud();
+    });
   }
 
   dash(now) {
@@ -1763,7 +1796,7 @@ class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    if (this.gameOver || this.cutsceneActive) return;
+    if (this.gameOver || this.cutsceneActive || this.hacking) return;
     const dt = delta / 1000;
     this.elapsed += dt;
 
@@ -1897,7 +1930,7 @@ class GameScene extends Phaser.Scene {
   }
 
   boostTint() {
-    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce, volt: 0xd0ecff, alien: 0xbfffe0, lucky: 0xdfffa0, ninja: 0xcfd2e0, chrono: 0xaff0e8, void: 0xd8bfff, spider: 0xbfffb0, cat: 0xffe27a }[this.charKey] || 0x9fe0ff;
+    return { red: 0xffb0b0, green: 0xbfffce, purple: 0xe4c8ff, yellow: 0xfff0a0, brown: 0xe6c89a, pink: 0xffc0e8, black: 0xc8c8dc, magma: 0xff9a4a, forest: 0xbfffce, volt: 0xd0ecff, alien: 0xbfffe0, lucky: 0xdfffa0, ninja: 0xcfd2e0, chrono: 0xaff0e8, void: 0xd8bfff, spider: 0xbfffb0, hacker: 0x6fffb0, cat: 0xffe27a }[this.charKey] || 0x9fe0ff;
   }
 
   // Keeps the shield bubble on the player and toggles tree-phasing on/off.

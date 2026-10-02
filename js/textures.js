@@ -22,6 +22,7 @@ const Textures = {
     this.ghostSpider(scene);
     this.ghostCat(scene);
     this.ghostSuperCat(scene);
+    this.ghostHacker(scene);
     // skin bodies
     this._ghost(scene, 'skinEmber', { glow: 0xff5a1a, glow2: 0xffb060, body: 0xff7a3a, eye: 0x4a1000 });
     this._ghost(scene, 'skinFrost', { glow: 0x6fd0ff, glow2: 0xd0f0ff, body: 0xe8f6ff, eye: 0x2a4a5a });
@@ -435,6 +436,35 @@ const Textures = {
     // a couple of rising gold spark motes
     g.fillStyle(0xfff2b0, 0.9); g.fillCircle(cx - 14, 34, 1.4); g.fillCircle(cx + 15, 30, 1.2); g.fillCircle(cx + 12, 40, 1);
     g.generateTexture('ghostSuperCat', w, h);
+    g.destroy();
+  },
+
+  // Hacker ghost: dark hooded body with a glowing green "code visor".
+  ghostHacker(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 48, h = 56, cx = w / 2;
+    // green matrix glow
+    g.fillStyle(0x1b7a46, 0.18); g.fillCircle(cx, h / 2, 27);
+    g.fillStyle(0x3bf38b, 0.22); g.fillCircle(cx, 24, 18);
+    // dark body
+    this._ghostShape(g, w, h, 0x0f2a18);
+    g.fillStyle(0x000000, 0.18); g.fillEllipse(cx, 41, 30, 15);
+    // subtle hood sheen
+    g.fillStyle(0x3bf38b, 0.12); g.fillCircle(cx - 6, 13, 4.5);
+    // glowing green visor across the eyes
+    g.fillStyle(0x062a16, 1); g.fillRoundedRect(cx - 14, 18, 28, 9, 3);
+    g.lineStyle(1.5, 0x3bf38b, 0.9); g.strokeRoundedRect(cx - 14, 18, 28, 9, 3);
+    // scrolling "code" ticks on the visor
+    g.fillStyle(0x3bf38b, 1);
+    g.fillRect(cx - 11, 20, 2, 2); g.fillRect(cx - 6, 22, 2, 2); g.fillRect(cx - 1, 20, 2, 2);
+    g.fillRect(cx + 4, 22, 2, 2); g.fillRect(cx + 9, 20, 2, 2);
+    // bright cyan eye glints behind the visor
+    g.fillStyle(0x9fffcf, 1); g.fillRect(cx - 7, 21.5, 3, 2); g.fillRect(cx + 4, 21.5, 3, 2);
+    // faint green code on the belly
+    g.fillStyle(0x2fbf6a, 0.8);
+    g.fillRect(cx - 8, 33, 2, 2); g.fillRect(cx - 3, 33, 2, 2); g.fillRect(cx + 3, 33, 2, 2);
+    g.fillRect(cx - 6, 37, 2, 2); g.fillRect(cx + 1, 37, 2, 2); g.fillRect(cx + 6, 37, 2, 2);
+    g.generateTexture('ghostHacker', w, h);
     g.destroy();
   },
 

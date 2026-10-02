@@ -138,7 +138,7 @@ class CharactersScene extends Phaser.Scene {
   }
 
   accentFor(key) {
-    return { blue: 0x6fb8ff, red: 0xff6b7a, green: 0x6fe0a0, purple: 0xb98fe0, yellow: 0xffd24a, brown: 0xc79a6a, pink: 0xff8fd0, black: 0x9a9ab4, magma: 0xff6a3a, forest: 0x6fce6a, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xd42a3a, chrono: 0x2fd6c0, void: 0x8f5fd0, spider: 0x6fe0a0, cat: 0xffd24a }[key] || 0x6fb8ff;
+    return { blue: 0x6fb8ff, red: 0xff6b7a, green: 0x6fe0a0, purple: 0xb98fe0, yellow: 0xffd24a, brown: 0xc79a6a, pink: 0xff8fd0, black: 0x9a9ab4, magma: 0xff6a3a, forest: 0x6fce6a, volt: 0x6fd0ff, alien: 0x6bffb0, lucky: 0x9be87a, ninja: 0xd42a3a, chrono: 0x2fd6c0, void: 0x8f5fd0, spider: 0x6fe0a0, hacker: 0x3bf38b, cat: 0xffd24a }[key] || 0x6fb8ff;
   }
 
   // Popup describing a character's abilities (opened by the ℹ button).
