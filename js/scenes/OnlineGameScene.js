@@ -121,6 +121,16 @@ class OnlineGameScene extends Phaser.Scene {
     return (c && c.tex) || 'ghost';
   }
 
+  // The *latest* real position of a player — my own live sprite, or the newest
+  // packet a remote sent. Hit detection (tags / stun) uses this instead of the
+  // on-screen sprite, which is drawn ~120ms in the past for smooth movement, so
+  // hitboxes land where players actually are, not where they appear.
+  _truePos(pl) {
+    if (!pl) return { x: 0, y: 0 };
+    if (pl.id === this.myId) return { x: this.me.sprite.x, y: this.me.sprite.y };
+    return { x: pl.tx, y: pl.ty };
+  }
+
   _addPlayer(p, i, n) {
     const WW = GAME.WORLD_WIDTH, WH = GAME.WORLD_HEIGHT;
     const a = (i / Math.max(1, n)) * Math.PI * 2;
@@ -213,7 +223,8 @@ class OnlineGameScene extends Phaser.Scene {
 
     const sp = this.roster[this.spookId];
     if (sp) {
-      const d = Phaser.Math.Distance.Between(this.me.x, this.me.y, sp.sprite.x, sp.sprite.y);
+      const spPos = this._truePos(sp);
+      const d = Phaser.Math.Distance.Between(this.me.sprite.x, this.me.sprite.y, spPos.x, spPos.y);
       if (d <= GAME.TAG_STUN_RANGE * GAME.TAG_NERF) {
         this.spookStunUntil = now + GAME.TAG_STUN_MS;
         this._flashStun();
@@ -322,11 +333,13 @@ class OnlineGameScene extends Phaser.Scene {
     const sp = this.roster[this.spookId];
     const spStunned = time < this.spookStunUntil;
     if (sp && !spStunned && time > this.passGraceUntil) {
+      const spPos = this._truePos(sp);
       for (const id of this.alive) {
         if (id === this.spookId) continue;
         const pl = this.roster[id];
         if (!pl) continue;
-        if (Phaser.Math.Distance.Between(sp.sprite.x, sp.sprite.y, pl.sprite.x, pl.sprite.y) < GAME.TAG_CATCH_DIST) {
+        const plPos = this._truePos(pl);
+        if (Phaser.Math.Distance.Between(spPos.x, spPos.y, plPos.x, plPos.y) < GAME.TAG_CATCH_DIST) {
           this.spookId = id;              // role passes
           this.passGraceUntil = time + GAME.TAG_PASS_GRACE;
           this.spookStunUntil = 0;

@@ -237,7 +237,7 @@ const GAME = {
 
   // ---- Online "Spook Tag" mode (host-authoritative multiplayer) ----
   TAG_ROUND_MS: 60000,         // the shared 60s hot-potato countdown
-  TAG_CATCH_DIST: 42,          // how close the Spook must be to tag someone
+  TAG_CATCH_DIST: 52,          // how close the Spook must be to tag someone
   TAG_PASS_GRACE: 1300,        // ms after a pass where no tagging happens (no instant tag-backs)
   TAG_STUN_MS: 1000,           // every stun ability is capped to 1s in this mode
   TAG_STUN_RANGE: 150,         // reach of the universal stun pulse (nerfed)
