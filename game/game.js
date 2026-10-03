@@ -13,8 +13,8 @@ const PLAYER_H = 72; // character is smaller than before (was 120)
 const GROUND_H = 42;
 const GROUND_Y = WORLD_H - GROUND_H;
 const GRAVITY = 1900;
-// Jump apex ~110px: clears the next platform (84px higher) with room to spare.
-const JUMP_SPEED = Math.sqrt(2 * GRAVITY * 110);
+// Jump apex ~140px: clears the next platform (84px higher) with room to spare.
+const JUMP_SPEED = Math.sqrt(2 * GRAVITY * 140);
 const MOVE_SPEED = 250; // fast, px/s
 
 // Platforms: 84px apart, so the 72px character fits underneath with room for its head.
