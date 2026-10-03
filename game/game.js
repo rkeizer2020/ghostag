@@ -13,9 +13,24 @@ const PLAYER_H = 72; // character is smaller than before (was 120)
 const GROUND_H = 42;
 const GROUND_Y = WORLD_H - GROUND_H;
 const GRAVITY = 1080;
-// Jump apex ~60px: just enough to reach the next platform.
-const JUMP_SPEED = Math.sqrt(2 * GRAVITY * 60);
-const MOVE_SPEED = 156; // mid speed, px/s
+// Jump apex ~90px: just enough to reach the next platform (84px higher).
+const JUMP_SPEED = Math.sqrt(2 * GRAVITY * 90);
+const MOVE_SPEED = 190; // a bit faster than before, px/s
+
+// Platforms: 84px apart, so the 72px character fits underneath with room for its head.
+// They are one-way: jump up through them from below, land on top.
+const STEP = 84, PLAT_H = 8, PLAT_W = 300;
+const platforms = [];
+// A staircase of 3 levels, built up to the right (dir 1) or left (dir -1).
+function staircase(x, dir) {
+  for (let level = 1; level <= 3; level++) {
+    const px = x + dir * (level - 1) * 180 - (dir < 0 ? PLAT_W : 0);
+    platforms.push({ x: px, y: GROUND_Y - level * STEP, w: PLAT_W, h: PLAT_H });
+  }
+}
+staircase(300, 1);
+staircase(2000, -1);
+staircase(3000, 1);
 
 const load = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; });
 
@@ -38,11 +53,24 @@ function update(dt) {
     player.onGround = false;
   }
 
+  const prevBottom = player.y + player.h;
   player.vy += GRAVITY * dt;
   player.x += player.vx * dt;
   player.y += player.vy * dt;
+  player.onGround = false;
 
   player.x = Math.max(0, Math.min(WORLD_W - player.w, player.x));
+
+  if (player.vy >= 0) {
+    for (const p of platforms) {
+      const bottom = player.y + player.h;
+      if (player.x + player.w > p.x && player.x < p.x + p.w && prevBottom <= p.y && bottom >= p.y) {
+        player.y = p.y - player.h;
+        player.vy = 0;
+        player.onGround = true;
+      }
+    }
+  }
 
   if (player.y + player.h >= GROUND_Y) {
     player.y = GROUND_Y - player.h;
@@ -54,6 +82,14 @@ function update(dt) {
 function drawGround() {
   ctx.fillStyle = '#0d0603';
   ctx.fillRect(0, GROUND_Y, WORLD_W, GROUND_H);
+  ctx.fillStyle = '#e2820a';
+  ctx.fillRect(0, GROUND_Y, WORLD_W, 3);
+  for (const p of platforms) {
+    ctx.fillStyle = '#0d0603';
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = '#e2820a';
+    ctx.fillRect(p.x, p.y, p.w, 3);
+  }
 }
 
 (async function main() {
