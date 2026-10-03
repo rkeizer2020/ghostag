@@ -12,10 +12,10 @@ const ZOOM = W / VIEW_W;
 const PLAYER_H = 72; // character is smaller than before (was 120)
 const GROUND_H = 42;
 const GROUND_Y = WORLD_H - GROUND_H;
-const GRAVITY = 1080;
+const GRAVITY = 1900;
 // Jump apex ~90px: just enough to reach the next platform (84px higher).
 const JUMP_SPEED = Math.sqrt(2 * GRAVITY * 90);
-const MOVE_SPEED = 190; // a bit faster than before, px/s
+const MOVE_SPEED = 250; // fast, px/s
 
 // Platforms: 84px apart, so the 72px character fits underneath with room for its head.
 // They are one-way: jump up through them from below, land on top.
