@@ -2,35 +2,22 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
 
-// World: 3 background tiles wide. The camera shows only a small window of it,
+// World: exactly one background image, with solid edges. The camera shows only a small window of it,
 // so the player always stays close-up (zoomed in).
 const TILE_W = 1270, TILE_H = 709;
-const WORLD_W = TILE_W * 3, WORLD_H = TILE_H;
+const WORLD_W = TILE_W, WORLD_H = TILE_H; // exactly the size of the background image
 const VIEW_W = 700;
 const VIEW_H = VIEW_W * H / W;
 const ZOOM = W / VIEW_W;
 const PLAYER_H = 72; // character is smaller than before (was 120)
 const GROUND_H = 42;
 const GROUND_Y = WORLD_H - GROUND_H;
-const GRAVITY = 1900;
-// Jump apex ~140px: clears the next platform (84px higher) with room to spare.
-const JUMP_SPEED = Math.sqrt(2 * GRAVITY * 140);
+const GRAVITY_UP = 1900;
+const GRAVITY_DOWN = 1000; // floatier fall
+// Jump apex ~140px.
+const JUMP_SPEED = Math.sqrt(2 * GRAVITY_UP * 140);
 const MOVE_SPEED = 250; // fast, px/s
 
-// Platforms: 84px apart, so the 72px character fits underneath with room for its head.
-// They are one-way: jump up through them from below, land on top.
-const STEP = 84, PLAT_H = 8, PLAT_W = 300;
-const platforms = [];
-// A staircase of 3 levels, built up to the right (dir 1) or left (dir -1).
-function staircase(x, dir) {
-  for (let level = 1; level <= 3; level++) {
-    const px = x + dir * (level - 1) * 180 - (dir < 0 ? PLAT_W : 0);
-    platforms.push({ x: px, y: GROUND_Y - level * STEP, w: PLAT_W, h: PLAT_H });
-  }
-}
-staircase(300, 1);
-staircase(2000, -1);
-staircase(3000, 1);
 
 const load = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; });
 
@@ -53,24 +40,12 @@ function update(dt) {
     player.onGround = false;
   }
 
-  const prevBottom = player.y + player.h;
-  player.vy += GRAVITY * dt;
+  player.vy += (player.vy < 0 ? GRAVITY_UP : GRAVITY_DOWN) * dt;
   player.x += player.vx * dt;
   player.y += player.vy * dt;
   player.onGround = false;
 
   player.x = Math.max(0, Math.min(WORLD_W - player.w, player.x));
-
-  if (player.vy >= 0) {
-    for (const p of platforms) {
-      const bottom = player.y + player.h;
-      if (player.x + player.w > p.x && player.x < p.x + p.w && prevBottom <= p.y && bottom >= p.y) {
-        player.y = p.y - player.h;
-        player.vy = 0;
-        player.onGround = true;
-      }
-    }
-  }
 
   if (player.y + player.h >= GROUND_Y) {
     player.y = GROUND_Y - player.h;
@@ -84,12 +59,6 @@ function drawGround() {
   ctx.fillRect(0, GROUND_Y, WORLD_W, GROUND_H);
   ctx.fillStyle = '#e2820a';
   ctx.fillRect(0, GROUND_Y, WORLD_W, 3);
-  for (const p of platforms) {
-    ctx.fillStyle = '#0d0603';
-    ctx.fillRect(p.x, p.y, p.w, p.h);
-    ctx.fillStyle = '#e2820a';
-    ctx.fillRect(p.x, p.y, p.w, 3);
-  }
 }
 
 (async function main() {
@@ -110,7 +79,7 @@ function drawGround() {
     ctx.save();
     ctx.scale(ZOOM, ZOOM);
     ctx.translate(-camX, -camY);
-    for (let t = 0; t < WORLD_W / TILE_W; t++) ctx.drawImage(bg, t * TILE_W, 0, TILE_W, TILE_H);
+    ctx.drawImage(bg, 0, 0, TILE_W, TILE_H);
     drawGround();
     if (player.facing < 0) {
       ctx.save();
