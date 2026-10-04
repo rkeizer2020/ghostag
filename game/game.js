@@ -116,9 +116,16 @@ function update(dt) {
     ctx.translate(-camX, -camY);
     ctx.drawImage(bg, 0, 0, TILE_W, TILE_H);
     for (const p of platforms) ctx.drawImage(platSprite, p.x, p.y, p.w, p.h);
-    ctx.drawImage(groundSprite, -20, GROUND_TOP, WORLD_W + 40, GROUND_H);
-    ctx.drawImage(wallL, 0, 0, WALL_W, WORLD_H);
-    ctx.drawImage(wallR, WORLD_W - WALL_W, 0, WALL_W, WORLD_H);
+    // Walls and ground: a white fill plus drawings that run past the map edges,
+    // so the edges are completely covered with no background showing through.
+    const OVER = 40;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, GROUND_TOP + 6, WORLD_W, WORLD_H - GROUND_TOP);
+    ctx.fillRect(0, 0, WALL_W - 4, WORLD_H);
+    ctx.fillRect(WORLD_W - WALL_W + 4, 0, WALL_W - 4, WORLD_H);
+    ctx.drawImage(groundSprite, -OVER, GROUND_TOP, WORLD_W + 2 * OVER, GROUND_H + OVER);
+    ctx.drawImage(wallL, -OVER, -OVER, WALL_W + OVER, WORLD_H + 2 * OVER);
+    ctx.drawImage(wallR, WORLD_W - WALL_W, -OVER, WALL_W + OVER, WORLD_H + 2 * OVER);
     if (player.facing < 0) {
       ctx.save();
       ctx.translate(player.x + player.w, player.y);
