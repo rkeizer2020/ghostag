@@ -22,16 +22,16 @@ const MOVE_SPEED = 250; // fast, px/s
 // Platform layout from the schema (schema is 1281x718, the map is 1270x709).
 // x, y, w, h = the platform's outline box. Side platforms run past the map edge.
 const SX = WORLD_W / 1281, SY = WORLD_H / 718;
+const CEIL = 0.75;    // underside of the top face: you bump your head here and can't jump up through
 const SURFACE = 0.58; // feet stand in the platform's top face, near its front edge (as in the drawing)
 const platforms = [
   [295, 185, 753, 100],   // top, centre
   [195, 365, 923, 123],   // middle, centre
-  [238, 582, 790, 100],   // bottom, centre
   [-60, 287, 178, 71],    // left, upper
   [-60, 528, 218, 58],    // left, lower
   [1170, 283, 171, 77],   // right, upper
   [1100, 515, 241, 72],   // right, lower
-].map(([x, y, w, h]) => ({ x: x * SX, y: y * SY, w: w * SX, h: h * SY, top: (y + h * SURFACE) * SY }));
+].map(([x, y, w, h]) => ({ x: x * SX, y: y * SY, w: w * SX, h: h * SY, top: (y + h * SURFACE) * SY, ceil: (y + h * CEIL) * SY }));
 
 const load = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; });
 
@@ -55,6 +55,7 @@ function update(dt) {
   }
 
   const prevBottom = player.y + player.h;
+  const prevHead = player.y;
   player.vy += (player.vy < 0 ? GRAVITY_UP : GRAVITY_DOWN) * dt;
   player.x += player.vx * dt;
   player.y += player.vy * dt;
@@ -62,7 +63,17 @@ function update(dt) {
 
   player.x = Math.max(0, Math.min(WORLD_W - player.w, player.x));
 
-  // One-way platforms: jump up through them from below, land on top.
+  // Platforms are solid from below: bump your head, can't jump up through them.
+  if (player.vy < 0) {
+    for (const p of platforms) {
+      if (player.x + player.w > p.x && player.x < p.x + p.w && prevHead >= p.ceil && player.y < p.ceil) {
+        player.y = p.ceil;
+        player.vy = 0;
+      }
+    }
+  }
+
+  // Land on top of a platform when falling onto it.
   if (player.vy >= 0) {
     for (const p of platforms) {
       const bottom = player.y + player.h;
