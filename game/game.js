@@ -138,11 +138,11 @@ function spawnGuard(x, surfaceY, minX, maxX, dir) {
   guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: GUARD_HP, flash: 0 });
 }
 
-// --- Spawning: every enemy type spawns a new enemy every 4 seconds, for ever, at a
+// --- Spawning: every enemy type keeps spawning new enemies, for ever, at a
 // random spot on the main ground, the lowest big platform or the highest platform.
-const SPAWN_EVERY = 4;
+const SPAWN_EVERY = 4; // default for new enemies
 const enemyTypes = [
-  { name: 'guard', timer: 0, spawn: spawnGuard },
+  { name: 'guard', every: 7.5, timer: 0, spawn: spawnGuard },
   // new enemies are added here and spawn the same way
 ];
 
@@ -159,7 +159,7 @@ function updateSpawner(dt) {
   for (const type of enemyTypes) {
     type.timer -= dt;
     if (type.timer > 0) continue;
-    type.timer += SPAWN_EVERY;
+    type.timer += type.every || SPAWN_EVERY;
     const surface = spawnSurfaces()[Math.floor(Math.random() * 3)];
     const x = surface.minX + Math.random() * (surface.maxX - surface.minX - 80);
     type.spawn(x, surface.y, surface.minX, surface.maxX, Math.random() < 0.5 ? -1 : 1);
@@ -178,6 +178,28 @@ function updateGuards(dt) {
 // The part of a guard that bullets can hit (a bit smaller than his drawing).
 function guardHitbox(g) {
   return { x: g.x + g.w * 0.12, y: g.y + g.h * 0.05, w: g.w * 0.76, h: g.h * 0.9 };
+}
+
+// --- Hearts ---------------------------------------------------------------------
+// You start with 5. A guard touching you costs one; then you blink for a moment
+// and can't be hurt again straight away.
+const MAX_HEARTS = 5, INVULN_TIME = 1.5;
+let hearts = MAX_HEARTS;
+let invuln = 0;
+
+function updateHealth(dt) {
+  invuln = Math.max(0, invuln - dt);
+  if (invuln > 0 || hearts <= 0) return;
+  const px = player.x + player.w * 0.15, py = player.y + player.h * 0.05;
+  const pw = player.w * 0.7, ph = player.h * 0.9;
+  for (const g of guards) {
+    const hb = guardHitbox(g);
+    if (px + pw > hb.x && px < hb.x + hb.w && py + ph > hb.y && py < hb.y + hb.h) {
+      hearts--;
+      invuln = INVULN_TIME;
+      break;
+    }
+  }
 }
 
 const keys = {};
@@ -243,6 +265,7 @@ function update(dt) {
   updateBullets(dt);
   updateSpawner(dt);
   updateGuards(dt);
+  updateHealth(dt);
 
   const dir = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
   player.vx = dir * MOVE_SPEED;
@@ -298,8 +321,8 @@ function update(dt) {
 }
 
 (async function main() {
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right'].map(n => load(`assets/${n}.png`)));
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart'].map(n => load(`assets/${n}.png`)));
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
   for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
@@ -338,11 +361,14 @@ function update(dt) {
       if (g.flash > 0 && Math.floor(g.flash * 40) % 2 === 0) continue;
       ctx.drawImage(g.dir > 0 ? guardR : guardL, g.x, g.y, g.w, g.h);
     }
-    ctx.drawImage(sprite, player.x, player.y, player.w, player.h);
+    const blink = invuln > 0 && Math.floor(invuln * 10) % 2 === 0;
+    if (!blink) ctx.drawImage(sprite, player.x, player.y, player.w, player.h);
     // Left gun on the left side, right gun on the right side of the character.
     const gunY = gunTop();
-    ctx.drawImage(gunL, player.x + GUN_GRIP - gunLW, gunY, gunLW, GUN_H);
-    ctx.drawImage(gunR, player.x + player.w - GUN_GRIP, gunY, gunRW, GUN_H);
+    if (!blink) {
+      ctx.drawImage(gunL, player.x + GUN_GRIP - gunLW, gunY, gunLW, GUN_H);
+      ctx.drawImage(gunR, player.x + player.w - GUN_GRIP, gunY, gunRW, GUN_H);
+    }
     for (const b of bullets) ctx.drawImage(b.img, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
 
     // Walls go on top, so a gun at the edge tucks behind the wall.
@@ -352,6 +378,14 @@ function update(dt) {
     ctx.drawImage(wallL, -OVER, -OVER, WALL_W + OVER, WORLD_H + 2 * OVER);
     ctx.drawImage(wallR, WORLD_W - WALL_W, -OVER, WALL_W + OVER, WORLD_H + 2 * OVER);
     ctx.restore();
+
+    // Hearts: small, top-left corner (screen space). Lost hearts stay as faint ghosts.
+    const hh = 38, hw = Math.round(heartImg.width * hh / heartImg.height);
+    for (let i = 0; i < MAX_HEARTS; i++) {
+      ctx.globalAlpha = i < hearts ? 1 : 0.18;
+      ctx.drawImage(heartImg, 20 + i * (hw + 8), 18, hw, hh);
+    }
+    ctx.globalAlpha = 1;
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
