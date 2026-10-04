@@ -188,6 +188,15 @@ let hearts = MAX_HEARTS;
 let invuln = 0;
 let dying = 0;          // short pause after the last heart before the game over screen
 let gameOver = false;
+let inMenu = true;      // the game starts on the DRAWSHOT menu
+let menuHover = false;
+// The MENU button on the game over screen (set once its drawing has loaded).
+const menuBtn = { x: 0, y: 0, w: 0, h: 0 };
+
+function toMenu() {
+  restart();
+  inMenu = true;
+}
 
 function restart() {
   hearts = MAX_HEARTS;
@@ -221,6 +230,11 @@ function updateHealth(dt) {
 const keys = {};
 addEventListener('keydown', e => {
   if (e.key.startsWith('Arrow')) e.preventDefault();
+  if (inMenu) {
+    // temporary: Enter starts the game until the Play button drawing is added
+    if (e.key === 'Enter' || e.key === ' ') { restart(); inMenu = false; }
+    return;
+  }
   if (gameOver) {
     if (e.key === 'Enter' || e.key === ' ') restart();
     return;
@@ -340,11 +354,38 @@ function update(dt) {
   }
 }
 
-canvas.addEventListener('pointerdown', () => { if (gameOver) restart(); });
+function drawHint(text) {
+  ctx.font = 'bold 24px "Trebuchet MS", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = '#000';
+  ctx.fillStyle = '#fff';
+  ctx.strokeText(text, W / 2, H - 22);
+  ctx.fillText(text, W / 2, H - 22);
+}
+
+// pointer position in game (canvas) pixels
+function pointerPos(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+}
+const overMenuBtn = e => {
+  const m = pointerPos(e);
+  return gameOver && m.x >= menuBtn.x && m.x <= menuBtn.x + menuBtn.w && m.y >= menuBtn.y && m.y <= menuBtn.y + menuBtn.h;
+};
+
+canvas.addEventListener('pointermove', e => {
+  menuHover = overMenuBtn(e);
+  canvas.style.cursor = menuHover || inMenu ? 'pointer' : 'default';
+});
+canvas.addEventListener('pointerdown', e => {
+  if (inMenu) { restart(); inMenu = false; return; }   // temporary: click starts the game
+  if (overMenuBtn(e)) toMenu();
+});
 
 (async function main() {
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over'].map(n => load(`assets/${n}.png`)));
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button'].map(n => load(`assets/${n}.png`)));
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
   for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
@@ -353,6 +394,11 @@ canvas.addEventListener('pointerdown', () => { if (gameOver) restart(); });
   const gunRW = gun.rw = Math.round(gunR.width * GUN_H / gunR.height);
   player.y = GROUND_Y - player.h;
 
+  menuBtn.w = 250;
+  menuBtn.h = Math.round(menuBtn.w * menuBtnImg.height / menuBtnImg.width);
+  menuBtn.x = W - menuBtn.w - 24;
+  menuBtn.y = H - menuBtn.h - 20;
+
   guardSprites.left = guardL;
   guardSprites.right = guardR;
 
@@ -360,6 +406,12 @@ canvas.addEventListener('pointerdown', () => { if (gameOver) restart(); });
   function frame(now) {
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
+    if (inMenu) {
+      ctx.drawImage(menuImg, 0, 0, W, H);
+      drawHint('Press Enter or click to play');   // temporary, until the Play button is added
+      requestAnimationFrame(frame);
+      return;
+    }
     if (!gameOver) update(dt);
 
     const camX = Math.max(0, Math.min(WORLD_W - VIEW_W, player.x + player.w / 2 - VIEW_W / 2));
@@ -411,13 +463,10 @@ canvas.addEventListener('pointerdown', () => { if (gameOver) restart(); });
 
     if (gameOver) {
       ctx.drawImage(gameOverImg, 0, 0, W, H);
-      ctx.font = 'bold 24px "Trebuchet MS", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = '#000';
-      ctx.fillStyle = '#fff';
-      ctx.strokeText('Press Enter or click to play again', W / 2, H - 22);
-      ctx.fillText('Press Enter or click to play again', W / 2, H - 22);
+      const grow = menuHover ? 1.06 : 1;
+      const bw = menuBtn.w * grow, bh = menuBtn.h * grow;
+      ctx.drawImage(menuBtnImg, menuBtn.x - (bw - menuBtn.w) / 2, menuBtn.y - (bh - menuBtn.h) / 2, bw, bh);
+      drawHint('Press Enter to play again');       // temporary, until the Play button is added
     }
     requestAnimationFrame(frame);
   }
