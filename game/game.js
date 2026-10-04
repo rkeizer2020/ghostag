@@ -125,6 +125,33 @@ function splashSound() {
   osc.stop(t + 0.15);
 }
 
+// --- Enemies: the yellow guard ----------------------------------------------
+// Patrols left and right on the main ground or a big platform. He can't jump and
+// never walks off: he turns around at the edge. (For now 3 hits take him out.)
+const GUARD_H = 80, GUARD_SPEED = 50, GUARD_HP = 3;
+const guards = [];
+const guardSprites = { left: null, right: null };
+
+function spawnGuard(x, surfaceY, minX, maxX, dir) {
+  const img = guardSprites.right;
+  const h = GUARD_H, w = Math.round(img.width * h / img.height);
+  guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: GUARD_HP, flash: 0 });
+}
+
+function updateGuards(dt) {
+  for (const g of guards) {
+    g.x += g.dir * GUARD_SPEED * dt;
+    if (g.x < g.minX) { g.x = g.minX; g.dir = 1; }
+    if (g.x + g.w > g.maxX) { g.x = g.maxX - g.w; g.dir = -1; }
+    g.flash = Math.max(0, g.flash - dt);
+  }
+}
+
+// The part of a guard that bullets can hit (a bit smaller than his drawing).
+function guardHitbox(g) {
+  return { x: g.x + g.w * 0.12, y: g.y + g.h * 0.05, w: g.w * 0.76, h: g.h * 0.9 };
+}
+
 const keys = {};
 addEventListener('keydown', e => {
   if (e.key.startsWith('Arrow')) e.preventDefault();
@@ -162,7 +189,17 @@ function updateBullets(dt) {
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
     b.x += b.vx * dt;
-    const hit =
+    let hit = false;
+    for (let j = guards.length - 1; j >= 0; j--) {
+      const g = guards[j], hb = guardHitbox(g);
+      if (b.x + b.w / 2 > hb.x && b.x - b.w / 2 < hb.x + hb.w && b.y + b.h / 2 > hb.y && b.y - b.h / 2 < hb.y + hb.h) {
+        hit = true;
+        g.flash = 0.15;
+        if (--g.hp <= 0) guards.splice(j, 1);
+        break;
+      }
+    }
+    hit = hit ||
       b.x - b.w / 2 < WALL_W || b.x + b.w / 2 > WORLD_W - WALL_W ||
       b.y - b.h / 2 < CEILING_H - 6 || b.y + b.h / 2 > GROUND_Y ||
       // a platform's body: from the surface you stand on down to its underside
@@ -176,6 +213,7 @@ function updateBullets(dt) {
 
 function update(dt) {
   updateBullets(dt);
+  updateGuards(dt);
 
   const dir = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
   player.vx = dir * MOVE_SPEED;
@@ -231,8 +269,8 @@ function update(dt) {
 }
 
 (async function main() {
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right'].map(n => load(`assets/${n}.png`)));
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right'].map(n => load(`assets/${n}.png`)));
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
   for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
@@ -240,6 +278,12 @@ function update(dt) {
   const gunLW = gun.lw = Math.round(gunL.width * GUN_H / gunL.height);
   const gunRW = gun.rw = Math.round(gunR.width * GUN_H / gunR.height);
   player.y = GROUND_Y - player.h;
+
+  guardSprites.left = guardL;
+  guardSprites.right = guardR;
+  spawnGuard(800, GROUND_Y, WALL_W, WORLD_W - WALL_W, -1);                     // main ground
+  spawnGuard(450, platforms[1].top, platforms[1].x, platforms[1].x + platforms[1].w, 1); // middle platform
+  spawnGuard(600, platforms[0].top, platforms[0].x, platforms[0].x + platforms[0].w, -1); // top platform
 
   let last = performance.now();
   function frame(now) {
@@ -263,6 +307,11 @@ function update(dt) {
     ctx.fillRect(0, 0, WORLD_W, CEILING_H - 6);
     ctx.drawImage(groundSprite, -OVER, GROUND_TOP, WORLD_W + 2 * OVER, GROUND_H + OVER);
     ctx.drawImage(ceilSprite, -OVER, -OVER, WORLD_W + 2 * OVER, CEILING_H + OVER);
+    for (const g of guards) {
+      // a hit makes him blink
+      if (g.flash > 0 && Math.floor(g.flash * 40) % 2 === 0) continue;
+      ctx.drawImage(g.dir > 0 ? guardR : guardL, g.x, g.y, g.w, g.h);
+    }
     ctx.drawImage(sprite, player.x, player.y, player.w, player.h);
     // Left gun on the left side, right gun on the right side of the character.
     const gunY = gunTop();
