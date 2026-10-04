@@ -14,10 +14,24 @@ const GROUND_H = 42;
 const GROUND_Y = WORLD_H - GROUND_H;
 const GRAVITY_UP = 1900;
 const GRAVITY_DOWN = 1000; // floatier fall
-// Jump apex ~140px.
-const JUMP_SPEED = Math.sqrt(2 * GRAVITY_UP * 140);
+// Jump apex ~200px: the biggest step in the layout is ~165px.
+const JUMP_SPEED = Math.sqrt(2 * GRAVITY_UP * 200);
 const MOVE_SPEED = 250; // fast, px/s
 
+
+// Platform layout from the schema (schema is 1281x718, the map is 1270x709).
+// x, y, w, h = the platform's outline box. Side platforms run past the map edge.
+const SX = WORLD_W / 1281, SY = WORLD_H / 718;
+const SURFACE = 0.06; // the walkable top edge sits just inside the outline
+const platforms = [
+  [295, 185, 753, 100],   // top, centre
+  [195, 365, 923, 123],   // middle, centre
+  [238, 582, 790, 100],   // bottom, centre
+  [-60, 287, 178, 71],    // left, upper
+  [-60, 528, 218, 58],    // left, lower
+  [1170, 283, 171, 77],   // right, upper
+  [1100, 515, 241, 72],   // right, lower
+].map(([x, y, w, h]) => ({ x: x * SX, y: y * SY, w: w * SX, h: h * SY, top: (y + h * SURFACE) * SY }));
 
 const load = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; });
 
@@ -40,12 +54,25 @@ function update(dt) {
     player.onGround = false;
   }
 
+  const prevBottom = player.y + player.h;
   player.vy += (player.vy < 0 ? GRAVITY_UP : GRAVITY_DOWN) * dt;
   player.x += player.vx * dt;
   player.y += player.vy * dt;
   player.onGround = false;
 
   player.x = Math.max(0, Math.min(WORLD_W - player.w, player.x));
+
+  // One-way platforms: jump up through them from below, land on top.
+  if (player.vy >= 0) {
+    for (const p of platforms) {
+      const bottom = player.y + player.h;
+      if (player.x + player.w > p.x && player.x < p.x + p.w && prevBottom <= p.top && bottom >= p.top) {
+        player.y = p.top - player.h;
+        player.vy = 0;
+        player.onGround = true;
+      }
+    }
+  }
 
   if (player.y + player.h >= GROUND_Y) {
     player.y = GROUND_Y - player.h;
@@ -62,7 +89,7 @@ function drawGround() {
 }
 
 (async function main() {
-  const [bg, sprite] = await Promise.all([load('assets/background.png'), load('assets/player.png')]);
+  const [bg, sprite, platSprite] = await Promise.all([load('assets/background.png'), load('assets/player.png'), load('assets/platform.png')]);
   player.h = PLAYER_H;
   player.w = Math.round(sprite.width * PLAYER_H / sprite.height);
   player.y = GROUND_Y - player.h;
@@ -81,6 +108,7 @@ function drawGround() {
     ctx.translate(-camX, -camY);
     ctx.drawImage(bg, 0, 0, TILE_W, TILE_H);
     drawGround();
+    for (const p of platforms) ctx.drawImage(platSprite, p.x, p.y, p.w, p.h);
     if (player.facing < 0) {
       ctx.save();
       ctx.translate(player.x + player.w, player.y);
