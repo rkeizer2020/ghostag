@@ -189,9 +189,12 @@ let invuln = 0;
 let dying = 0;          // short pause after the last heart before the game over screen
 let gameOver = false;
 let inMenu = true;      // the game starts on the DRAWSHOT menu
-let menuHover = false;
-// The MENU button on the game over screen (set once its drawing has loaded).
+let hoverBtn = null;    // which button the pointer is over: 'play' or 'menu'
+// Button rectangles (set once the drawings have loaded): PLAY on the menu, and
+// PLAY (left) and MENU (right) on the game over screen.
 const menuBtn = { x: 0, y: 0, w: 0, h: 0 };
+const playBtn = { x: 0, y: 0, w: 0, h: 0 };      // on the menu screen
+const playBtnOver = { x: 0, y: 0, w: 0, h: 0 };  // on the game over screen
 
 function toMenu() {
   restart();
@@ -231,7 +234,6 @@ const keys = {};
 addEventListener('keydown', e => {
   if (e.key.startsWith('Arrow')) e.preventDefault();
   if (inMenu) {
-    // temporary: Enter starts the game until the Play button drawing is added
     if (e.key === 'Enter' || e.key === ' ') { restart(); inMenu = false; }
     return;
   }
@@ -354,14 +356,11 @@ function update(dt) {
   }
 }
 
-function drawHint(text) {
-  ctx.font = 'bold 24px "Trebuchet MS", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.lineWidth = 5;
-  ctx.strokeStyle = '#000';
-  ctx.fillStyle = '#fff';
-  ctx.strokeText(text, W / 2, H - 22);
-  ctx.fillText(text, W / 2, H - 22);
+// A button drawing; it grows a little while the pointer is over it.
+function drawButton(img, r, hovered) {
+  const grow = hovered ? 1.06 : 1;
+  const w = r.w * grow, h = r.h * grow;
+  ctx.drawImage(img, r.x - (w - r.w) / 2, r.y - (h - r.h) / 2, w, h);
 }
 
 // pointer position in game (canvas) pixels
@@ -369,23 +368,32 @@ function pointerPos(e) {
   const r = canvas.getBoundingClientRect();
   return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
 }
-const overMenuBtn = e => {
+const inRect = (m, r) => m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= r.y + r.h;
+
+// which button (if any) is under the pointer on the current screen
+function buttonAt(e) {
   const m = pointerPos(e);
-  return gameOver && m.x >= menuBtn.x && m.x <= menuBtn.x + menuBtn.w && m.y >= menuBtn.y && m.y <= menuBtn.y + menuBtn.h;
-};
+  if (inMenu) return inRect(m, playBtn) ? 'play' : null;
+  if (gameOver) {
+    if (inRect(m, playBtnOver)) return 'play';
+    if (inRect(m, menuBtn)) return 'menu';
+  }
+  return null;
+}
 
 canvas.addEventListener('pointermove', e => {
-  menuHover = overMenuBtn(e);
-  canvas.style.cursor = menuHover || inMenu ? 'pointer' : 'default';
+  hoverBtn = buttonAt(e);
+  canvas.style.cursor = hoverBtn ? 'pointer' : 'default';
 });
 canvas.addEventListener('pointerdown', e => {
-  if (inMenu) { restart(); inMenu = false; return; }   // temporary: click starts the game
-  if (overMenuBtn(e)) toMenu();
+  const id = buttonAt(e);
+  if (id === 'play') { restart(); inMenu = false; hoverBtn = null; }
+  if (id === 'menu') { toMenu(); hoverBtn = null; }
 });
 
 (async function main() {
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button'].map(n => load(`assets/${n}.png`)));
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button'].map(n => load(`assets/${n}.png`)));
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
   for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
@@ -398,6 +406,10 @@ canvas.addEventListener('pointerdown', e => {
   menuBtn.h = Math.round(menuBtn.w * menuBtnImg.height / menuBtnImg.width);
   menuBtn.x = W - menuBtn.w - 24;
   menuBtn.y = H - menuBtn.h - 20;
+  const playH = Math.round(250 * playBtnImg.height / playBtnImg.width);
+  Object.assign(playBtnOver, { x: 24, y: H - playH - 20, w: 250, h: playH });
+  const bigH = Math.round(380 * playBtnImg.height / playBtnImg.width);
+  Object.assign(playBtn, { x: (W - 380) / 2, y: 360, w: 380, h: bigH });
 
   guardSprites.left = guardL;
   guardSprites.right = guardR;
@@ -408,7 +420,7 @@ canvas.addEventListener('pointerdown', e => {
     last = now;
     if (inMenu) {
       ctx.drawImage(menuImg, 0, 0, W, H);
-      drawHint('Press Enter or click to play');   // temporary, until the Play button is added
+      drawButton(playBtnImg, playBtn, hoverBtn === 'play');
       requestAnimationFrame(frame);
       return;
     }
@@ -463,10 +475,8 @@ canvas.addEventListener('pointerdown', e => {
 
     if (gameOver) {
       ctx.drawImage(gameOverImg, 0, 0, W, H);
-      const grow = menuHover ? 1.06 : 1;
-      const bw = menuBtn.w * grow, bh = menuBtn.h * grow;
-      ctx.drawImage(menuBtnImg, menuBtn.x - (bw - menuBtn.w) / 2, menuBtn.y - (bh - menuBtn.h) / 2, bw, bh);
-      drawHint('Press Enter to play again');       // temporary, until the Play button is added
+      drawButton(playBtnImg, playBtnOver, hoverBtn === 'play');
+      drawButton(menuBtnImg, menuBtn, hoverBtn === 'menu');
     }
     requestAnimationFrame(frame);
   }
