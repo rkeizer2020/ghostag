@@ -155,12 +155,90 @@ function spawnGuard(x, surfaceY, minX, maxX, dir) {
   guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: GUARD_HP, flash: 0 });
 }
 
+// --- Enemies: the red guard ------------------------------------------------------
+// Stands on the small platforms and ONLY there, at most one per small platform
+// (so 4 at most). He can't be hurt by touching him and doesn't hurt you by touching:
+// every 0.75 s he shoots a bullet at the spot where you are at that moment. His gun
+// hangs a little way from his body and always points at you, like an outstretched arm.
+const RED_HP = 10, RED_SHOOT_EVERY = 0.75, RED_BULLET_SPEED = 320, RED_BULLET_W = 28;
+const RED_GUN_LEN = 46, RED_GUN_DIST = 50;   // gun length, and its distance from his body centre
+const MINI_PLATFORMS = [2, 3, 4, 5];          // indices into `platforms`: the four small ones
+const redGuards = [];
+const enemyBullets = [];
+const redSprites = { guard: null, gun: null, bullet: null };
+
+function redPivot(g) {
+  return { x: g.x + g.w / 2, y: g.y + g.h * 0.5 };
+}
+
+function trySpawnRedGuard() {
+  const free = MINI_PLATFORMS.filter(i => {
+    if (redGuards.some(g => g.platform === i)) return false;            // one per small platform
+    const p = platforms[i];
+    return Math.abs(redSpot(p) - (player.x + player.w / 2)) >= SPAWN_GAP;  // gap from the player
+  });
+  if (!free.length) return false;
+  const i = free[Math.floor(Math.random() * free.length)];
+  const img = redSprites.guard;
+  const h = GUARD_H, w = Math.round(img.width * h / img.height);
+  const spot = redSpot(platforms[i]);
+  redGuards.push({ platform: i, x: spot - w / 2, y: platforms[i].top - h, w, h, hp: RED_HP, flash: 0, shootTimer: RED_SHOOT_EVERY, angle: 0 });
+  return true;
+}
+
+// where on a small platform he stands: in the middle of the part that is on screen
+function redSpot(p) {
+  const left = Math.max(p.x, WALL_W), right = Math.min(p.x + p.w, WORLD_W - WALL_W);
+  return (left + right) / 2;
+}
+
+function updateRedGuards(dt) {
+  const target = { x: player.x + player.w / 2, y: player.y + player.h * 0.5 };
+  for (const g of redGuards) {
+    g.flash = Math.max(0, g.flash - dt);
+    const pv = redPivot(g);
+    g.angle = Math.atan2(target.y - pv.y, target.x - pv.x);       // the gun follows you
+    g.shootTimer -= dt;
+    if (g.shootTimer <= 0 && hearts > 0) {
+      g.shootTimer += RED_SHOOT_EVERY;
+      const reach = RED_GUN_DIST + RED_GUN_LEN / 2;               // from his body to the muzzle
+      const bh = RED_BULLET_W * redSprites.bullet.height / redSprites.bullet.width;
+      enemyBullets.push({
+        x: pv.x + Math.cos(g.angle) * reach, y: pv.y + Math.sin(g.angle) * reach,
+        vx: Math.cos(g.angle) * RED_BULLET_SPEED, vy: Math.sin(g.angle) * RED_BULLET_SPEED,
+        angle: g.angle, w: RED_BULLET_W, h: bh, platform: g.platform,
+      });
+    }
+  }
+  for (let i = enemyBullets.length - 1; i >= 0; i--) {
+    const b = enemyBullets[i];
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    const r = Math.min(b.w, b.h) / 2;
+    const pb = playerHitbox();
+    const hitsPlayer = b.x + r > pb.x && b.x - r < pb.x + pb.w && b.y + r > pb.y && b.y - r < pb.y + pb.h;
+    const hitsWorld =
+      b.x - r < WALL_W || b.x + r > WORLD_W - WALL_W || b.y - r < CEILING_H - 6 || b.y + r > GROUND_Y ||
+      platforms.some((p, j) => j !== b.platform &&               // he can shoot out of his own platform
+        b.x + r > p.x && b.x - r < p.x + p.w && b.y + r > p.top && b.y - r < p.ceil);
+    if (hitsPlayer) {
+      hurtPlayer();
+      enemyBullets.splice(i, 1);
+      splashSound();
+    } else if (hitsWorld) {
+      enemyBullets.splice(i, 1);
+      splashSound();
+    }
+  }
+}
+
 // --- Spawning: every enemy type keeps spawning new enemies, for ever, at a
 // random spot on the main ground, the lowest big platform or the highest platform.
 const SPAWN_EVERY = 4; // default for new enemies
 const SPAWN_GAP = 220; // an enemy never spawns closer than this (px) to the player
 const enemyTypes = [
   { name: 'guard', every: 7.5, timer: 0, spawn: spawnGuard },
+  { name: 'redGuard', every: 10, timer: 0, trySpawn: trySpawnRedGuard },   // small platforms only
   // new enemies are added here and spawn the same way
 ];
 
@@ -177,6 +255,10 @@ function updateSpawner(dt) {
   for (const type of enemyTypes) {
     type.timer -= dt;
     if (type.timer > 0) continue;
+    if (type.trySpawn) {                       // enemies with their own spawn rules
+      type.timer += type.trySpawn() ? type.every : 1;   // nothing free right now: try again in a second
+      continue;
+    }
     type.timer += type.every || SPAWN_EVERY;
     // Pick a random spot, but keep a gap between the new enemy and the player.
     const surfaces = spawnSurfaces();
@@ -233,24 +315,38 @@ function restart() {
   dying = 0;
   gameOver = false;
   guards.length = 0;
+  redGuards.length = 0;
   bullets.length = 0;
+  enemyBullets.length = 0;
   for (const type of enemyTypes) type.timer = 0;
   Object.assign(player, { x: 100, y: GROUND_Y - player.h, vx: 0, vy: 0, onGround: false });
   for (const k in keys) keys[k] = false;
+}
+
+// Take one heart (unless you're blinking or already out). Returns true if it hurt.
+function hurtPlayer() {
+  if (invuln > 0 || hearts <= 0) return false;
+  hearts--;
+  invuln = INVULN_TIME;
+  if (hearts === 0) dying = 0.8;
+  return true;
+}
+
+// the part of the player that things can hit
+function playerHitbox() {
+  return { x: player.x + player.w * 0.15, y: player.y + player.h * 0.05, w: player.w * 0.7, h: player.h * 0.9 };
 }
 
 function updateHealth(dt) {
   invuln = Math.max(0, invuln - dt);
   if (dying > 0 && (dying -= dt) <= 0) gameOver = true;
   if (invuln > 0 || hearts <= 0) return;
-  const px = player.x + player.w * 0.15, py = player.y + player.h * 0.05;
-  const pw = player.w * 0.7, ph = player.h * 0.9;
+  const p = playerHitbox();
+  // yellow guards hurt when you walk into them (red guards only hurt with their bullets)
   for (const g of guards) {
     const hb = guardHitbox(g);
-    if (px + pw > hb.x && px < hb.x + hb.w && py + ph > hb.y && py < hb.y + hb.h) {
-      hearts--;
-      invuln = INVULN_TIME;
-      if (hearts === 0) dying = 0.8;
+    if (p.x + p.w > hb.x && p.x < hb.x + hb.w && p.y + p.h > hb.y && p.y < hb.y + hb.h) {
+      hurtPlayer();
       break;
     }
   }
@@ -299,13 +395,14 @@ function updateBullets(dt) {
     const b = bullets[i];
     b.x += b.vx * dt;
     let hit = false;
-    for (let j = guards.length - 1; j >= 0; j--) {
-      const g = guards[j], hb = guardHitbox(g);
-      if (b.x + b.w / 2 > hb.x && b.x - b.w / 2 < hb.x + hb.w && b.y + b.h / 2 > hb.y && b.y - b.h / 2 < hb.y + hb.h) {
-        hit = true;
-        g.flash = 0.15;
-        if (--g.hp <= 0) guards.splice(j, 1);
-        break;
+    for (const list of [guards, redGuards]) {
+      for (let j = list.length - 1; j >= 0 && !hit; j--) {
+        const g = list[j], hb = guardHitbox(g);
+        if (b.x + b.w / 2 > hb.x && b.x - b.w / 2 < hb.x + hb.w && b.y + b.h / 2 > hb.y && b.y - b.h / 2 < hb.y + hb.h) {
+          hit = true;
+          g.flash = 0.15;
+          if (--g.hp <= 0) list.splice(j, 1);
+        }
       }
     }
     hit = hit ||
@@ -324,6 +421,7 @@ function update(dt) {
   updateBullets(dt);
   updateSpawner(dt);
   updateGuards(dt);
+  updateRedGuards(dt);
   updateHealth(dt);
 
   const dir = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
@@ -419,8 +517,8 @@ canvas.addEventListener('pointerdown', e => {
 
 (async function main() {
   initAudio();   // starts silent until the first click or key press
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg, playAgainImg] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button', 'play-again-button'].map(n => load(`assets/${n}.png`)));
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg, playAgainImg, redGuardImg, redGunImg, redBulletImg] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button', 'play-again-button', 'red-guard', 'red-gun', 'red-bullet'].map(n => load(`assets/${n}.png`)));
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
   for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
@@ -438,6 +536,10 @@ canvas.addEventListener('pointerdown', e => {
   menuBtn.y = againBtn.y - menuBtn.h - 10;
   const playW = 260;                        // menu: PLAY, smaller and higher up
   Object.assign(playBtn, { x: (W - playW) / 2, y: 270, w: playW, h: Math.round(playW * playBtnImg.height / playBtnImg.width) });
+
+  redSprites.guard = redGuardImg;
+  redSprites.gun = redGunImg;
+  redSprites.bullet = redBulletImg;
 
   guardSprites.left = guardL;
   guardSprites.right = guardR;
@@ -475,6 +577,19 @@ canvas.addEventListener('pointerdown', e => {
       if (g.flash > 0 && Math.floor(g.flash * 40) % 2 === 0) continue;
       ctx.drawImage(g.dir > 0 ? guardR : guardL, g.x, g.y, g.w, g.h);
     }
+    for (const g of redGuards) {
+      if (g.flash > 0 && Math.floor(g.flash * 40) % 2 === 0) continue;
+      ctx.drawImage(redGuardImg, g.x, g.y, g.w, g.h);
+      // the gun: held out from his body, pointing at you (flipped when aiming left so it stays upright)
+      const pv = redPivot(g);
+      const gh = RED_GUN_LEN * redGunImg.height / redGunImg.width;
+      ctx.save();
+      ctx.translate(pv.x + Math.cos(g.angle) * RED_GUN_DIST, pv.y + Math.sin(g.angle) * RED_GUN_DIST);
+      ctx.rotate(g.angle);
+      if (Math.cos(g.angle) < 0) ctx.scale(1, -1);
+      ctx.drawImage(redGunImg, -RED_GUN_LEN / 2, -gh / 2, RED_GUN_LEN, gh);
+      ctx.restore();
+    }
     const blink = invuln > 0 && Math.floor(invuln * 10) % 2 === 0;
     if (!blink) ctx.drawImage(sprite, player.x, player.y, player.w, player.h);
     // Left gun on the left side, right gun on the right side of the character.
@@ -482,6 +597,13 @@ canvas.addEventListener('pointerdown', e => {
     if (!blink) {
       ctx.drawImage(gunL, player.x + GUN_GRIP - gunLW, gunY, gunLW, GUN_H);
       ctx.drawImage(gunR, player.x + player.w - GUN_GRIP, gunY, gunRW, GUN_H);
+    }
+    for (const b of enemyBullets) {
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(b.angle);
+      ctx.drawImage(redBulletImg, -b.w / 2, -b.h / 2, b.w, b.h);
+      ctx.restore();
     }
     for (const b of bullets) ctx.drawImage(b.img, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
 
