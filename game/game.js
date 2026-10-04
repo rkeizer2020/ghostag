@@ -49,23 +49,53 @@ const bullets = [];
 const bulletSprites = { left: [], right: [] };
 const gun = { lw: 0, rw: 0 };
 
+const SPLAT_URL = 'assets/splat.mp3'; // the splash sound played when a bullet hits something
 let audioCtx = null;
+let splatBuffer = null;
+let splatLoading = false;
+async function loadSplat() {
+  if (!audioCtx || splatBuffer || splatLoading) return;
+  splatLoading = true;
+  try {
+    let data;
+    if (SPLAT_URL.startsWith('data:')) {
+      const bin = atob(SPLAT_URL.split(',')[1]);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      data = bytes.buffer;
+    } else {
+      data = await (await fetch(SPLAT_URL)).arrayBuffer();
+    }
+    splatBuffer = await audioCtx.decodeAudioData(data);
+  } catch (e) { /* fall back to the built-in splash below */ }
+  splatLoading = false;
+}
 function initAudio() {
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
+    loadSplat();
   } catch (e) { /* no sound */ }
 }
 addEventListener('keydown', initAudio);
 addEventListener('pointerdown', initAudio);
 
-// A wet splash: a burst of filtered noise plus a short falling "plop".
+// Splash sound: the splat recording, or (until it has loaded) a synthesised wet splash.
 let lastSplash = 0;
 function splashSound() {
   if (!audioCtx || audioCtx.state !== 'running') return;
   const t = audioCtx.currentTime;
   if (t - lastSplash < 0.04) return;
   lastSplash = t;
+  if (splatBuffer) {
+    const src = audioCtx.createBufferSource();
+    src.buffer = splatBuffer;
+    const vol = audioCtx.createGain();
+    vol.gain.value = 0.8;
+    src.connect(vol).connect(audioCtx.destination);
+    src.start(t);
+    return;
+  }
   const len = Math.floor(audioCtx.sampleRate * 0.22);
   const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
   const d = buf.getChannelData(0);
