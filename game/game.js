@@ -158,6 +158,7 @@ function spawnGuard(x, surfaceY, minX, maxX, dir) {
 // --- Spawning: every enemy type keeps spawning new enemies, for ever, at a
 // random spot on the main ground, the lowest big platform or the highest platform.
 const SPAWN_EVERY = 4; // default for new enemies
+const SPAWN_GAP = 220; // an enemy never spawns closer than this (px) to the player
 const enemyTypes = [
   { name: 'guard', every: 7.5, timer: 0, spawn: spawnGuard },
   // new enemies are added here and spawn the same way
@@ -177,9 +178,17 @@ function updateSpawner(dt) {
     type.timer -= dt;
     if (type.timer > 0) continue;
     type.timer += type.every || SPAWN_EVERY;
-    const surface = spawnSurfaces()[Math.floor(Math.random() * 3)];
-    const x = surface.minX + Math.random() * (surface.maxX - surface.minX - 80);
-    type.spawn(x, surface.y, surface.minX, surface.maxX, Math.random() < 0.5 ? -1 : 1);
+    // Pick a random spot, but keep a gap between the new enemy and the player.
+    const surfaces = spawnSurfaces();
+    let best = null;
+    for (let tries = 0; tries < 30; tries++) {
+      const surface = surfaces[Math.floor(Math.random() * 3)];
+      const x = surface.minX + Math.random() * (surface.maxX - surface.minX - 80);
+      const gap = Math.max(x - (player.x + player.w), player.x - (x + 80)); // empty space between them
+      if (!best || gap > best.gap) best = { surface, x, gap };
+      if (gap >= SPAWN_GAP) break;
+    }
+    type.spawn(best.x, best.surface.y, best.surface.minX, best.surface.maxX, Math.random() < 0.5 ? -1 : 1);
   }
 }
 
