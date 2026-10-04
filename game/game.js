@@ -158,9 +158,9 @@ function spawnGuard(x, surfaceY, minX, maxX, dir) {
 // --- Enemies: the red guard ------------------------------------------------------
 // Stands on the small platforms and ONLY there, at most one per small platform
 // (so 4 at most). He can't be hurt by touching him and doesn't hurt you by touching:
-// every 0.75 s he shoots a bullet at the spot where you are at that moment. His gun
+// every 1.25 s he shoots a bullet at the spot where you are at that moment. His gun
 // hangs a little way from his body and always points at you, like an outstretched arm.
-const RED_HP = 10, RED_SHOOT_EVERY = 0.75, RED_BULLET_SPEED = 320, RED_BULLET_W = 28;
+const RED_HP = 3, RED_SHOOT_EVERY = 1.25, RED_BULLET_SPEED = 320, RED_BULLET_W = 28;
 const RED_GUN_LEN = 46, RED_GUN_DIST = 50;   // gun length, and its distance from his body centre
 const MINI_PLATFORMS = [2, 3, 4, 5];          // indices into `platforms`: the four small ones
 const redGuards = [];
