@@ -138,6 +138,34 @@ function spawnGuard(x, surfaceY, minX, maxX, dir) {
   guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: GUARD_HP, flash: 0 });
 }
 
+// --- Spawning: every enemy type spawns a new enemy every 4 seconds, for ever, at a
+// random spot on the main ground, the lowest big platform or the highest platform.
+const SPAWN_EVERY = 4;
+const enemyTypes = [
+  { name: 'guard', timer: 0, spawn: spawnGuard },
+  // new enemies are added here and spawn the same way
+];
+
+function spawnSurfaces() {
+  const mid = platforms[1], top = platforms[0];
+  return [
+    { y: GROUND_Y, minX: WALL_W, maxX: WORLD_W - WALL_W },       // main ground
+    { y: mid.top, minX: mid.x, maxX: mid.x + mid.w },            // lowest big platform
+    { y: top.top, minX: top.x, maxX: top.x + top.w },            // highest platform
+  ];
+}
+
+function updateSpawner(dt) {
+  for (const type of enemyTypes) {
+    type.timer -= dt;
+    if (type.timer > 0) continue;
+    type.timer += SPAWN_EVERY;
+    const surface = spawnSurfaces()[Math.floor(Math.random() * 3)];
+    const x = surface.minX + Math.random() * (surface.maxX - surface.minX - 80);
+    type.spawn(x, surface.y, surface.minX, surface.maxX, Math.random() < 0.5 ? -1 : 1);
+  }
+}
+
 function updateGuards(dt) {
   for (const g of guards) {
     g.x += g.dir * GUARD_SPEED * dt;
@@ -213,6 +241,7 @@ function updateBullets(dt) {
 
 function update(dt) {
   updateBullets(dt);
+  updateSpawner(dt);
   updateGuards(dt);
 
   const dir = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
@@ -281,9 +310,6 @@ function update(dt) {
 
   guardSprites.left = guardL;
   guardSprites.right = guardR;
-  spawnGuard(800, GROUND_Y, WALL_W, WORLD_W - WALL_W, -1);                     // main ground
-  spawnGuard(450, platforms[1].top, platforms[1].x, platforms[1].x + platforms[1].w, 1); // middle platform
-  spawnGuard(600, platforms[0].top, platforms[0].x, platforms[0].x + platforms[0].w, -1); // top platform
 
   let last = performance.now();
   function frame(now) {
