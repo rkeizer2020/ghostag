@@ -14,15 +14,15 @@ const GROUND_H = 42;
 const GROUND_Y = WORLD_H - GROUND_H;
 const GRAVITY_UP = 1900;
 const GRAVITY_DOWN = 1000; // floatier fall
-// Jump apex ~200px: the biggest step in the layout is ~165px.
-const JUMP_SPEED = Math.sqrt(2 * GRAVITY_UP * 200);
+// Jump apex ~210px: the biggest step in the layout is ~195px.
+const JUMP_SPEED = Math.sqrt(2 * GRAVITY_UP * 210);
 const MOVE_SPEED = 250; // fast, px/s
 
 
 // Platform layout from the schema (schema is 1281x718, the map is 1270x709).
 // x, y, w, h = the platform's outline box. Side platforms run past the map edge.
 const SX = WORLD_W / 1281, SY = WORLD_H / 718;
-const SURFACE = 0.06; // the walkable top edge sits just inside the outline
+const SURFACE = 0.58; // feet stand in the platform's top face, near its front edge (as in the drawing)
 const platforms = [
   [295, 185, 753, 100],   // top, centre
   [195, 365, 923, 123],   // middle, centre
