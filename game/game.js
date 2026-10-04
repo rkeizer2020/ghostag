@@ -238,7 +238,7 @@ const SPAWN_EVERY = 4; // default for new enemies
 const SPAWN_GAP = 220; // an enemy never spawns closer than this (px) to the player
 const enemyTypes = [
   { name: 'guard', every: 7.5, timer: 0, spawn: spawnGuard },
-  { name: 'redGuard', every: 10, timer: 0, trySpawn: trySpawnRedGuard },   // small platforms only
+  { name: 'redGuard', every: 7.5, timer: 0, trySpawn: trySpawnRedGuard },   // small platforms only
   // new enemies are added here and spawn the same way
 ];
 
