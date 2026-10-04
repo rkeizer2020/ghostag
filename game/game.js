@@ -41,6 +41,61 @@ const platforms = [
 
 const load = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; });
 
+// --- Bullets and sound ---------------------------------------------------
+// Key 1 fires the left gun, key 2 the right gun (hold to keep firing).
+// Each shot is a random one of the 3 paint colours drawn for that direction.
+const BULLET_W = 22, BULLET_SPEED = 560, FIRE_DELAY = 0.12;
+const bullets = [];
+const bulletSprites = { left: [], right: [] };
+const gun = { lw: 0, rw: 0 };
+const cooldown = { left: 0, right: 0 };
+
+let audioCtx = null;
+function initAudio() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch (e) { /* no sound */ }
+}
+addEventListener('keydown', initAudio);
+addEventListener('pointerdown', initAudio);
+
+// A wet splash: a burst of filtered noise plus a short falling "plop".
+let lastSplash = 0;
+function splashSound() {
+  if (!audioCtx || audioCtx.state !== 'running') return;
+  const t = audioCtx.currentTime;
+  if (t - lastSplash < 0.04) return;
+  lastSplash = t;
+  const len = Math.floor(audioCtx.sampleRate * 0.22);
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buf;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.Q.value = 1.2;
+  filter.frequency.setValueAtTime(2200, t);
+  filter.frequency.exponentialRampToValueAtTime(500, t + 0.2);
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(0.5, t);
+  ng.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+  noise.connect(filter).connect(ng).connect(audioCtx.destination);
+  noise.start(t);
+
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(420, t);
+  osc.frequency.exponentialRampToValueAtTime(110, t + 0.12);
+  const og = audioCtx.createGain();
+  og.gain.setValueAtTime(0.35, t);
+  og.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+  osc.connect(og).connect(audioCtx.destination);
+  osc.start(t);
+  osc.stop(t + 0.15);
+}
+
 const keys = {};
 addEventListener('keydown', e => {
   if (e.key.startsWith('Arrow')) e.preventDefault();
@@ -50,7 +105,52 @@ addEventListener('keyup', e => { keys[e.key] = false; });
 
 const player = { x: 100, y: 0, w: 0, h: 0, vx: 0, vy: 0, onGround: false, facing: 1 };
 
+function gunTop() {
+  return player.y + player.h * 0.55 - GUN_H / 2;
+}
+
+function fire(side) {
+  const sprites = bulletSprites[side];
+  if (!sprites.length) return;
+  const img = sprites[Math.floor(Math.random() * sprites.length)];
+  const left = side === 'left';
+  bullets.push({
+    img,
+    w: BULLET_W,
+    h: BULLET_W * img.height / img.width,
+    // start at the gun's muzzle
+    x: left ? player.x + GUN_GRIP - gun.lw : player.x + player.w - GUN_GRIP + gun.rw,
+    y: gunTop() + GUN_H * 0.4,
+    vx: left ? -BULLET_SPEED : BULLET_SPEED,
+  });
+}
+
+function updateBullets(dt) {
+  for (const side of ['left', 'right']) {
+    cooldown[side] -= dt;
+    if (keys[side === 'left' ? '1' : '2'] && cooldown[side] <= 0) {
+      fire(side);
+      cooldown[side] = FIRE_DELAY;
+    }
+  }
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.x += b.vx * dt;
+    const hit =
+      b.x - b.w / 2 < WALL_W || b.x + b.w / 2 > WORLD_W - WALL_W ||
+      b.y - b.h / 2 < CEILING_H - 6 || b.y + b.h / 2 > GROUND_Y ||
+      // a platform's body: from the surface you stand on down to its underside
+      platforms.some(p => b.x + b.w / 2 > p.x && b.x - b.w / 2 < p.x + p.w && b.y + b.h / 2 > p.top && b.y - b.h / 2 < p.ceil);
+    if (hit) {
+      bullets.splice(i, 1);
+      splashSound();
+    }
+  }
+}
+
 function update(dt) {
+  updateBullets(dt);
+
   const dir = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
   player.vx = dir * MOVE_SPEED;
   if (dir) player.facing = dir;
@@ -107,10 +207,12 @@ function update(dt) {
 (async function main() {
   const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR] = await Promise.all(
     ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right'].map(n => load(`assets/${n}.png`)));
+  const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
+  for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
   player.w = Math.round(sprite.width * PLAYER_H / sprite.height);
-  const gunLW = Math.round(gunL.width * GUN_H / gunL.height);
-  const gunRW = Math.round(gunR.width * GUN_H / gunR.height);
+  const gunLW = gun.lw = Math.round(gunL.width * GUN_H / gunL.height);
+  const gunRW = gun.rw = Math.round(gunR.width * GUN_H / gunR.height);
   player.y = GROUND_Y - player.h;
 
   let last = performance.now();
@@ -137,9 +239,10 @@ function update(dt) {
     ctx.drawImage(ceilSprite, -OVER, -OVER, WORLD_W + 2 * OVER, CEILING_H + OVER);
     ctx.drawImage(sprite, player.x, player.y, player.w, player.h);
     // Left gun on the left side, right gun on the right side of the character.
-    const gunY = player.y + player.h * 0.55 - GUN_H / 2;
+    const gunY = gunTop();
     ctx.drawImage(gunL, player.x + GUN_GRIP - gunLW, gunY, gunLW, GUN_H);
     ctx.drawImage(gunR, player.x + player.w - GUN_GRIP, gunY, gunRW, GUN_H);
+    for (const b of bullets) ctx.drawImage(b.img, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
 
     // Walls go on top, so a gun at the edge tucks behind the wall.
     ctx.fillStyle = '#fff';
