@@ -190,11 +190,10 @@ let dying = 0;          // short pause after the last heart before the game over
 let gameOver = false;
 let inMenu = true;      // the game starts on the DRAWSHOT menu
 let hoverBtn = null;    // which button the pointer is over: 'play' or 'menu'
-// Button rectangles (set once the drawings have loaded): PLAY on the menu, and
-// PLAY (left) and MENU (right) on the game over screen.
+// Button rectangles (set once the drawings have loaded): PLAY on the menu screen
+// and MENU on the game over screen.
 const menuBtn = { x: 0, y: 0, w: 0, h: 0 };
 const playBtn = { x: 0, y: 0, w: 0, h: 0 };      // on the menu screen
-const playBtnOver = { x: 0, y: 0, w: 0, h: 0 };  // on the game over screen
 
 function toMenu() {
   restart();
@@ -237,10 +236,7 @@ addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { restart(); inMenu = false; }
     return;
   }
-  if (gameOver) {
-    if (e.key === 'Enter' || e.key === ' ') restart();
-    return;
-  }
+  if (gameOver) return;   // on the game over screen the only way on is the MENU button
   if (!e.repeat) {
     if (e.key === '1') fire('left');
     if (e.key === '2') fire('right');
@@ -374,10 +370,7 @@ const inRect = (m, r) => m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= 
 function buttonAt(e) {
   const m = pointerPos(e);
   if (inMenu) return inRect(m, playBtn) ? 'play' : null;
-  if (gameOver) {
-    if (inRect(m, playBtnOver)) return 'play';
-    if (inRect(m, menuBtn)) return 'menu';
-  }
+  if (gameOver && inRect(m, menuBtn)) return 'menu';
   return null;
 }
 
@@ -404,12 +397,10 @@ canvas.addEventListener('pointerdown', e => {
 
   menuBtn.w = 250;
   menuBtn.h = Math.round(menuBtn.w * menuBtnImg.height / menuBtnImg.width);
-  menuBtn.x = W - menuBtn.w - 24;
-  menuBtn.y = H - menuBtn.h - 20;
-  const playH = Math.round(250 * playBtnImg.height / playBtnImg.width);
-  Object.assign(playBtnOver, { x: 24, y: H - playH - 20, w: 250, h: playH });
-  const bigH = Math.round(380 * playBtnImg.height / playBtnImg.width);
-  Object.assign(playBtn, { x: (W - 380) / 2, y: 360, w: 380, h: bigH });
+  menuBtn.x = (W - menuBtn.w) / 2;          // game over: MENU in the middle
+  menuBtn.y = H - menuBtn.h - 30;
+  const playW = 260;                        // menu: PLAY, smaller and higher up
+  Object.assign(playBtn, { x: (W - playW) / 2, y: 270, w: playW, h: Math.round(playW * playBtnImg.height / playBtnImg.width) });
 
   guardSprites.left = guardL;
   guardSprites.right = guardR;
@@ -475,7 +466,6 @@ canvas.addEventListener('pointerdown', e => {
 
     if (gameOver) {
       ctx.drawImage(gameOverImg, 0, 0, W, H);
-      drawButton(playBtnImg, playBtnOver, hoverBtn === 'play');
       drawButton(menuBtnImg, menuBtn, hoverBtn === 'menu');
     }
     requestAnimationFrame(frame);
