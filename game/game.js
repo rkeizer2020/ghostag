@@ -14,8 +14,8 @@ const GROUND_H = 42;
 const GROUND_Y = WORLD_H - GROUND_H;
 const GRAVITY_UP = 1900;
 const GRAVITY_DOWN = 1000; // floatier fall
-// Jump apex ~210px: the biggest step in the layout is ~195px.
-const JUMP_SPEED = Math.sqrt(2 * GRAVITY_UP * 210);
+// Jump apex ~180px.
+const JUMP_SPEED = Math.sqrt(2 * GRAVITY_UP * 180);
 const MOVE_SPEED = 250; // fast, px/s
 
 
