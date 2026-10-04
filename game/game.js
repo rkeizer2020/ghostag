@@ -32,9 +32,9 @@ const platforms = [
   [295, 185, 753, 100],   // top, centre
   [195, 365, 923, 123],   // middle, centre
   [-60, 287, 178, 71],    // left, upper
-  [-60, 528, 218, 58],    // left, lower
+  [-60, 558, 218, 58],    // left, lower
   [1170, 283, 171, 77],   // right, upper
-  [1100, 515, 241, 72],   // right, lower
+  [1100, 545, 241, 72],   // right, lower
 ].map(([x, y, w, h]) => ({ x: x * SX, y: y * SY, w: w * SX, h: h * SY, top: (y + h * SURFACE) * SY, ceil: (y + h * CEIL) * SY }));
 
 const load = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; });
