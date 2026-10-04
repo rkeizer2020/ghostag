@@ -44,7 +44,7 @@ const load = src => new Promise(r => { const i = new Image(); i.onload = () => r
 // --- Bullets and sound ---------------------------------------------------
 // Key 1 fires the left gun, key 2 the right gun (hold to keep firing).
 // Each shot is a random one of the 3 paint colours drawn for that direction.
-const BULLET_W = 34, BULLET_SPEED = 560, FIRE_DELAY = 0.3;
+const BULLET_W = 34, BULLET_SPEED = 450, FIRE_DELAY = 0.3;
 const bullets = [];
 const bulletSprites = { left: [], right: [] };
 const gun = { lw: 0, rw: 0 };
