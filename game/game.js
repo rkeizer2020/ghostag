@@ -50,31 +50,48 @@ const bulletSprites = { left: [], right: [] };
 const gun = { lw: 0, rw: 0 };
 
 const SPLAT_URL = 'assets/splat.mp3'; // the splash sound played when a bullet hits something
+const POP_URL = 'assets/pop.mp3';     // played when the pointer goes over a button and when you click one
 let audioCtx = null;
 let splatBuffer = null;
-let splatLoading = false;
-async function loadSplat() {
-  if (!audioCtx || splatBuffer || splatLoading) return;
-  splatLoading = true;
-  try {
-    let data;
-    if (SPLAT_URL.startsWith('data:')) {
-      const bin = atob(SPLAT_URL.split(',')[1]);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      data = bytes.buffer;
-    } else {
-      data = await (await fetch(SPLAT_URL)).arrayBuffer();
-    }
-    splatBuffer = await audioCtx.decodeAudioData(data);
-  } catch (e) { /* fall back to the built-in splash below */ }
-  splatLoading = false;
+let popBuffer = null;
+let soundsLoading = false;
+
+async function decodeSound(url) {
+  let data;
+  if (url.startsWith('data:')) {
+    const bin = atob(url.split(',')[1]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    data = bytes.buffer;
+  } else {
+    data = await (await fetch(url)).arrayBuffer();
+  }
+  return audioCtx.decodeAudioData(data);
+}
+
+async function loadSounds() {
+  if (!audioCtx || soundsLoading) return;
+  soundsLoading = true;
+  try { splatBuffer = splatBuffer || await decodeSound(SPLAT_URL); } catch (e) { /* falls back to the built-in splash */ }
+  try { popBuffer = popBuffer || await decodeSound(POP_URL); } catch (e) { /* no pop */ }
+  soundsLoading = false;
+}
+
+function playPop() {
+  if (!audioCtx || !popBuffer) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const src = audioCtx.createBufferSource();
+  src.buffer = popBuffer;
+  const vol = audioCtx.createGain();
+  vol.gain.value = 0.6;
+  src.connect(vol).connect(audioCtx.destination);
+  src.start();
 }
 function initAudio() {
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    loadSplat();
+    loadSounds();
   } catch (e) { /* no sound */ }
 }
 addEventListener('keydown', initAudio);
@@ -191,9 +208,10 @@ let gameOver = false;
 let inMenu = true;      // the game starts on the DRAWSHOT menu
 let hoverBtn = null;    // which button the pointer is over: 'play' or 'menu'
 // Button rectangles (set once the drawings have loaded): PLAY on the menu screen
-// and MENU on the game over screen.
+// and PLAY AGAIN + MENU on the game over screen.
 const menuBtn = { x: 0, y: 0, w: 0, h: 0 };
 const playBtn = { x: 0, y: 0, w: 0, h: 0 };      // on the menu screen
+const againBtn = { x: 0, y: 0, w: 0, h: 0 };     // PLAY AGAIN on the game over screen
 
 function toMenu() {
   restart();
@@ -370,23 +388,30 @@ const inRect = (m, r) => m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= 
 function buttonAt(e) {
   const m = pointerPos(e);
   if (inMenu) return inRect(m, playBtn) ? 'play' : null;
-  if (gameOver && inRect(m, menuBtn)) return 'menu';
+  if (gameOver) {
+    if (inRect(m, againBtn)) return 'again';
+    if (inRect(m, menuBtn)) return 'menu';
+  }
   return null;
 }
 
 canvas.addEventListener('pointermove', e => {
+  const was = hoverBtn;
   hoverBtn = buttonAt(e);
+  if (hoverBtn && hoverBtn !== was) playPop();
   canvas.style.cursor = hoverBtn ? 'pointer' : 'default';
 });
 canvas.addEventListener('pointerdown', e => {
   const id = buttonAt(e);
-  if (id === 'play') { restart(); inMenu = false; hoverBtn = null; }
+  if (id) playPop();
+  if (id === 'play' || id === 'again') { restart(); inMenu = false; hoverBtn = null; }
   if (id === 'menu') { toMenu(); hoverBtn = null; }
 });
 
 (async function main() {
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button'].map(n => load(`assets/${n}.png`)));
+  initAudio();   // starts silent until the first click or key press
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg, playAgainImg] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button', 'play-again-button'].map(n => load(`assets/${n}.png`)));
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
   for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
@@ -395,10 +420,13 @@ canvas.addEventListener('pointerdown', e => {
   const gunRW = gun.rw = Math.round(gunR.width * GUN_H / gunR.height);
   player.y = GROUND_Y - player.h;
 
-  menuBtn.w = 250;
+  // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
+  const againW = 300, againH = Math.round(againW * playAgainImg.height / playAgainImg.width);
+  Object.assign(againBtn, { x: (W - againW) / 2, y: (H - againH) / 2, w: againW, h: againH });
+  menuBtn.w = 240;
   menuBtn.h = Math.round(menuBtn.w * menuBtnImg.height / menuBtnImg.width);
-  menuBtn.x = (W - menuBtn.w) / 2;          // game over: MENU in the middle
-  menuBtn.y = H - menuBtn.h - 30;
+  menuBtn.x = (W - menuBtn.w) / 2;
+  menuBtn.y = againBtn.y - menuBtn.h - 10;
   const playW = 260;                        // menu: PLAY, smaller and higher up
   Object.assign(playBtn, { x: (W - playW) / 2, y: 270, w: playW, h: Math.round(playW * playBtnImg.height / playBtnImg.width) });
 
@@ -466,6 +494,7 @@ canvas.addEventListener('pointerdown', e => {
 
     if (gameOver) {
       ctx.drawImage(gameOverImg, 0, 0, W, H);
+      drawButton(playAgainImg, againBtn, hoverBtn === 'again');
       drawButton(menuBtnImg, menuBtn, hoverBtn === 'menu');
     }
     requestAnimationFrame(frame);
