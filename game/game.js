@@ -127,8 +127,8 @@ function splashSound() {
 
 // --- Enemies: the yellow guard ----------------------------------------------
 // Patrols left and right on the main ground or a big platform. He can't jump and
-// never walks off: he turns around at the edge. (For now 3 hits take him out.)
-const GUARD_H = 80, GUARD_SPEED = 50, GUARD_HP = 3;
+// never walks off: he turns around at the edge. (8 hits take him out.)
+const GUARD_H = 80, GUARD_SPEED = MOVE_SPEED, GUARD_HP = 8; // as fast as the player
 const guards = [];
 const guardSprites = { left: null, right: null };
 
