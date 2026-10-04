@@ -10,10 +10,11 @@ const VIEW_W = 700;
 const VIEW_H = VIEW_W * H / W;
 const ZOOM = W / VIEW_W;
 const PLAYER_H = 72; // character is smaller than before (was 120)
-// Hand-drawn ground slab along the bottom, and walls on both sides (the ceiling comes later).
+// Hand-drawn ground slab along the bottom, walls on both sides and a ceiling.
 const GROUND_H = 64;                     // height of the ground drawing
 const GROUND_TOP = WORLD_H - GROUND_H;
 const GROUND_Y = GROUND_TOP + GROUND_H * 0.45; // feet stand in the ground slab, like on the platforms
+const CEILING_H = 62;                    // height of the ceiling drawing
 const WALL_W = 72;                       // width of each wall drawing
 const GRAVITY_UP = 1900;
 const GRAVITY_DOWN = 1000; // floatier fall
@@ -66,6 +67,12 @@ function update(dt) {
 
   player.x = Math.max(WALL_W, Math.min(WORLD_W - WALL_W - player.w, player.x));
 
+  // The ceiling stops your head.
+  if (player.y < CEILING_H - 6) {
+    player.y = CEILING_H - 6;
+    if (player.vy < 0) player.vy = 0;
+  }
+
   // Platforms are solid from below: bump your head, can't jump up through them.
   if (player.vy < 0) {
     for (const p of platforms) {
@@ -96,8 +103,8 @@ function update(dt) {
 }
 
 (async function main() {
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right'].map(n => load(`assets/${n}.png`)));
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling'].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
   player.w = Math.round(sprite.width * PLAYER_H / sprite.height);
   player.y = GROUND_Y - player.h;
@@ -121,11 +128,13 @@ function update(dt) {
     const OVER = 40;
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, GROUND_TOP + 6, WORLD_W, WORLD_H - GROUND_TOP);
+    ctx.fillRect(0, 0, WORLD_W, CEILING_H - 6);
     ctx.fillRect(0, 0, WALL_W - 4, WORLD_H);
     ctx.fillRect(WORLD_W - WALL_W + 4, 0, WALL_W - 4, WORLD_H);
     ctx.drawImage(groundSprite, -OVER, GROUND_TOP, WORLD_W + 2 * OVER, GROUND_H + OVER);
     ctx.drawImage(wallL, -OVER, -OVER, WALL_W + OVER, WORLD_H + 2 * OVER);
     ctx.drawImage(wallR, WORLD_W - WALL_W, -OVER, WALL_W + OVER, WORLD_H + 2 * OVER);
+    ctx.drawImage(ceilSprite, -OVER, -OVER, WORLD_W + 2 * OVER, CEILING_H + OVER);
     if (player.facing < 0) {
       ctx.save();
       ctx.translate(player.x + player.w, player.y);
