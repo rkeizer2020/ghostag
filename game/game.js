@@ -10,8 +10,11 @@ const VIEW_W = 700;
 const VIEW_H = VIEW_W * H / W;
 const ZOOM = W / VIEW_W;
 const PLAYER_H = 72; // character is smaller than before (was 120)
-const GROUND_H = 42;
-const GROUND_Y = WORLD_H - GROUND_H;
+// Hand-drawn ground slab along the bottom, and walls on both sides (the ceiling comes later).
+const GROUND_H = 64;                     // height of the ground drawing
+const GROUND_TOP = WORLD_H - GROUND_H;
+const GROUND_Y = GROUND_TOP + GROUND_H * 0.45; // feet stand in the ground slab, like on the platforms
+const WALL_W = 72;                       // width of each wall drawing
 const GRAVITY_UP = 1900;
 const GRAVITY_DOWN = 1000; // floatier fall
 // Jump apex ~155px.
@@ -61,7 +64,7 @@ function update(dt) {
   player.y += player.vy * dt;
   player.onGround = false;
 
-  player.x = Math.max(0, Math.min(WORLD_W - player.w, player.x));
+  player.x = Math.max(WALL_W, Math.min(WORLD_W - WALL_W - player.w, player.x));
 
   // Platforms are solid from below: bump your head, can't jump up through them.
   if (player.vy < 0) {
@@ -92,15 +95,9 @@ function update(dt) {
   }
 }
 
-function drawGround() {
-  ctx.fillStyle = '#0d0603';
-  ctx.fillRect(0, GROUND_Y, WORLD_W, GROUND_H);
-  ctx.fillStyle = '#e2820a';
-  ctx.fillRect(0, GROUND_Y, WORLD_W, 3);
-}
-
 (async function main() {
-  const [bg, sprite, platSprite] = await Promise.all([load('assets/background.png'), load('assets/player.png'), load('assets/platform.png')]);
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right'].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
   player.w = Math.round(sprite.width * PLAYER_H / sprite.height);
   player.y = GROUND_Y - player.h;
@@ -118,8 +115,10 @@ function drawGround() {
     ctx.scale(ZOOM, ZOOM);
     ctx.translate(-camX, -camY);
     ctx.drawImage(bg, 0, 0, TILE_W, TILE_H);
-    drawGround();
     for (const p of platforms) ctx.drawImage(platSprite, p.x, p.y, p.w, p.h);
+    ctx.drawImage(groundSprite, -20, GROUND_TOP, WORLD_W + 40, GROUND_H);
+    ctx.drawImage(wallL, 0, 0, WALL_W, WORLD_H);
+    ctx.drawImage(wallR, WORLD_W - WALL_W, 0, WALL_W, WORLD_H);
     if (player.facing < 0) {
       ctx.save();
       ctx.translate(player.x + player.w, player.y);
