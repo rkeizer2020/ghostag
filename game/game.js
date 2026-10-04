@@ -186,9 +186,24 @@ function guardHitbox(g) {
 const MAX_HEARTS = 5, INVULN_TIME = 1.5;
 let hearts = MAX_HEARTS;
 let invuln = 0;
+let dying = 0;          // short pause after the last heart before the game over screen
+let gameOver = false;
+
+function restart() {
+  hearts = MAX_HEARTS;
+  invuln = 0;
+  dying = 0;
+  gameOver = false;
+  guards.length = 0;
+  bullets.length = 0;
+  for (const type of enemyTypes) type.timer = 0;
+  Object.assign(player, { x: 100, y: GROUND_Y - player.h, vx: 0, vy: 0, onGround: false });
+  for (const k in keys) keys[k] = false;
+}
 
 function updateHealth(dt) {
   invuln = Math.max(0, invuln - dt);
+  if (dying > 0 && (dying -= dt) <= 0) gameOver = true;
   if (invuln > 0 || hearts <= 0) return;
   const px = player.x + player.w * 0.15, py = player.y + player.h * 0.05;
   const pw = player.w * 0.7, ph = player.h * 0.9;
@@ -197,6 +212,7 @@ function updateHealth(dt) {
     if (px + pw > hb.x && px < hb.x + hb.w && py + ph > hb.y && py < hb.y + hb.h) {
       hearts--;
       invuln = INVULN_TIME;
+      if (hearts === 0) dying = 0.8;
       break;
     }
   }
@@ -205,6 +221,10 @@ function updateHealth(dt) {
 const keys = {};
 addEventListener('keydown', e => {
   if (e.key.startsWith('Arrow')) e.preventDefault();
+  if (gameOver) {
+    if (e.key === 'Enter' || e.key === ' ') restart();
+    return;
+  }
   if (!e.repeat) {
     if (e.key === '1') fire('left');
     if (e.key === '2') fire('right');
@@ -320,9 +340,11 @@ function update(dt) {
   }
 }
 
+canvas.addEventListener('pointerdown', () => { if (gameOver) restart(); });
+
 (async function main() {
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart'].map(n => load(`assets/${n}.png`)));
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over'].map(n => load(`assets/${n}.png`)));
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
   for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
@@ -338,7 +360,7 @@ function update(dt) {
   function frame(now) {
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
-    update(dt);
+    if (!gameOver) update(dt);
 
     const camX = Math.max(0, Math.min(WORLD_W - VIEW_W, player.x + player.w / 2 - VIEW_W / 2));
     const camY = Math.max(0, Math.min(WORLD_H - VIEW_H, player.y + player.h / 2 - VIEW_H / 2));
@@ -386,6 +408,17 @@ function update(dt) {
       ctx.drawImage(heartImg, 20 + i * (hw + 8), 18, hw, hh);
     }
     ctx.globalAlpha = 1;
+
+    if (gameOver) {
+      ctx.drawImage(gameOverImg, 0, 0, W, H);
+      ctx.font = 'bold 24px "Trebuchet MS", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#000';
+      ctx.fillStyle = '#fff';
+      ctx.strokeText('Press Enter or click to play again', W / 2, H - 22);
+      ctx.fillText('Press Enter or click to play again', W / 2, H - 22);
+    }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
