@@ -42,13 +42,12 @@ const platforms = [
 const load = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; });
 
 // --- Bullets and sound ---------------------------------------------------
-// Key 1 fires the left gun, key 2 the right gun (hold to keep firing).
+// Key 1 fires the left gun, key 2 the right gun: one bullet per press (holding does nothing).
 // Each shot is a random one of the 3 paint colours drawn for that direction.
-const BULLET_W = 34, BULLET_SPEED = 450, FIRE_DELAY = 0.5;
+const BULLET_W = 34, BULLET_SPEED = 450;
 const bullets = [];
 const bulletSprites = { left: [], right: [] };
 const gun = { lw: 0, rw: 0 };
-const cooldown = { left: 0, right: 0 };
 
 let audioCtx = null;
 function initAudio() {
@@ -99,6 +98,10 @@ function splashSound() {
 const keys = {};
 addEventListener('keydown', e => {
   if (e.key.startsWith('Arrow')) e.preventDefault();
+  if (!e.repeat) {
+    if (e.key === '1') fire('left');
+    if (e.key === '2') fire('right');
+  }
   keys[e.key] = true;
 });
 addEventListener('keyup', e => { keys[e.key] = false; });
@@ -126,13 +129,6 @@ function fire(side) {
 }
 
 function updateBullets(dt) {
-  for (const side of ['left', 'right']) {
-    cooldown[side] -= dt;
-    if (keys[side === 'left' ? '1' : '2'] && cooldown[side] <= 0) {
-      fire(side);
-      cooldown[side] = FIRE_DELAY;
-    }
-  }
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
     b.x += b.vx * dt;
