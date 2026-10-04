@@ -14,8 +14,8 @@ const GROUND_H = 42;
 const GROUND_Y = WORLD_H - GROUND_H;
 const GRAVITY_UP = 1900;
 const GRAVITY_DOWN = 1000; // floatier fall
-// Jump apex ~180px.
-const JUMP_SPEED = Math.sqrt(2 * GRAVITY_UP * 180);
+// Jump apex ~155px.
+const JUMP_SPEED = Math.sqrt(2 * GRAVITY_UP * 155);
 const MOVE_SPEED = 250; // fast, px/s
 
 
