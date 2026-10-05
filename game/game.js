@@ -146,17 +146,18 @@ function splashSound() {
 // The goal: paint every surface. Defeating an enemy leaves a paint stain where he stood
 // (yellow for the yellow guard on the ground and big platforms, red for the red guard
 // on the small platforms), but only on a part of the surface that isn't painted yet.
-// A surface is split in equal parts, and it turns green when every part has a stain:
+// A surface is split in equal parts (a stain covers exactly one part), and it turns green
+// when every part has a stain:
 // the main ground needs 6, each big platform 4 and each small platform 1.
-const PAINT_SURFACES = {};   // id -> { n parts, minX, maxX, y (the line you stand on) }
+const PAINT_SURFACES = {};   // id -> { n parts, minX, maxX, y (the line you stand on), stainH }
 const paintDone = {};        // id -> array of booleans, one per part
 const stains = [];           // { x, y, color }
 const stainSprites = { yellow: null, red: null };
 let paintImgs = null;        // green drawings
 
 function setupPaint() {
-  const span = p => ({ minX: Math.max(p.x, WALL_W), maxX: Math.min(p.x + p.w, WORLD_W - WALL_W), y: p.top });
-  PAINT_SURFACES.ground = { n: 6, minX: WALL_W, maxX: WORLD_W - WALL_W, y: GROUND_Y };
+  const span = p => ({ minX: Math.max(p.x, WALL_W), maxX: Math.min(p.x + p.w, WORLD_W - WALL_W), y: p.top, stainH: p.h * 0.8 });
+  PAINT_SURFACES.ground = { n: 6, minX: WALL_W, maxX: WORLD_W - WALL_W, y: GROUND_Y, stainH: 70 };
   platforms.forEach((p, i) => { PAINT_SURFACES[i] = Object.assign({ n: MINI_PLATFORMS.includes(i) ? 1 : 4 }, span(p)); });
   resetPaint();
 }
@@ -175,7 +176,9 @@ function paintStain(id, x, color) {
   const part = Math.max(0, Math.min(s.n - 1, Math.floor((x - s.minX) / ((s.maxX - s.minX) / s.n))));
   if (paintDone[id][part]) return;           // this part already has paint: nothing happens
   paintDone[id][part] = true;
-  stains.push({ x, y: s.y, color });
+  // one stain is exactly one part of the surface (1/6 of the ground, 1/4 of a big platform)
+  const partW = (s.maxX - s.minX) / s.n;
+  stains.push({ x: s.minX + (part + 0.5) * partW, y: s.y, w: partW, h: s.stainH, color });
 }
 
 // --- Enemies: the yellow guard ----------------------------------------------
@@ -622,8 +625,7 @@ canvas.addEventListener('pointerdown', e => {
     ctx.drawImage(ceilSprite, -OVER, -OVER, WORLD_W + 2 * OVER, CEILING_H + OVER);
     // paint stains lie on the surface they were made on
     for (const st of stains) {
-      const img = stainSprites[st.color], sw = 60, sh = sw * img.height / img.width;
-      ctx.drawImage(img, st.x - sw / 2, st.y - sh * 0.7, sw, sh);
+      ctx.drawImage(stainSprites[st.color], st.x - st.w / 2, st.y - st.h * 0.7, st.w, st.h);
     }
     for (const g of guards) {
       // a hit makes him blink
