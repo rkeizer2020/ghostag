@@ -161,11 +161,31 @@ const UPGRADES = [
   { id: 9, name: 'Speedy Bullets', cost: 30, desc: 'Your bullets travel 20% faster.' },
 ];
 const OFFER_COUNT = 3, OFFER_TIME = 5 * 60 * 1000;
-const SAVE_KEY = 'drawshot-save';
-const save = { coins: 0, owned: [], offerWindow: -1, offers: [] };
-try { Object.assign(save, JSON.parse(localStorage.getItem(SAVE_KEY) || '{}')); } catch (e) { /* no saving: it just lasts until the page closes */ }
-function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
-const has = id => save.owned.includes(id);
+const MAX_EQUIPPED = 3;
+const SAVE_KEY = 'drawshot-save';           // the guest save; a logged in player gets 'drawshot-save:<name>'
+const USER_KEY = 'drawshot-user', ACCOUNTS_KEY = 'drawshot-accounts';
+const save = { coins: 0, owned: [], equipped: [], offerWindow: -1, offers: [] };
+let user = null;                             // the logged in username, or null for a guest
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* no saving: it just lasts until the page closes */ } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } },
+};
+const saveKey = () => (user ? SAVE_KEY + ':' + user : SAVE_KEY);
+function writeSave() { store.set(saveKey(), JSON.stringify(save)); }
+// replace the progress in `save` with another saved game (login / logout)
+function loadSave(raw) {
+  let data = {};
+  try { data = JSON.parse(raw || '{}') || {}; } catch (e) { /* start fresh */ }
+  for (const k of Object.keys(save)) delete save[k];
+  Object.assign(save, { coins: 0, owned: [], equipped: null, offerWindow: -1, offers: [] }, data);
+  if (!Array.isArray(save.equipped)) save.equipped = save.owned.slice(0, MAX_EQUIPPED);   // saves from before the cards screen
+  save.equipped = save.equipped.filter(id => save.owned.includes(id)).slice(0, MAX_EQUIPPED);
+}
+user = store.get(USER_KEY);
+loadSave(store.get(saveKey()));
+const owns = id => save.owned.includes(id);
+const has = id => save.equipped.includes(id);   // only equipped cards do anything
 
 // what the upgrades change
 const moveSpeed = () => MOVE_SPEED * (has(2) ? 1.1 : 1);
@@ -191,10 +211,18 @@ function onSurfaceGreen() {
 function ensureOffers() {
   const win = Math.floor(Date.now() / OFFER_TIME);
   if (save.offerWindow === win) return;
-  const pool = UPGRADES.filter(u => !has(u.id)).map(u => u.id);
+  const pool = UPGRADES.filter(u => !owns(u.id)).map(u => u.id);
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   save.offers = pool.slice(0, OFFER_COUNT);
   save.offerWindow = win;
+  writeSave();
+}
+function toggleEquip(id) {
+  if (!owns(id)) return;
+  const i = save.equipped.indexOf(id);
+  if (i >= 0) save.equipped.splice(i, 1);
+  else if (save.equipped.length >= MAX_EQUIPPED) { Object.assign(shopMsg, { text: 'Only ' + MAX_EQUIPPED + ' cards at a time: remove one first', t: 2.2, good: false }); return; }
+  else save.equipped.push(id);
   writeSave();
 }
 const offerSecondsLeft = () => Math.max(0, Math.ceil(((Math.floor(Date.now() / OFFER_TIME) + 1) * OFFER_TIME - Date.now()) / 1000));
@@ -424,6 +452,8 @@ let levelComplete = false;   // the whole map is painted
 let completeTimer = 0;       // a short pause so you can see the last stain before the screen comes
 let inMenu = true;      // the game starts on the DRAWSHOT menu
 let inShop = false;     // the shop screen (opened from the menu or the level completed screen)
+let inCards = false;    // the cards screen: pick the (max 3) cards you play with
+let inLogin = false;    // the login box is open
 const shopMsg = { text: '', t: 0, good: false };
 let hoverBtn = null;    // which button the pointer is over: 'play' or 'menu'
 // Button rectangles (set once the drawings have loaded): PLAY on the menu screen
@@ -434,9 +464,12 @@ const lcMenuBtn = { x: 0, y: 0, w: 0, h: 0 };    // MENU on the level completed 
 const againBtn = { x: 0, y: 0, w: 0, h: 0 };     // PLAY AGAIN on the game over screen
 const shopBtn = { x: 0, y: 0, w: 0, h: 0 };      // SHOP on the menu screen
 const lcShopBtn = { x: 0, y: 0, w: 0, h: 0 };    // SHOP on the level completed screen
+const cardsBtn = { x: 0, y: 0, w: 0, h: 0 };     // CARDS on the menu screen
+const lcCardsBtn = { x: 0, y: 0, w: 0, h: 0 };   // CARDS on the level completed screen
+const loginBtn = { x: 0, y: 0, w: 0, h: 0 };     // LOGIN on the menu screen
 const shopMenuBtn = { x: 0, y: 0, w: 0, h: 0 };  // MENU on the shop screen
 const CARD_W = 300, CARD_H = 440, CARD_GAP = 40, CARD_Y = 128;
-let shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
+let cardsBtnImg, loginBtnImg, shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
 const upgradeImgs = {};
 const TITLE_FONT = 'Rye, Georgia, serif', BODY_FONT = '"Trebuchet MS", system-ui, sans-serif';
 
@@ -444,6 +477,12 @@ function toMenu() {
   restart();
   inMenu = true;
   inShop = false;
+  inCards = false;
+}
+
+function openCards() {
+  inCards = true;
+  shopMsg.t = 0;
 }
 
 function openShop() {
@@ -505,7 +544,7 @@ function updateHealth(dt) {
 const keys = {};
 addEventListener('keydown', e => {
   if (e.key.startsWith('Arrow')) e.preventDefault();
-  if (inShop) return;
+  if (inShop || inCards || inLogin) return;
   if (inMenu) {
     if (e.key === 'Enter' || e.key === ' ') { restart(); inMenu = false; }
     return;
@@ -688,12 +727,14 @@ function offerRects() {
 
 function buyOffer(i) {
   const up = UPGRADES.find(u => u.id === save.offers[i]);
-  if (!up || has(up.id)) return;
+  if (!up || owns(up.id)) return;
   if (save.coins < up.cost) { Object.assign(shopMsg, { text: 'Not enough coins', t: 1.8, good: false }); return; }
   save.coins -= up.cost;
   save.owned.push(up.id);
+  const auto = save.equipped.length < MAX_EQUIPPED;   // a free slot: the new card is equipped straight away
+  if (auto) save.equipped.push(up.id);
   writeSave();
-  Object.assign(shopMsg, { text: 'You bought ' + up.name + '!', t: 1.8, good: true });
+  Object.assign(shopMsg, { text: 'You bought ' + up.name + '!' + (auto ? ' (equipped)' : ' Equip it in CARDS'), t: 2.2, good: true });
 }
 
 function drawText(str, x, y, size, color, font, align, shadow) {
@@ -715,12 +756,12 @@ function wrapLines(str, maxW) {
 }
 
 // a black and blue card with a picture in the white square at the top, like a trading card
-function drawCard(up, x, y, hovered) {
-  const owned = has(up.id), canPay = save.coins >= up.cost;
+function drawCard(up, x, y, hovered, scale = 1, overlay = null) {
+  const owned = !!overlay, canPay = save.coins >= up.cost;
   ctx.save();
-  ctx.translate(x + CARD_W / 2, y + CARD_H / 2);
+  ctx.translate(x + CARD_W * scale / 2, y + CARD_H * scale / 2);
   const grow = hovered && !owned ? 1.05 : 1;
-  ctx.scale(grow, grow);
+  ctx.scale(scale * grow, scale * grow);
   ctx.translate(-CARD_W / 2, -CARD_H / 2);
   ctx.drawImage(cardFrameImg, 0, 0, CARD_W, CARD_H);
   ctx.drawImage(upgradeImgs[up.id], 60, 46, 180, 180);
@@ -734,7 +775,7 @@ function drawCard(up, x, y, hovered) {
     ctx.fillRect(0, 0, CARD_W, CARD_H);
     ctx.translate(CARD_W / 2, CARD_H / 2);
     ctx.rotate(-0.2);
-    drawText('OWNED', 0, 12, 52, '#fff', TITLE_FONT, 'center', '#000');
+    drawText(overlay, 0, 12, overlay.length > 6 ? 40 : 52, '#fff', TITLE_FONT, 'center', '#000');
   }
   ctx.restore();
 }
@@ -751,13 +792,145 @@ function drawShop(dt) {
   drawText(String(save.coins), W - 122, 64, 32, '#ffd21f', 'bold ' + BODY_FONT, 'left', '#000');
   const rs = offerRects();
   if (!rs.length) drawText('Everything is sold out!', W / 2, 340, 34, '#fff', TITLE_FONT, 'center', '#000');
-  rs.forEach((r, i) => drawCard(UPGRADES.find(u => u.id === r.id), r.x, r.y, hoverBtn === 'card' + i));
+  rs.forEach((r, i) => drawCard(UPGRADES.find(u => u.id === r.id), r.x, r.y, hoverBtn === 'card' + i, 1, owns(r.id) ? 'OWNED' : null));
   shopMsg.t = Math.max(0, shopMsg.t - dt);
   if (shopMsg.t > 0) {
     ctx.globalAlpha = Math.min(1, shopMsg.t * 2);
     drawText(shopMsg.text, W / 2, 618, 28, shopMsg.good ? '#8dff7a' : '#ff7a6a', 'bold ' + BODY_FONT, 'center', '#000');
     ctx.globalAlpha = 1;
   }
+  drawButton(menuBackImg, shopMenuBtn, hoverBtn === 'menu');
+}
+
+// --- Accounts: username + password -------------------------------------------
+// NOTE: this keeps the accounts in this browser only (localStorage). The Auth object is the one
+// place that would be swapped for a real server (see the steps in the chat) to log in on any device.
+const Auth = {
+  users() { try { return JSON.parse(store.get(ACCOUNTS_KEY) || '{}') || {}; } catch (e) { return {}; } },
+  async hash(salt, pw) {
+    const text = salt + ':' + pw;
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {   // no crypto.subtle (insecure page): a simple fallback hash
+      let h = 5381; for (const c of text) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0;
+      return 'x' + h.toString(16);
+    }
+  },
+  check(name, pw) {
+    if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) return 'Username: 3-16 letters, numbers or _';
+    if (pw.length < 6) return 'Password: at least 6 characters';
+    return null;
+  },
+  enter(name) {   // switch to this player's save
+    user = name;
+    store.set(USER_KEY, name);
+    loadSave(store.get(saveKey()));
+  },
+  async register(name, pw) {
+    const bad = this.check(name, pw); if (bad) return bad;
+    const key = name.toLowerCase(), users = this.users();
+    if (users[key]) return 'That username is taken';
+    const salt = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    users[key] = { name, salt, hash: await this.hash(salt, pw) };
+    store.set(ACCOUNTS_KEY, JSON.stringify(users));
+    const progress = JSON.stringify(save);   // the new account keeps what you earned as a guest
+    user = name; store.set(USER_KEY, name); store.set(saveKey(), progress);
+    return null;
+  },
+  async login(name, pw) {
+    const u = this.users()[name.toLowerCase()];
+    if (!u || u.hash !== await this.hash(u.salt, pw)) return 'Wrong username or password';
+    this.enter(u.name);
+    return null;
+  },
+  logout() { user = null; store.del(USER_KEY); loadSave(store.get(saveKey())); },
+};
+
+const loginBox = (() => {
+  const css = (el, o) => Object.assign(el.style, o);
+  const box = document.createElement('div');
+  css(box, { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 'min(340px, 88vw)', padding: '22px 22px 18px', background: '#14102a', border: '5px solid #000', borderRadius: '14px', boxShadow: '0 0 0 4px #2b6cff', color: '#fff', font: 'bold 16px "Trebuchet MS", system-ui, sans-serif', display: 'none', zIndex: 20, textAlign: 'center' });
+  const title = document.createElement('div');
+  css(title, { font: '34px Rye, Georgia, serif', color: '#e2820a', textShadow: '3px 3px 0 #000', marginBottom: '12px' });
+  const mk = (type, ph) => { const i = document.createElement('input'); i.type = type; i.placeholder = ph; css(i, { display: 'block', width: '100%', boxSizing: 'border-box', margin: '8px 0', padding: '10px', font: 'inherit', background: '#fff', color: '#000', border: '3px solid #000', borderRadius: '8px' }); return i; };
+  const nameIn = mk('text', 'Username'), passIn = mk('password', 'Password');
+  nameIn.autocomplete = 'username'; passIn.autocomplete = 'current-password'; nameIn.maxLength = 16;
+  const msg = document.createElement('div');
+  css(msg, { minHeight: '22px', margin: '6px 0', color: '#ff7a6a' });
+  const btn = (label, bg) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; css(b, { font: 'inherit', padding: '10px 14px', margin: '4px', background: bg, color: '#000', border: '3px solid #000', borderRadius: '8px', cursor: 'pointer' }); return b; };
+  const loginB = btn('LOG IN', '#f7cd00'), regB = btn('CREATE ACCOUNT', '#9ad0ff'), outB = btn('LOG OUT', '#f7cd00'), closeB = btn('BACK', '#fff');
+  const who = document.createElement('div'); css(who, { margin: '10px 0 14px', fontSize: '20px' });
+  box.append(title, who, nameIn, passIn, msg, loginB, regB, outB, closeB);
+  document.body.appendChild(box);
+  const show = () => {
+    const on = !!user;
+    title.textContent = 'LOGIN';
+    who.textContent = on ? 'Logged in as ' + user : 'Playing as guest';
+    for (const el of [nameIn, passIn, loginB, regB]) el.style.display = on ? 'none' : (el.tagName === 'INPUT' ? 'block' : 'inline-block');
+    outB.style.display = on ? 'inline-block' : 'none';
+    msg.textContent = '';
+  };
+  async function run(fn) {
+    const err = await fn(nameIn.value.trim(), passIn.value);
+    if (err) { msg.style.color = '#ff7a6a'; msg.textContent = err; return; }
+    passIn.value = ''; show();
+    msg.style.color = '#8dff7a'; msg.textContent = 'Welcome, ' + user + '!';
+    who.textContent = 'Logged in as ' + user;
+  }
+  loginB.onclick = () => run((n, p) => Auth.login(n, p));
+  regB.onclick = () => run((n, p) => Auth.register(n, p));
+  outB.onclick = () => { Auth.logout(); show(); };
+  closeB.onclick = () => { box.style.display = 'none'; inLogin = false; };
+  box.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && !user) loginB.click(); if (e.key === 'Escape') closeB.click(); });
+  return { open() { show(); box.style.display = 'block'; nameIn.focus(); }, el: box };
+})();
+function openLogin() { inLogin = true; loginBox.open(); }
+
+// the cards screen: 3 big slots on top, everything you own below
+const SLOT_SCALE = 0.62, OWN_SCALE = 0.4, SLOT_GAP = 30;
+function cardsLayout() {
+  const sw = CARD_W * SLOT_SCALE, sh = CARD_H * SLOT_SCALE, sx = (W - (MAX_EQUIPPED * sw + (MAX_EQUIPPED - 1) * SLOT_GAP)) / 2;
+  const slots = save.equipped.length >= 0 ? Array.from({ length: MAX_EQUIPPED }, (_, i) => ({ id: save.equipped[i] || null, x: sx + i * (sw + SLOT_GAP), y: 112, w: sw, h: sh })) : [];
+  const ow = CARD_W * OWN_SCALE, oh = CARD_H * OWN_SCALE, n = save.owned.length, ox = (W - (n * ow + (n - 1) * 10)) / 2;
+  const own = save.owned.map((id, i) => ({ id, x: ox + i * (ow + 10), y: 428, w: ow, h: oh }));
+  return { slots, own };
+}
+
+function drawCards(dt) {
+  ctx.drawImage(menuBgImg, 0, 300, W, 400, 0, 0, W, H);
+  ctx.fillStyle = 'rgba(6,3,14,0.78)';
+  ctx.fillRect(0, 0, W, H);
+  drawText('CARDS', W / 2, 78, 64, '#e2820a', TITLE_FONT, 'center', '#000');
+  const lay = cardsLayout();
+  lay.slots.forEach((r, i) => {
+    if (r.id) { drawCard(UPGRADES.find(u => u.id === r.id), r.x, r.y, hoverBtn === 'slot' + i, SLOT_SCALE); return; }
+    ctx.save();
+    ctx.strokeStyle = '#6d6a86'; ctx.lineWidth = 4; ctx.setLineDash([14, 10]);
+    ctx.strokeRect(r.x, r.y, r.w, r.h);
+    ctx.restore();
+    drawText('EMPTY', r.x + r.w / 2, r.y + r.h / 2 + 10, 28, '#6d6a86', TITLE_FONT, 'center');
+  });
+  drawText(`Equipped ${save.equipped.length} / ${MAX_EQUIPPED}`, 40, 416, 20, '#cdbfae', 'bold ' + BODY_FONT, 'left');
+  shopMsg.t = Math.max(0, shopMsg.t - dt);
+  if (shopMsg.t > 0) {
+    ctx.globalAlpha = Math.min(1, shopMsg.t * 2);
+    drawText(shopMsg.text, W / 2, 416, 22, shopMsg.good ? '#8dff7a' : '#ff7a6a', 'bold ' + BODY_FONT, 'center', '#000');
+    ctx.globalAlpha = 1;
+  }
+  if (!lay.own.length) drawText('No cards yet: buy some in the SHOP!', W / 2, 520, 28, '#fff', TITLE_FONT, 'center', '#000');
+  let info = null;
+  lay.own.forEach((r, i) => {
+    const up = UPGRADES.find(u => u.id === r.id), eq = has(r.id), hov = hoverBtn === 'own' + i;
+    if (hov) info = up;
+    drawCard(up, r.x, r.y, hov, OWN_SCALE, eq ? 'EQUIPPED' : null);
+  });
+  if (!info) { const h = hoverBtn && hoverBtn.startsWith('slot') ? lay.slots[Number(hoverBtn.slice(4))].id : null; if (h) info = UPGRADES.find(u => u.id === h); }
+  if (info) {
+    drawText(info.name, 40, 652, 24, '#ffd21f', TITLE_FONT, 'left', '#000');
+    ctx.font = `bold 16px ${BODY_FONT}`;
+    wrapLines(info.desc, 880).forEach((ln, i) => drawText(ln, 40, 678 + i * 20, 16, '#fff', 'bold ' + BODY_FONT, 'left'));
+  } else if (lay.own.length) drawText('Tap a card to equip it or take it off', 40, 662, 18, '#9d9ab8', 'bold ' + BODY_FONT, 'left');
   drawButton(menuBackImg, shopMenuBtn, hoverBtn === 'menu');
 }
 
@@ -771,14 +944,22 @@ const inRect = (m, r) => m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= 
 // which button (if any) is under the pointer on the current screen
 function buttonAt(e) {
   const m = pointerPos(e);
+  if (inLogin) return null;
+  if (inCards) {
+    if (inRect(m, shopMenuBtn)) return 'menu';
+    const lay = cardsLayout();
+    for (let i = 0; i < lay.slots.length; i++) if (lay.slots[i].id && inRect(m, lay.slots[i])) return 'slot' + i;
+    for (let i = 0; i < lay.own.length; i++) if (inRect(m, lay.own[i])) return 'own' + i;
+    return null;
+  }
   if (inShop) {
     if (inRect(m, shopMenuBtn)) return 'menu';
     const rs = offerRects();
     for (let i = 0; i < rs.length; i++) if (inRect(m, rs[i])) return 'card' + i;
     return null;
   }
-  if (inMenu) return inRect(m, playBtn) ? 'play' : inRect(m, shopBtn) ? 'shop' : null;
-  if (levelComplete) return inRect(m, lcMenuBtn) ? 'menu' : inRect(m, lcShopBtn) ? 'shop' : null;
+  if (inMenu) return inRect(m, playBtn) ? 'play' : inRect(m, shopBtn) ? 'shop' : inRect(m, cardsBtn) ? 'cards' : inRect(m, loginBtn) ? 'login' : null;
+  if (levelComplete) return inRect(m, lcMenuBtn) ? 'menu' : inRect(m, lcShopBtn) ? 'shop' : inRect(m, lcCardsBtn) ? 'cards' : null;
   if (gameOver) {
     if (inRect(m, againBtn)) return 'again';
     if (inRect(m, menuBtn)) return 'menu';
@@ -798,6 +979,10 @@ canvas.addEventListener('pointerdown', e => {
   if (id === 'play' || id === 'again') { restart(); inMenu = false; hoverBtn = null; }
   if (id === 'menu') { toMenu(); hoverBtn = null; }
   if (id === 'shop') { openShop(); hoverBtn = null; }
+  if (id === 'cards') { openCards(); hoverBtn = null; }
+  if (id === 'login') { openLogin(); hoverBtn = null; }
+  if (id && id.startsWith('slot')) toggleEquip(cardsLayout().slots[Number(id.slice(4))].id);
+  if (id && id.startsWith('own')) toggleEquip(cardsLayout().own[Number(id.slice(3))].id);
   if (id && id.startsWith('card')) buyOffer(Number(id.slice(4)));
 });
 
@@ -814,7 +999,7 @@ canvas.addEventListener('pointerdown', e => {
   player.y = GROUND_Y - player.h;
 
   menuBgImg = menuImg; menuBackImg = menuBtnImg;
-  [shopBtnImg, cardFrameImg, coinImg] = await Promise.all(['shop-button', 'card-frame', 'coin'].map(n => load(assetUrl(n))));
+  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button'].map(n => load(assetUrl(n))));
   for (const u of UPGRADES) upgradeImgs[u.id] = await load(assetUrl('upgrade-' + u.id));
   if (document.fonts) document.fonts.load('24px Rye').catch(() => {});
   // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
@@ -833,6 +1018,12 @@ canvas.addEventListener('pointerdown', e => {
     Object.assign(shopBtn, { x: (W - sw) / 2, y: playBtn.y + playBtn.h + 14, w: sw, h: sh });
     Object.assign(lcShopBtn, { x: lcMenuBtn.x, y: lcMenuBtn.y - sh - 12, w: lcMenuBtn.w, h: Math.round(lcMenuBtn.w * shopBtnImg.height / shopBtnImg.width) });
     lcShopBtn.y = lcMenuBtn.y - lcShopBtn.h - 12;
+    const cw = 200, ch = Math.round(cw * cardsBtnImg.height / cardsBtnImg.width);
+    Object.assign(cardsBtn, { x: (W - cw) / 2, y: shopBtn.y + shopBtn.h + 10, w: cw, h: ch });
+    Object.assign(lcCardsBtn, { x: lcShopBtn.x, y: lcShopBtn.y - ch - 12, w: lcShopBtn.w, h: Math.round(lcShopBtn.w * cardsBtnImg.height / cardsBtnImg.width) });
+    lcCardsBtn.y = lcShopBtn.y - lcCardsBtn.h - 12;
+    const lw = 150;
+    Object.assign(loginBtn, { x: W - lw - 24, y: 18, w: lw, h: Math.round(lw * loginBtnImg.height / loginBtnImg.width) });
     Object.assign(shopMenuBtn, { x: W - 250 - 30, y: H - Math.round(250 * menuBtnImg.height / menuBtnImg.width) - 16, w: 250, h: Math.round(250 * menuBtnImg.height / menuBtnImg.width) });
   }
 
@@ -852,6 +1043,11 @@ canvas.addEventListener('pointerdown', e => {
   function frame(now) {
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
+    if (inCards) {
+      drawCards(dt);
+      requestAnimationFrame(frame);
+      return;
+    }
     if (inShop) {
       drawShop(dt);
       requestAnimationFrame(frame);
@@ -861,6 +1057,9 @@ canvas.addEventListener('pointerdown', e => {
       ctx.drawImage(menuImg, 0, 0, W, H);
       drawButton(playBtnImg, playBtn, hoverBtn === 'play');
       drawButton(shopBtnImg, shopBtn, hoverBtn === 'shop');
+      drawButton(cardsBtnImg, cardsBtn, hoverBtn === 'cards');
+      drawButton(loginBtnImg, loginBtn, hoverBtn === 'login');
+      if (user) drawText(user, loginBtn.x + loginBtn.w / 2, loginBtn.y + loginBtn.h + 24, 20, '#fff', 'bold ' + BODY_FONT, 'center', '#000');
       requestAnimationFrame(frame);
       return;
     }
@@ -988,6 +1187,7 @@ canvas.addEventListener('pointerdown', e => {
       ctx.drawImage(levelCompleteImg, 0, 0, W, H);
       drawButton(menuBtnImg, lcMenuBtn, hoverBtn === 'menu');
       drawButton(shopBtnImg, lcShopBtn, hoverBtn === 'shop');
+      drawButton(cardsBtnImg, lcCardsBtn, hoverBtn === 'cards');
     }
     if (gameOver) {
       ctx.drawImage(gameOverImg, 0, 0, W, H);
