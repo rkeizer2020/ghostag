@@ -40,6 +40,7 @@ const platforms = [
   [1100, 515, 241, 72],   // right, lower
 ].map(([x, y, w, h]) => ({ x: x * SX, y: y * SY, w: w * SX, h: h * SY, top: (y + h * SURFACE) * SY, ceil: (y + h * CEIL) * SY }));
 
+const assetUrl = n => `assets/${n}.${n === 'level-complete' ? 'jpg' : 'png'}`;
 const load = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; });
 
 // --- Bullets and sound ---------------------------------------------------
@@ -351,12 +352,15 @@ let hearts = MAX_HEARTS;
 let invuln = 0;
 let dying = 0;          // short pause after the last heart before the game over screen
 let gameOver = false;
+let levelComplete = false;   // the whole map is painted
+let completeTimer = 0;       // a short pause so you can see the last stain before the screen comes
 let inMenu = true;      // the game starts on the DRAWSHOT menu
 let hoverBtn = null;    // which button the pointer is over: 'play' or 'menu'
 // Button rectangles (set once the drawings have loaded): PLAY on the menu screen
 // and PLAY AGAIN + MENU on the game over screen.
 const menuBtn = { x: 0, y: 0, w: 0, h: 0 };
 const playBtn = { x: 0, y: 0, w: 0, h: 0 };      // on the menu screen
+const lcMenuBtn = { x: 0, y: 0, w: 0, h: 0 };    // MENU on the level completed screen
 const againBtn = { x: 0, y: 0, w: 0, h: 0 };     // PLAY AGAIN on the game over screen
 
 function toMenu() {
@@ -370,6 +374,8 @@ function restart() {
   invuln = 0;
   dying = 0;
   gameOver = false;
+  levelComplete = false;
+  completeTimer = 0;
   guards.length = 0;
   redGuards.length = 0;
   bullets.length = 0;
@@ -417,7 +423,7 @@ addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { restart(); inMenu = false; }
     return;
   }
-  if (gameOver) return;   // on the game over screen the only way on is the MENU button
+  if (gameOver || levelComplete) return;   // on these screens the only way on is the MENU button
   if (!e.repeat) {
     if (e.key === '1') fire('left');
     if (e.key === '2') fire('right');
@@ -593,6 +599,7 @@ const inRect = (m, r) => m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= 
 function buttonAt(e) {
   const m = pointerPos(e);
   if (inMenu) return inRect(m, playBtn) ? 'play' : null;
+  if (levelComplete) return inRect(m, lcMenuBtn) ? 'menu' : null;
   if (gameOver) {
     if (inRect(m, againBtn)) return 'again';
     if (inRect(m, menuBtn)) return 'menu';
@@ -615,10 +622,10 @@ canvas.addEventListener('pointerdown', e => {
 
 (async function main() {
   initAudio();   // starts silent until the first click or key press
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg, playAgainImg, redGuardImg, redGunImg, redBulletImg, stainYellowImg, stainRedImg, platGreenImg, groundGreenImg, walk1Img, walk2Img, idleBaseImg, idleLowImg, idleHighImg] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button', 'play-again-button', 'red-guard', 'red-gun', 'red-bullet', 'stain-yellow', 'stain-red', 'platform-green', 'ground-green', 'player-walk-1', 'player-walk-2', 'player-idle-base', 'player-idle-low', 'player-idle-high'].map(n => load(`assets/${n}.png`)));
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg, playAgainImg, redGuardImg, redGunImg, redBulletImg, stainYellowImg, stainRedImg, platGreenImg, groundGreenImg, walk1Img, walk2Img, idleBaseImg, idleLowImg, idleHighImg, levelCompleteImg] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button', 'play-again-button', 'red-guard', 'red-gun', 'red-bullet', 'stain-yellow', 'stain-red', 'platform-green', 'ground-green', 'player-walk-1', 'player-walk-2', 'player-idle-base', 'player-idle-low', 'player-idle-high', 'level-complete'].map(n => load(assetUrl(n))));
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
-  for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
+  for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(assetUrl(n))));
   player.h = PLAYER_H;
   player.w = Math.round(sprite.width * PLAYER_H / sprite.height);
   const gunLW = gun.lw = Math.round(gunL.width * GUN_H / gunL.height);
@@ -632,6 +639,8 @@ canvas.addEventListener('pointerdown', e => {
   menuBtn.h = Math.round(menuBtn.w * menuBtnImg.height / menuBtnImg.width);
   menuBtn.x = (W - menuBtn.w) / 2;
   menuBtn.y = againBtn.y - menuBtn.h - 10;
+  const lcW = 230;                          // level completed: MENU to the right of the face
+  Object.assign(lcMenuBtn, { x: W - lcW - 70, y: 500, w: lcW, h: Math.round(lcW * menuBtnImg.height / menuBtnImg.width) });
   const playW = 260;                        // menu: PLAY, smaller and higher up
   Object.assign(playBtn, { x: (W - playW) / 2, y: 270, w: playW, h: Math.round(playW * playBtnImg.height / playBtnImg.width) });
 
@@ -656,7 +665,14 @@ canvas.addEventListener('pointerdown', e => {
       requestAnimationFrame(frame);
       return;
     }
-    if (!gameOver) update(dt);
+    if (!gameOver && !levelComplete) {
+      update(dt);
+      // every surface painted: level completed (after a moment, and not if you just died)
+      if (hearts > 0 && Object.keys(PAINT_SURFACES).every(isPainted)) {
+        completeTimer += dt;
+        if (completeTimer > 1.2) levelComplete = true;
+      }
+    }
 
     // The camera glides after the player instead of being glued to him (it snaps on a fresh start).
     const wantX = Math.max(0, Math.min(WORLD_W - VIEW_W, player.x + player.w / 2 - VIEW_W / 2));
@@ -767,6 +783,10 @@ canvas.addEventListener('pointerdown', e => {
     }
     ctx.globalAlpha = 1;
 
+    if (levelComplete) {
+      ctx.drawImage(levelCompleteImg, 0, 0, W, H);
+      drawButton(menuBtnImg, lcMenuBtn, hoverBtn === 'menu');
+    }
     if (gameOver) {
       ctx.drawImage(gameOverImg, 0, 0, W, H);
       drawButton(playAgainImg, againBtn, hoverBtn === 'again');
