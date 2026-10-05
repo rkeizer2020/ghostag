@@ -268,13 +268,12 @@ function updateRedGuards(dt) {
       b.x - r < WALL_W || b.x + r > WORLD_W - WALL_W || b.y - r < CEILING_H - 6 || b.y + r > GROUND_Y ||
       platforms.some((p, j) => j !== b.platform &&               // he can shoot out of his own platform
         b.x + r > p.x && b.x - r < p.x + p.w && b.y + r > p.top && b.y - r < p.ceil);
+    // (the red guard's bullets make no sound)
     if (hitsPlayer) {
       hurtPlayer();
       enemyBullets.splice(i, 1);
-      splashSound();
     } else if (hitsWorld) {
       enemyBullets.splice(i, 1);
-      splashSound();
     }
   }
 }
