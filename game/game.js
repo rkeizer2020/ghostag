@@ -229,7 +229,7 @@ function trySpawnRedGuard() {
     return Math.abs(redSpot(p) - (player.x + player.w / 2)) >= SPAWN_GAP;  // gap from the player
   });
   if (!free.length) return false;
-  const i = free[Math.floor(Math.random() * free.length)];
+  const i = pickSurface(free, id => id);
   const img = redSprites.guard;
   const h = GUARD_H, w = Math.round(img.width * h / img.height);
   const spot = redSpot(platforms[i]);
@@ -288,9 +288,19 @@ const SPAWN_EVERY = 4; // default for new enemies
 const SPAWN_GAP = 220; // an enemy never spawns closer than this (px) to the player
 const enemyTypes = [
   { name: 'guard', every: 7.5, timer: 0, spawn: spawnGuard },
-  { name: 'redGuard', every: 15, timer: 0, trySpawn: trySpawnRedGuard },   // small platforms only
+  { name: 'redGuard', every: 20, timer: 0, trySpawn: trySpawnRedGuard },   // small platforms only
   // new enemies are added here and spawn the same way
 ];
+
+// Enemies are more likely to appear on a surface that isn't green yet (3 to 1), so they
+// show up where there is still paint to be made.
+const UNPAINTED_WEIGHT = 3;
+function pickSurface(items, idOf) {
+  const weights = items.map(it => (isPainted(idOf(it)) ? 1 : UNPAINTED_WEIGHT));
+  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < items.length; i++) { r -= weights[i]; if (r <= 0) return items[i]; }
+  return items[items.length - 1];
+}
 
 function spawnSurfaces() {
   const mid = platforms[1], top = platforms[0];
@@ -314,7 +324,7 @@ function updateSpawner(dt) {
     const surfaces = spawnSurfaces();
     let best = null;
     for (let tries = 0; tries < 30; tries++) {
-      const surface = surfaces[Math.floor(Math.random() * 3)];
+      const surface = pickSurface(surfaces, sf => sf.id);
       const x = surface.minX + Math.random() * (surface.maxX - surface.minX - 80);
       const gap = Math.max(x - (player.x + player.w), player.x - (x + 80)); // empty space between them
       if (!best || gap > best.gap) best = { surface, x, gap };
