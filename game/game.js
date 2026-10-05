@@ -364,6 +364,7 @@ function toMenu() {
 }
 
 function restart() {
+  cam.x = null;
   hearts = MAX_HEARTS;
   invuln = 0;
   dying = 0;
@@ -375,7 +376,7 @@ function restart() {
   enemyBullets.length = 0;
   resetPaint();
   for (const type of enemyTypes) type.timer = 0;
-  Object.assign(player, { x: 100, y: GROUND_Y - player.h, vx: 0, vy: 0, onGround: false, walkTime: 0 });
+  Object.assign(player, { x: 100, y: GROUND_Y - player.h, vx: 0, vy: 0, onGround: false, walkTime: 0, idleTime: 0 });
   for (const k in keys) keys[k] = false;
 }
 
@@ -424,10 +425,23 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { keys[e.key] = false; });
 
-const player = { x: 100, y: 0, w: 0, h: 0, vx: 0, vy: 0, onGround: false, facing: 1, walkTime: 0 };
+const player = { x: 100, y: 0, w: 0, h: 0, vx: 0, vy: 0, onGround: false, facing: 1, walkTime: 0, idleTime: 0 };
 // Subject 0005 (the player) stands still with one drawing and walks with two that swap
 // every 0.15 s. A walk always starts on walk frame 1.
-const WALK_FRAME_TIME = 0.15;
+const WALK_FRAME_TIME = 0.3;
+// Standing: base -> head low -> base -> head high -> base ... (always starts on base).
+const IDLE_FRAME_TIME = 0.5;
+// Drawings fade into each other instead of snapping, which makes the animation smoother.
+const FADE_WALK = 0.12, FADE_IDLE = 0.3;
+const cam = { x: null, y: null };
+const pose = { cur: null, prev: null, fade: 1, fadeTime: FADE_IDLE };
+function setPose(img, fadeTime) {
+  if (img === pose.cur) return;
+  pose.prev = pose.cur;
+  pose.cur = img;
+  pose.fade = pose.prev ? 0 : 1;
+  pose.fadeTime = fadeTime;
+}
 
 function gunTop() {
   return player.y + player.h * 0.55 - GUN_H / 2;
@@ -547,6 +561,7 @@ function update(dt) {
   // walking = actually moving along a surface (not standing, not in the air, not pushing on a wall)
   const walking = player.onGround && Math.abs(player.x - startX) > 0.01;
   player.walkTime = walking ? player.walkTime + dt : 0;
+  player.idleTime = !walking && player.onGround ? player.idleTime + dt : 0;   // restarts on the base drawing after a walk or a jump
 }
 
 // A button drawing; it grows a little while the pointer is over it.
@@ -589,8 +604,8 @@ canvas.addEventListener('pointerdown', e => {
 
 (async function main() {
   initAudio();   // starts silent until the first click or key press
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg, playAgainImg, redGuardImg, redGunImg, redBulletImg, stainYellowImg, stainRedImg, platGreenImg, groundGreenImg, walk1Img, walk2Img] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button', 'play-again-button', 'red-guard', 'red-gun', 'red-bullet', 'stain-yellow', 'stain-red', 'platform-green', 'ground-green', 'player-walk-1', 'player-walk-2'].map(n => load(`assets/${n}.png`)));
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg, playAgainImg, redGuardImg, redGunImg, redBulletImg, stainYellowImg, stainRedImg, platGreenImg, groundGreenImg, walk1Img, walk2Img, idleBaseImg, idleLowImg, idleHighImg] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button', 'play-again-button', 'red-guard', 'red-gun', 'red-bullet', 'stain-yellow', 'stain-red', 'platform-green', 'ground-green', 'player-walk-1', 'player-walk-2', 'player-idle-base', 'player-idle-low', 'player-idle-high'].map(n => load(`assets/${n}.png`)));
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
   for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
@@ -632,8 +647,14 @@ canvas.addEventListener('pointerdown', e => {
     }
     if (!gameOver) update(dt);
 
-    const camX = Math.max(0, Math.min(WORLD_W - VIEW_W, player.x + player.w / 2 - VIEW_W / 2));
-    const camY = Math.max(0, Math.min(WORLD_H - VIEW_H, player.y + player.h / 2 - VIEW_H / 2));
+    // The camera glides after the player instead of being glued to him (it snaps on a fresh start).
+    const wantX = Math.max(0, Math.min(WORLD_W - VIEW_W, player.x + player.w / 2 - VIEW_W / 2));
+    const wantY = Math.max(0, Math.min(WORLD_H - VIEW_H, player.y + player.h / 2 - VIEW_H / 2));
+    if (cam.x === null) { cam.x = wantX; cam.y = wantY; }
+    const follow = 1 - Math.exp(-dt * 9);
+    cam.x += (wantX - cam.x) * follow;
+    cam.y += (wantY - cam.y) * follow;
+    const camX = cam.x, camY = cam.y;
 
     ctx.save();
     ctx.scale(ZOOM, ZOOM);
@@ -672,11 +693,22 @@ canvas.addEventListener('pointerdown', e => {
       ctx.drawImage(redGunImg, -RED_GUN_LEN / 2, -gh / 2, RED_GUN_LEN, gh);
       ctx.restore();
     }
+    // which drawing: walking swaps walk 1 / walk 2; standing cycles base, low, base, high
+    const idleCycle = [idleBaseImg, idleLowImg, idleBaseImg, idleHighImg];
+    if (player.walkTime > 0) setPose(Math.floor(player.walkTime / WALK_FRAME_TIME) % 2 === 0 ? walk1Img : walk2Img, FADE_WALK);
+    else setPose(idleCycle[Math.floor(player.idleTime / IDLE_FRAME_TIME) % 4], FADE_IDLE);
+    pose.fade = Math.min(1, pose.fade + dt / pose.fadeTime);
     const blink = invuln > 0 && Math.floor(invuln * 10) % 2 === 0;
-    // standing drawing, or the walk drawings (frame 1 first), all drawn at the same size
-    const walkFrame = player.walkTime > 0 ? Math.floor(player.walkTime / WALK_FRAME_TIME) % 2 : -1;
-    const bodyImg = walkFrame < 0 ? sprite : (walkFrame === 0 ? walk1Img : walk2Img);
-    if (!blink) ctx.drawImage(bodyImg, player.x, player.y, player.w, player.h);
+    if (!blink) {
+      if (pose.fade < 1 && pose.prev) {
+        ctx.drawImage(pose.prev, player.x, player.y, player.w, player.h);
+        ctx.globalAlpha = pose.fade;
+        ctx.drawImage(pose.cur, player.x, player.y, player.w, player.h);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.drawImage(pose.cur, player.x, player.y, player.w, player.h);
+      }
+    }
     // Left gun on the left side, right gun on the right side of the character.
     const gunY = gunTop();
     if (!blink) {
