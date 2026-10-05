@@ -167,7 +167,7 @@ const SAVE_KEY = 'drawshot-save';           // the guest save; a logged in playe
 const SUPA_URL = 'https://pxesgizsahewtzssgqyf.supabase.co';
 const SUPA_KEY = 'sb_publishable_mqgWcQrbYFRuP1shEuOIPg_9xpjm86I';
 const SESSION_KEY = 'drawshot-session';
-const save = { coins: 0, owned: [], equipped: [], offerWindow: -1, offers: [], level: 1 };
+const save = { coins: 0, owned: [], equipped: [], offerWindow: -1, offers: [], level: 1, character: '0005' };
 let user = null;                             // the logged in username, or null for a guest
 let session = null;                          // {name, uid, access, refresh, exp} while logged in
 const store = {
@@ -181,21 +181,34 @@ function writeSave() {
   store.set(saveKey(), JSON.stringify(save));
   if (session) { clearTimeout(pushTimer); pushTimer = setTimeout(() => Auth.push().catch(() => {}), 1500); }   // also to the server
 }
+let brushImg, shieldImg, bodyImg0005;   // the drawings of the two characters
 // replace the progress in `save` with another saved game (login / logout)
 function loadSave(raw) {
   let data = {};
   try { data = JSON.parse(raw || '{}') || {}; } catch (e) { /* start fresh */ }
   for (const k of Object.keys(save)) delete save[k];
-  Object.assign(save, { coins: 0, owned: [], equipped: null, offerWindow: -1, offers: [], level: 1 }, data);
+  Object.assign(save, { coins: 0, owned: [], equipped: null, offerWindow: -1, offers: [], level: 1, character: '0005' }, data);
   if (!(save.level >= 1)) save.level = 1;
   if (!Array.isArray(save.equipped)) save.equipped = save.owned.slice(0, MAX_EQUIPPED);   // saves from before the cards screen
   save.equipped = save.equipped.filter(id => save.owned.includes(id)).slice(0, MAX_EQUIPPED);
   applyPerks();
+  applyCharacter();
 }
 // accounts that always have everything unlocked: every upgrade now, and every character once they exist
 const OWNER_ACCOUNTS = ['merlinos24maker'];
+const isOwner = () => !!user && OWNER_ACCOUNTS.includes(user.toLowerCase());
+// the playable characters: 0005 is always there; the others are unlocked for the owner account for now
+const CHARACTERS = [{ id: '0005', name: 'SUBJECT 0005' }, { id: '0300', name: 'SUBJECT 0300' }];
+const characterUnlocked = id => id === '0005' || isOwner();
+const unlockedCharacters = () => CHARACTERS.filter(c => characterUnlocked(c.id));
+function charId() { return characterUnlocked(save.character) ? save.character : '0005'; }
+const charImg = () => (charId() === '0300' ? brushImg : bodyImg0005);
+function applyCharacter() {   // the body is as wide as his drawing
+  const img = charImg();
+  if (img) player.w = Math.round(img.width * PLAYER_H / img.height);
+}
 function applyPerks() {
-  if (!user || !OWNER_ACCOUNTS.includes(user.toLowerCase())) return;
+  if (!isOwner()) return;
   for (const u of UPGRADES) if (!save.owned.includes(u.id)) save.owned.push(u.id);
 }
 try { session = JSON.parse(store.get(SESSION_KEY) || 'null'); } catch (e) { session = null; }
@@ -464,13 +477,16 @@ function guardHitbox(g) {
 // and can't be hurt again straight away.
 const INVULN_TIME = 1.5;
 // Subject 394 (level 2 only): walks exactly the path you walked (jumps included), 35% slower than you.
-// Every hit takes 2 hearts. Bullets don't hurt him.
-const GHOST_LEVEL = 2, GHOST_SPEED = 0.65, GHOST_DELAY = 8, GHOST_DAMAGE = 2, GHOST_FADE = 1.5;
-const ghost = { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0 };
+// Every hit takes 2 hearts. 8 bullet hits destroy him.
+const GHOST_LEVEL = 2, GHOST_SPEED = 0.65, GHOST_DELAY = 8, GHOST_DAMAGE = 2, GHOST_FADE = 1.5, GHOST_HP = 8, GHOST_DYING = 0.5;
+const ghost = { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0, hp: GHOST_HP, dead: false, dying: 0, flash: 0 };
 let ghostImg;
-function resetGhost() { Object.assign(ghost, { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0 }); }
+function resetGhost() { Object.assign(ghost, { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0, hp: GHOST_HP, dead: false, dying: 0, flash: 0 }); }
 function updateGhost(dt) {
-  if (levelNo() !== GHOST_LEVEL || hearts <= 0) return;
+  if (levelNo() !== GHOST_LEVEL) return;
+  ghost.flash = Math.max(0, ghost.flash - dt);
+  if (ghost.dead) { ghost.dying = Math.max(0, ghost.dying - dt); return; }   // destroyed
+  if (hearts <= 0) return;
   ghost.time += dt;
   ghost.trail.push({ t: ghost.time, x: player.x, y: player.y });
   if (ghost.time < GHOST_DELAY) return;
@@ -491,12 +507,13 @@ function ghostBox() {
   return { x: cx - w * 0.35, y: feet - h * 0.95, w: w * 0.7, h: h * 0.9, cx, feet, dw: w, dh: h };
 }
 function drawGhost() {
-  if (!ghost.active) return;
+  if (!ghost.active || (ghost.dead && ghost.dying <= 0)) return;
   const g = ghostBox();
   const bob = ghost.moving ? -Math.abs(Math.sin(ghost.play * 11)) * 3 : 0;
   ctx.save();
-  ctx.globalAlpha = Math.min(1, ghost.age / GHOST_FADE);
+  ctx.globalAlpha = Math.min(1, ghost.age / GHOST_FADE) * (ghost.dead ? ghost.dying / GHOST_DYING : 1) * (ghost.flash > 0 ? 0.55 : 1);
   ctx.translate(g.cx, g.feet + bob);
+  if (ghost.dead) ctx.scale(1 + (1 - ghost.dying / GHOST_DYING) * 0.3, ghost.dying / GHOST_DYING * 0.6 + 0.4);
   ctx.rotate(ghost.moving ? Math.sin(ghost.play * 11) * 0.05 : 0);
   ctx.drawImage(ghostImg, -g.dw / 2, -g.dh, g.dw, g.dh);
   ctx.restore();
@@ -525,7 +542,8 @@ const lcShopBtn = { x: 0, y: 0, w: 0, h: 0 };    // SHOP on the level completed 
 const cardsBtn = { x: 0, y: 0, w: 0, h: 0 };     // CARDS on the menu screen
 const lcNextBtn = { x: 0, y: 0, w: 0, h: 0 };    // NEXT on the level completed screen
 const lcCardsBtn = { x: 0, y: 0, w: 0, h: 0 };   // CARDS on the level completed screen
-const loginBtn = { x: 0, y: 0, w: 0, h: 0 };     // LOGIN on the menu screen
+const loginBtn = { x: 0, y: 0, w: 0, h: 0 };
+const charBtn = { x: 24, y: 18, w: 210, h: 100 };   // pick your character (menu, top left; only when you have more than one)     // LOGIN on the menu screen
 const shopMenuBtn = { x: 0, y: 0, w: 0, h: 0 };  // MENU on the shop screen
 const CARD_W = 300, CARD_H = 440, CARD_GAP = 40, CARD_Y = 128;
 let nextBtnImg, cardsBtnImg, loginBtnImg, shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
@@ -567,6 +585,7 @@ function restart() {
   enemyBullets.length = 0;
   resetPaint();
   resetGhost();
+  dabs.length = 0;
   for (const type of enemyTypes) type.timer = 0;
   Object.assign(player, { x: 100, y: GROUND_Y - player.h, vx: 0, vy: 0, onGround: false, walkTime: 0, idleTime: 0 });
   for (const k in keys) keys[k] = false;
@@ -600,7 +619,7 @@ function updateHealth(dt) {
     }
   }
   // subject 394 takes 2 hearts (harmless while he is still fading in)
-  if (ghost.active && ghost.age >= GHOST_FADE) {
+  if (ghost.active && !ghost.dead && ghost.age >= GHOST_FADE) {
     const hb = ghostBox();
     if (p.x + p.w > hb.x && p.x < hb.x + hb.w && p.y + p.h > hb.y && p.y < hb.y + hb.h) hurtPlayer(GHOST_DAMAGE);
   }
@@ -634,7 +653,9 @@ const FADE_WALK = 0.12, FADE_IDLE = 0.12;
 const cam = { x: null, y: null };
 // Smooth, procedural movement of the drawing: lean into the run, a hop on every step,
 // stretch when jumping, squash when landing, and a gentle breathing while standing still.
-const vis = { tilt: 0, jump: 0, land: 0 };
+const vis = { tilt: 0, jump: 0, land: 0, shield: 1 };
+const dabs = [];   // little paint dabs the brush leaves behind (SUBJECT 0300)
+let dabTimer = 0;
 const pose = { cur: null, prev: null, fade: 1, fadeTime: FADE_IDLE };
 function setPose(img, fadeTime) {
   if (img === pose.cur) return;
@@ -661,8 +682,8 @@ function fire(side) {
     w: BULLET_W,
     h: BULLET_W * img.height / img.width,
     // start at the gun's muzzle
-    x: left ? player.x + GUN_GRIP - gun.lw : player.x + player.w - GUN_GRIP + gun.rw,
-    y: gunTop() + GUN_H * 0.4,
+    x: charId() === '0300' ? (left ? player.x - 6 : player.x + player.w + 6) : (left ? player.x + GUN_GRIP - gun.lw : player.x + player.w - GUN_GRIP + gun.rw),
+    y: charId() === '0300' ? player.y + player.h * 0.3 : gunTop() + GUN_H * 0.4,
     vx: left ? -bulletSpeed() : bulletSpeed(),
   });
 }
@@ -672,6 +693,15 @@ function updateBullets(dt) {
     const b = bullets[i];
     b.x += b.vx * dt;
     let hit = false;
+    if (ghost.active && !ghost.dead && ghost.age >= GHOST_FADE) {   // bullets destroy subject 394 after 8 hits
+      const gb = ghostBox();
+      if (b.x + b.w / 2 > gb.x && b.x - b.w / 2 < gb.x + gb.w && b.y + b.h / 2 > gb.y && b.y - b.h / 2 < gb.y + gb.h) {
+        hit = true;
+        ghost.flash = 0.15;
+        ghost.hp -= damage();
+        if (ghost.hp <= 0) { ghost.dead = true; ghost.dying = GHOST_DYING; giveCoins(); }
+      }
+    }
     for (const list of [guards, redGuards]) {
       for (let j = list.length - 1; j >= 0 && !hit; j--) {
         const g = list[j], hb = guardHitbox(g);
@@ -710,6 +740,11 @@ function update(dt) {
   updateGuards(dt);
   updateRedGuards(dt);
   updateGhost(dt);
+  for (let i = dabs.length - 1; i >= 0; i--) if ((dabs[i].life -= dt) <= 0) dabs.splice(i, 1);
+  if (charId() === '0300' && player.onGround && Math.abs(player.vx) > 40 && (dabTimer -= dt) <= 0) {   // paint dabs behind him
+    dabTimer = 0.06;
+    dabs.push({ x: player.x + player.w / 2 - Math.sign(player.vx) * 8 + (Math.random() - 0.5) * 6, y: player.y + player.h - 2 - Math.random() * 3, r: 3 + Math.random() * 3, life: 0.7, max: 0.7, c: Math.random() < 0.5 ? '#e2820a' : '#ffd21f' });
+  }
   updateHealth(dt);
   if (has(1) && hearts > 0 && (regenTimer += dt) >= 60) { regenTimer = 0; healHeart(); }
 
@@ -1064,7 +1099,7 @@ function buttonAt(e) {
     for (let i = 0; i < rs.length; i++) if (inRect(m, rs[i])) return 'card' + i;
     return null;
   }
-  if (inMenu) return inRect(m, playBtn) ? 'play' : inRect(m, shopBtn) ? 'shop' : inRect(m, cardsBtn) ? 'cards' : inRect(m, loginBtn) ? 'login' : null;
+  if (inMenu) return inRect(m, playBtn) ? 'play' : inRect(m, shopBtn) ? 'shop' : inRect(m, cardsBtn) ? 'cards' : inRect(m, loginBtn) ? 'login' : (inRect(m, charBtn) && unlockedCharacters().length > 1) ? 'char' : null;
   if (levelComplete) return inRect(m, lcMenuBtn) ? 'menu' : inRect(m, lcShopBtn) ? 'shop' : inRect(m, lcCardsBtn) ? 'cards' : inRect(m, lcNextBtn) ? 'next' : null;
   if (gameOver) {
     if (inRect(m, againBtn)) return 'again';
@@ -1088,6 +1123,11 @@ canvas.addEventListener('pointerdown', e => {
   if (id === 'cards') { openCards(); hoverBtn = null; }
   if (id === 'next') { restart(); inMenu = false; hoverBtn = null; }
   if (id === 'login') { openLogin(); hoverBtn = null; }
+  if (id === 'char') {   // next unlocked character
+    const list = unlockedCharacters(), i = list.findIndex(c => c.id === charId());
+    save.character = list[(i + 1) % list.length].id;
+    writeSave(); applyCharacter();
+  }
   if (id && id.startsWith('slot')) toggleEquip(cardsLayout().slots[Number(id.slice(4))].id);
   if (id && id.startsWith('own')) toggleEquip(cardsLayout().own[Number(id.slice(3))].id);
   if (id && id.startsWith('card')) buyOffer(Number(id.slice(4)));
@@ -1100,13 +1140,14 @@ canvas.addEventListener('pointerdown', e => {
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
   for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(assetUrl(n))));
   player.h = PLAYER_H;
-  player.w = Math.round(sprite.width * PLAYER_H / sprite.height);
+  bodyImg0005 = sprite;
+  applyCharacter();
   const gunLW = gun.lw = Math.round(gunL.width * GUN_H / gunL.height);
   const gunRW = gun.rw = Math.round(gunR.width * GUN_H / gunR.height);
   player.y = GROUND_Y - player.h;
 
   menuBgImg = menuImg; menuBackImg = menuBtnImg;
-  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394'].map(n => load(assetUrl(n))));
+  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300'].map(n => load(assetUrl(n))));
   for (const u of UPGRADES) upgradeImgs[u.id] = await load(assetUrl('upgrade-' + u.id));
   if (document.fonts) document.fonts.load('24px Rye').catch(() => {});
   // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
@@ -1169,6 +1210,17 @@ canvas.addEventListener('pointerdown', e => {
       drawButton(shopBtnImg, shopBtn, hoverBtn === 'shop');
       drawButton(cardsBtnImg, cardsBtn, hoverBtn === 'cards');
       drawButton(loginBtnImg, loginBtn, hoverBtn === 'login');
+      if (unlockedCharacters().length > 1) {   // character picker
+        const c = CHARACTERS.find(c => c.id === charId()), img = charImg(), hov = hoverBtn === 'char';
+        ctx.fillStyle = hov ? 'rgba(20,12,6,0.8)' : 'rgba(10,6,3,0.62)';
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.roundRect(charBtn.x, charBtn.y, charBtn.w, charBtn.h, 14); ctx.fill(); ctx.stroke();
+        const ih = charBtn.h - 18, iw = ih * img.width / img.height;
+        ctx.drawImage(img, charBtn.x + 12 + (50 - iw) / 2, charBtn.y + 9, iw, ih);
+        drawText(c.name.split(' ')[0], charBtn.x + 128, charBtn.y + 40, 19, '#fff', TITLE_FONT, 'center', '#000');
+        drawText(c.id, charBtn.x + 128, charBtn.y + 70, 28, '#ffd21f', TITLE_FONT, 'center', '#000');
+        drawText('tap to change', charBtn.x + 128, charBtn.y + 90, 12, '#cdbfae', 'bold ' + BODY_FONT, 'center');
+      }
       if (user) drawText(user, loginBtn.x + loginBtn.w / 2, loginBtn.y + loginBtn.h + 24, 20, '#fff', 'bold ' + BODY_FONT, 'center', '#000');
       requestAnimationFrame(frame);
       return;
@@ -1237,11 +1289,15 @@ canvas.addEventListener('pointerdown', e => {
     const bodyScaleY = 1 + 0.1 * vis.jump + airStretch - 0.16 * vis.land + breathe;
     const bodyScaleX = Math.pow(bodyScaleY, -0.8);                        // squash and stretch keep the volume
     drawGhost();
-    const hop = player.walkTime > 0 ? -Math.abs(Math.sin(Math.PI * player.walkTime / WALK_FRAME_TIME)) * 2.2 : 0;   // a small hop on every step
+    const isBrush = charId() === '0300';
+    for (const d of dabs) { ctx.globalAlpha = Math.max(0, d.life / d.max) * 0.85; ctx.fillStyle = d.c; ctx.beginPath(); ctx.arc(d.x, d.y, d.r * (0.6 + 0.4 * d.life / d.max), 0, 6.2832); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    const sway = isBrush && player.walkTime === 0 && player.onGround ? Math.sin(performance.now() / 1000 * 1.7) * 0.045 : 0;   // the brush sways when he stands still
+    const hop = player.walkTime > 0 ? -Math.abs(Math.sin(Math.PI * player.walkTime / WALK_FRAME_TIME)) * (isBrush ? 5 : 2.2) : 0;   // a small hop on every step
     const pivotX = player.x + player.w / 2, pivotY = player.y + player.h;   // everything pivots around his feet
     ctx.save();
     ctx.translate(pivotX, pivotY + hop);
-    ctx.rotate(vis.tilt);
+    ctx.rotate(vis.tilt * (isBrush ? 2.2 : 1) + sway);
     ctx.scale(bodyScaleX, bodyScaleY);
     ctx.translate(-pivotX, -pivotY);
     // which drawing: walking swaps walk 1 / walk 2; standing cycles base, low, base, high
@@ -1250,7 +1306,7 @@ canvas.addEventListener('pointerdown', e => {
     else setPose(idleCycle[Math.floor(player.idleTime / IDLE_FRAME_TIME) % 4], FADE_IDLE);
     pose.fade = Math.min(1, pose.fade + dt / pose.fadeTime);
     const blink = invuln > 0 && Math.floor(invuln * 10) % 2 === 0;
-    if (!blink) {
+    if (!blink && !isBrush) {
       if (pose.fade < 1 && pose.prev) {
         ctx.drawImage(pose.prev, player.x, player.y, player.w, player.h);
         ctx.globalAlpha = pose.fade * pose.fade * (3 - 2 * pose.fade);   // eased
@@ -1262,9 +1318,21 @@ canvas.addEventListener('pointerdown', e => {
     }
     // Left gun on the left side, right gun on the right side of the character.
     const gunY = gunTop();
-    if (!blink) {
+    if (!blink && !isBrush) {
       ctx.drawImage(gunL, player.x + GUN_GRIP - gunLW, gunY, gunLW, GUN_H);
       ctx.drawImage(gunR, player.x + player.w - GUN_GRIP, gunY, gunRW, GUN_H);
+    }
+    if (isBrush && !blink) {
+      // SUBJECT 0300: the brush with the heart as its tip, and the round shield on the side he faces
+      ctx.drawImage(brushImg, player.x, player.y, player.w, player.h);
+      vis.shield += ((player.facing || 1) - vis.shield) * (1 - Math.exp(-dt * 12));
+      const sw = 36, sh = sw * shieldImg.height / shieldImg.width;
+      ctx.save();
+      ctx.translate(player.x + player.w / 2 + vis.shield * (player.w / 2 + 7), player.y + player.h * 0.62);
+      ctx.rotate(vis.shield * 0.12 + Math.sin(performance.now() / 1000 * 2.1) * 0.03);
+      ctx.scale(Math.max(0.3, Math.abs(vis.shield)), 1);
+      ctx.drawImage(shieldImg, -sw / 2, -sh / 2, sw, sh);
+      ctx.restore();
     }
     ctx.restore();
     for (const b of enemyBullets) {
