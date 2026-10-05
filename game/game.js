@@ -152,7 +152,7 @@ function splashSound() {
 // on the small platforms), but only on a part of the surface that isn't painted yet.
 // A surface is split in equal parts (a stain covers exactly one part), and it turns green
 // when every part has a stain:
-// the main ground needs 6, each big platform 4 and each small platform 1.
+// the main ground needs 4, each big platform 3 and each small platform 1.
 const PAINT_SURFACES = {};   // id -> { n parts, minX, maxX, y (the line you stand on), stainH }
 const paintDone = {};        // id -> array of booleans, one per part
 const stains = [];           // { x, y, color }
@@ -161,8 +161,8 @@ let paintImgs = null;        // green drawings
 
 function setupPaint() {
   const span = p => ({ minX: Math.max(p.x, WALL_W), maxX: Math.min(p.x + p.w, WORLD_W - WALL_W), y: p.top, stainH: p.h * 0.8 });
-  PAINT_SURFACES.ground = { n: 6, minX: WALL_W, maxX: WORLD_W - WALL_W, y: GROUND_Y, stainH: 70 };
-  platforms.forEach((p, i) => { PAINT_SURFACES[i] = Object.assign({ n: MINI_PLATFORMS.includes(i) ? 1 : 4 }, span(p)); });
+  PAINT_SURFACES.ground = { n: 4, minX: WALL_W, maxX: WORLD_W - WALL_W, y: GROUND_Y, stainH: 70 };
+  platforms.forEach((p, i) => { PAINT_SURFACES[i] = Object.assign({ n: MINI_PLATFORMS.includes(i) ? 1 : 3 }, span(p)); });
   resetPaint();
 }
 
@@ -192,8 +192,8 @@ function paintStain(id, x, color) {
 
 // --- Enemies: the yellow guard ----------------------------------------------
 // Patrols left and right on the main ground or a big platform. He can't jump and
-// never walks off: he turns around at the edge. (8 hits take him out.)
-const GUARD_H = 80, GUARD_SPEED = MOVE_SPEED, GUARD_HP = 8; // as fast as the player
+// never walks off: he turns around at the edge. (6 hits take him out.)
+const GUARD_H = 80, GUARD_SPEED = MOVE_SPEED, GUARD_HP = 6; // as fast as the player
 // Walking onto a paint stain slows a guard down by 30% for 1 second. Every stain he walks
 // onto adds another second, so crossing 3 stains gives 3 seconds of slowness.
 const STAIN_SLOW = 0.7, STAIN_SLOW_TIME = 1;
@@ -288,7 +288,7 @@ const SPAWN_EVERY = 4; // default for new enemies
 const SPAWN_GAP = 220; // an enemy never spawns closer than this (px) to the player
 const enemyTypes = [
   { name: 'guard', every: 7.5, timer: 0, spawn: spawnGuard },
-  { name: 'redGuard', every: 7.5, timer: 0, trySpawn: trySpawnRedGuard },   // small platforms only
+  { name: 'redGuard', every: 15, timer: 0, trySpawn: trySpawnRedGuard },   // small platforms only
   // new enemies are added here and spawn the same way
 ];
 
