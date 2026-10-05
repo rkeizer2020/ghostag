@@ -23,6 +23,7 @@ const GRAVITY_DOWN = 1000; // floatier fall
 // Jump apex ~155px.
 const JUMP_SPEED = Math.sqrt(2 * GRAVITY_UP * 155);
 const MOVE_SPEED = 250; // fast, px/s
+const ACCEL = 3200, DECEL = 3800; // px/s^2: full speed in about 0.08 s
 
 
 // Platform layout from the schema (schema is 1281x718, the map is 1270x709).
@@ -434,6 +435,9 @@ const IDLE_FRAME_TIME = 0.2;
 // Drawings fade into each other instead of snapping, which makes the animation smoother.
 const FADE_WALK = 0.12, FADE_IDLE = 0.12;
 const cam = { x: null, y: null };
+// Smooth, procedural movement of the drawing: lean into the run, a hop on every step,
+// stretch when jumping, squash when landing, and a gentle breathing while standing still.
+const vis = { tilt: 0, jump: 0, land: 0 };
 const pose = { cur: null, prev: null, fade: 1, fadeTime: FADE_IDLE };
 function setPose(img, fadeTime) {
   if (img === pose.cur) return;
@@ -500,6 +504,7 @@ function updateBullets(dt) {
 
 function update(dt) {
   const startX = player.x;
+  const wasOnGround = player.onGround, fallSpeed = player.vy;
   updateBullets(dt);
   updateSpawner(dt);
   updateGuards(dt);
@@ -507,12 +512,16 @@ function update(dt) {
   updateHealth(dt);
 
   const dir = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
-  player.vx = dir * MOVE_SPEED;
+  // speed eases up and down instead of jumping straight to full speed
+  const wantVx = dir * MOVE_SPEED;
+  const accel = (dir ? ACCEL : DECEL) * dt;
+  player.vx += Math.max(-accel, Math.min(accel, wantVx - player.vx));
   if (dir) player.facing = dir;
 
   if (keys.ArrowUp && player.onGround) {
     player.vy = -JUMP_SPEED;
     player.onGround = false;
+    vis.jump = 1;
   }
 
   const prevBottom = player.y + player.h;
@@ -557,6 +566,8 @@ function update(dt) {
     player.vy = 0;
     player.onGround = true;
   }
+
+  if (!wasOnGround && player.onGround) vis.land = Math.min(1, fallSpeed / 700);   // landing squash, bigger for a harder landing
 
   // walking = actually moving along a surface (not standing, not in the air, not pushing on a wall)
   const walking = player.onGround && Math.abs(player.x - startX) > 0.01;
@@ -693,6 +704,21 @@ canvas.addEventListener('pointerdown', e => {
       ctx.drawImage(redGunImg, -RED_GUN_LEN / 2, -gh / 2, RED_GUN_LEN, gh);
       ctx.restore();
     }
+    // --- smooth movement of the drawing (see `vis`) ---
+    vis.tilt += ((player.vx / MOVE_SPEED) * 0.08 * (player.onGround ? 1 : 0.6) - vis.tilt) * (1 - Math.exp(-dt * 14));
+    vis.land *= Math.exp(-dt * 11);
+    vis.jump *= Math.exp(-dt * 9);
+    const airStretch = player.onGround ? 0 : Math.min(1, Math.abs(player.vy) / (JUMP_SPEED * 1.4)) * 0.1;
+    const breathe = player.walkTime === 0 && player.onGround ? 0.012 * Math.sin(performance.now() / 1000 * 2 * Math.PI / 2.4) : 0;
+    const bodyScaleY = 1 + 0.1 * vis.jump + airStretch - 0.16 * vis.land + breathe;
+    const bodyScaleX = Math.pow(bodyScaleY, -0.8);                        // squash and stretch keep the volume
+    const hop = player.walkTime > 0 ? -Math.abs(Math.sin(Math.PI * player.walkTime / WALK_FRAME_TIME)) * 2.2 : 0;   // a small hop on every step
+    const pivotX = player.x + player.w / 2, pivotY = player.y + player.h;   // everything pivots around his feet
+    ctx.save();
+    ctx.translate(pivotX, pivotY + hop);
+    ctx.rotate(vis.tilt);
+    ctx.scale(bodyScaleX, bodyScaleY);
+    ctx.translate(-pivotX, -pivotY);
     // which drawing: walking swaps walk 1 / walk 2; standing cycles base, low, base, high
     const idleCycle = [idleBaseImg, idleLowImg, idleBaseImg, idleHighImg];
     if (player.walkTime > 0) setPose(Math.floor(player.walkTime / WALK_FRAME_TIME) % 2 === 0 ? walk1Img : walk2Img, FADE_WALK);
@@ -702,7 +728,7 @@ canvas.addEventListener('pointerdown', e => {
     if (!blink) {
       if (pose.fade < 1 && pose.prev) {
         ctx.drawImage(pose.prev, player.x, player.y, player.w, player.h);
-        ctx.globalAlpha = pose.fade;
+        ctx.globalAlpha = pose.fade * pose.fade * (3 - 2 * pose.fade);   // eased
         ctx.drawImage(pose.cur, player.x, player.y, player.w, player.h);
         ctx.globalAlpha = 1;
       } else {
@@ -715,6 +741,7 @@ canvas.addEventListener('pointerdown', e => {
       ctx.drawImage(gunL, player.x + GUN_GRIP - gunLW, gunY, gunLW, GUN_H);
       ctx.drawImage(gunR, player.x + player.w - GUN_GRIP, gunY, gunRW, GUN_H);
     }
+    ctx.restore();
     for (const b of enemyBullets) {
       ctx.save();
       ctx.translate(b.x, b.y);
