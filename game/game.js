@@ -46,7 +46,7 @@ const load = src => new Promise(r => { const i = new Image(); i.onload = () => r
 // Key 1 fires the left gun, key 2 the right gun: one bullet per press (holding does nothing).
 // Each shot is a random one of the 3 paint colours drawn for that direction.
 const BULLET_W = 34, BULLET_SPEED = 450;
-const SHOT_COOLDOWN = 0.4;                      // seconds before the same gun can fire again
+const SHOT_COOLDOWN = 0.2;                      // seconds before the same gun can fire again
 const lastShot = { left: -Infinity, right: -Infinity };   // each gun has its own cool down
 const bullets = [];
 const bulletSprites = { left: [], right: [] };
