@@ -167,7 +167,7 @@ const SAVE_KEY = 'drawshot-save';           // the guest save; a logged in playe
 const SUPA_URL = 'https://pxesgizsahewtzssgqyf.supabase.co';
 const SUPA_KEY = 'sb_publishable_mqgWcQrbYFRuP1shEuOIPg_9xpjm86I';
 const SESSION_KEY = 'drawshot-session';
-const save = { coins: 0, owned: [], equipped: [], offerWindow: -1, offers: [] };
+const save = { coins: 0, owned: [], equipped: [], offerWindow: -1, offers: [], level: 1 };
 let user = null;                             // the logged in username, or null for a guest
 let session = null;                          // {name, uid, access, refresh, exp} while logged in
 const store = {
@@ -186,7 +186,8 @@ function loadSave(raw) {
   let data = {};
   try { data = JSON.parse(raw || '{}') || {}; } catch (e) { /* start fresh */ }
   for (const k of Object.keys(save)) delete save[k];
-  Object.assign(save, { coins: 0, owned: [], equipped: null, offerWindow: -1, offers: [] }, data);
+  Object.assign(save, { coins: 0, owned: [], equipped: null, offerWindow: -1, offers: [], level: 1 }, data);
+  if (!(save.level >= 1)) save.level = 1;
   if (!Array.isArray(save.equipped)) save.equipped = save.owned.slice(0, MAX_EQUIPPED);   // saves from before the cards screen
   save.equipped = save.equipped.filter(id => save.owned.includes(id)).slice(0, MAX_EQUIPPED);
   applyPerks();
@@ -200,6 +201,8 @@ function applyPerks() {
 try { session = JSON.parse(store.get(SESSION_KEY) || 'null'); } catch (e) { session = null; }
 user = session ? session.name : null;
 loadSave(store.get(saveKey()));
+// the level you are on: completing a level moves you up, dying keeps you where you are (there is no way back)
+const levelNo = () => save.level || 1;
 const owns = id => save.owned.includes(id);
 const has = id => save.equipped.includes(id);   // only equipped cards do anything
 
@@ -460,6 +463,45 @@ function guardHitbox(g) {
 // You start with 5. A guard touching you costs one; then you blink for a moment
 // and can't be hurt again straight away.
 const INVULN_TIME = 1.5;
+// Subject 394 (level 2 only): walks exactly the path you walked (jumps included), 35% slower than you.
+// Every hit takes 2 hearts. Bullets don't hurt him.
+const GHOST_LEVEL = 2, GHOST_SPEED = 0.65, GHOST_DELAY = 8, GHOST_DAMAGE = 2, GHOST_FADE = 1.5;
+const ghost = { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0 };
+let ghostImg;
+function resetGhost() { Object.assign(ghost, { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0 }); }
+function updateGhost(dt) {
+  if (levelNo() !== GHOST_LEVEL || hearts <= 0) return;
+  ghost.time += dt;
+  ghost.trail.push({ t: ghost.time, x: player.x, y: player.y });
+  if (ghost.time < GHOST_DELAY) return;
+  ghost.active = true;
+  ghost.age += dt;
+  ghost.play += dt * GHOST_SPEED;
+  const tr = ghost.trail;
+  while (ghost.idx + 1 < tr.length - 1 && tr[ghost.idx + 1].t <= ghost.play) ghost.idx++;
+  const a = tr[ghost.idx], b = tr[Math.min(ghost.idx + 1, tr.length - 1)];
+  const f = b.t > a.t ? Math.max(0, Math.min(1, (ghost.play - a.t) / (b.t - a.t))) : 0;
+  ghost.x = a.x + (b.x - a.x) * f;
+  ghost.y = a.y + (b.y - a.y) * f;
+  ghost.moving = Math.abs(b.x - a.x) > 0.01 ? 1 : 0;
+  if (ghost.idx > 4000) { tr.splice(0, ghost.idx - 1); ghost.idx = 1; }   // forget the part he already walked
+}
+function ghostBox() {
+  const h = player.h * 1.2, w = h * ghostImg.width / ghostImg.height, cx = ghost.x + player.w / 2, feet = ghost.y + player.h;
+  return { x: cx - w * 0.35, y: feet - h * 0.95, w: w * 0.7, h: h * 0.9, cx, feet, dw: w, dh: h };
+}
+function drawGhost() {
+  if (!ghost.active) return;
+  const g = ghostBox();
+  const bob = ghost.moving ? -Math.abs(Math.sin(ghost.play * 11)) * 3 : 0;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, ghost.age / GHOST_FADE);
+  ctx.translate(g.cx, g.feet + bob);
+  ctx.rotate(ghost.moving ? Math.sin(ghost.play * 11) * 0.05 : 0);
+  ctx.drawImage(ghostImg, -g.dw / 2, -g.dh, g.dw, g.dh);
+  ctx.restore();
+}
+
 let hearts = 5;
 let invuln = 0;
 let dying = 0;          // short pause after the last heart before the game over screen
@@ -481,11 +523,12 @@ const againBtn = { x: 0, y: 0, w: 0, h: 0 };     // PLAY AGAIN on the game over 
 const shopBtn = { x: 0, y: 0, w: 0, h: 0 };      // SHOP on the menu screen
 const lcShopBtn = { x: 0, y: 0, w: 0, h: 0 };    // SHOP on the level completed screen
 const cardsBtn = { x: 0, y: 0, w: 0, h: 0 };     // CARDS on the menu screen
+const lcNextBtn = { x: 0, y: 0, w: 0, h: 0 };    // NEXT on the level completed screen
 const lcCardsBtn = { x: 0, y: 0, w: 0, h: 0 };   // CARDS on the level completed screen
 const loginBtn = { x: 0, y: 0, w: 0, h: 0 };     // LOGIN on the menu screen
 const shopMenuBtn = { x: 0, y: 0, w: 0, h: 0 };  // MENU on the shop screen
 const CARD_W = 300, CARD_H = 440, CARD_GAP = 40, CARD_Y = 128;
-let cardsBtnImg, loginBtnImg, shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
+let nextBtnImg, cardsBtnImg, loginBtnImg, shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
 const upgradeImgs = {};
 const TITLE_FONT = 'Rye, Georgia, serif', BODY_FONT = '"Trebuchet MS", system-ui, sans-serif';
 
@@ -523,15 +566,16 @@ function restart() {
   lastShot.left = lastShot.right = -Infinity;
   enemyBullets.length = 0;
   resetPaint();
+  resetGhost();
   for (const type of enemyTypes) type.timer = 0;
   Object.assign(player, { x: 100, y: GROUND_Y - player.h, vx: 0, vy: 0, onGround: false, walkTime: 0, idleTime: 0 });
   for (const k in keys) keys[k] = false;
 }
 
 // Take one heart (unless you're blinking or already out). Returns true if it hurt.
-function hurtPlayer() {
+function hurtPlayer(amount = 1) {
   if (invuln > 0 || hearts <= 0) return false;
-  hearts--;
+  hearts = Math.max(0, hearts - amount);
   invuln = INVULN_TIME;
   if (hearts === 0) dying = 0.8;
   return true;
@@ -554,6 +598,11 @@ function updateHealth(dt) {
       hurtPlayer();
       break;
     }
+  }
+  // subject 394 takes 2 hearts (harmless while he is still fading in)
+  if (ghost.active && ghost.age >= GHOST_FADE) {
+    const hb = ghostBox();
+    if (p.x + p.w > hb.x && p.x < hb.x + hb.w && p.y + p.h > hb.y && p.y < hb.y + hb.h) hurtPlayer(GHOST_DAMAGE);
   }
 }
 
@@ -660,6 +709,7 @@ function update(dt) {
   updateSpawner(dt);
   updateGuards(dt);
   updateRedGuards(dt);
+  updateGhost(dt);
   updateHealth(dt);
   if (has(1) && hearts > 0 && (regenTimer += dt) >= 60) { regenTimer = 0; healHeart(); }
 
@@ -1015,7 +1065,7 @@ function buttonAt(e) {
     return null;
   }
   if (inMenu) return inRect(m, playBtn) ? 'play' : inRect(m, shopBtn) ? 'shop' : inRect(m, cardsBtn) ? 'cards' : inRect(m, loginBtn) ? 'login' : null;
-  if (levelComplete) return inRect(m, lcMenuBtn) ? 'menu' : inRect(m, lcShopBtn) ? 'shop' : inRect(m, lcCardsBtn) ? 'cards' : null;
+  if (levelComplete) return inRect(m, lcMenuBtn) ? 'menu' : inRect(m, lcShopBtn) ? 'shop' : inRect(m, lcCardsBtn) ? 'cards' : inRect(m, lcNextBtn) ? 'next' : null;
   if (gameOver) {
     if (inRect(m, againBtn)) return 'again';
     if (inRect(m, menuBtn)) return 'menu';
@@ -1036,6 +1086,7 @@ canvas.addEventListener('pointerdown', e => {
   if (id === 'menu') { toMenu(); hoverBtn = null; }
   if (id === 'shop') { openShop(); hoverBtn = null; }
   if (id === 'cards') { openCards(); hoverBtn = null; }
+  if (id === 'next') { restart(); inMenu = false; hoverBtn = null; }
   if (id === 'login') { openLogin(); hoverBtn = null; }
   if (id && id.startsWith('slot')) toggleEquip(cardsLayout().slots[Number(id.slice(4))].id);
   if (id && id.startsWith('own')) toggleEquip(cardsLayout().own[Number(id.slice(3))].id);
@@ -1055,7 +1106,7 @@ canvas.addEventListener('pointerdown', e => {
   player.y = GROUND_Y - player.h;
 
   menuBgImg = menuImg; menuBackImg = menuBtnImg;
-  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button'].map(n => load(assetUrl(n))));
+  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394'].map(n => load(assetUrl(n))));
   for (const u of UPGRADES) upgradeImgs[u.id] = await load(assetUrl('upgrade-' + u.id));
   if (document.fonts) document.fonts.load('24px Rye').catch(() => {});
   // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
@@ -1078,6 +1129,8 @@ canvas.addEventListener('pointerdown', e => {
     Object.assign(cardsBtn, { x: (W - cw) / 2, y: shopBtn.y + shopBtn.h + 10, w: cw, h: ch });
     Object.assign(lcCardsBtn, { x: lcShopBtn.x, y: lcShopBtn.y - ch - 12, w: lcShopBtn.w, h: Math.round(lcShopBtn.w * cardsBtnImg.height / cardsBtnImg.width) });
     lcCardsBtn.y = lcShopBtn.y - lcCardsBtn.h - 12;
+    Object.assign(lcNextBtn, { x: lcCardsBtn.x, y: 0, w: lcCardsBtn.w, h: Math.round(lcCardsBtn.w * nextBtnImg.height / nextBtnImg.width) });
+    lcNextBtn.y = lcCardsBtn.y - lcNextBtn.h - 12;
     const lw = 150;
     Object.assign(loginBtn, { x: W - lw - 24, y: 18, w: lw, h: Math.round(lw * loginBtnImg.height / loginBtnImg.width) });
     Object.assign(shopMenuBtn, { x: W - 250 - 30, y: H - Math.round(250 * menuBtnImg.height / menuBtnImg.width) - 16, w: 250, h: Math.round(250 * menuBtnImg.height / menuBtnImg.width) });
@@ -1111,6 +1164,7 @@ canvas.addEventListener('pointerdown', e => {
     }
     if (inMenu) {
       ctx.drawImage(menuImg, 0, 0, W, H);
+      drawText('LEVEL ' + levelNo(), W / 2, 250, 28, '#fff', TITLE_FONT, 'center', '#000');
       drawButton(playBtnImg, playBtn, hoverBtn === 'play');
       drawButton(shopBtnImg, shopBtn, hoverBtn === 'shop');
       drawButton(cardsBtnImg, cardsBtn, hoverBtn === 'cards');
@@ -1124,7 +1178,7 @@ canvas.addEventListener('pointerdown', e => {
       // every surface painted: level completed (after a moment, and not if you just died)
       if (hearts > 0 && Object.keys(PAINT_SURFACES).every(isPainted)) {
         completeTimer += dt;
-        if (completeTimer > 1.2) levelComplete = true;
+        if (completeTimer > 1.2) { levelComplete = true; save.level = levelNo() + 1; writeSave(); }   // on to the next level
       }
     }
 
@@ -1182,6 +1236,7 @@ canvas.addEventListener('pointerdown', e => {
     const breathe = player.walkTime === 0 && player.onGround ? 0.012 * Math.sin(performance.now() / 1000 * 2 * Math.PI / 2.4) : 0;
     const bodyScaleY = 1 + 0.1 * vis.jump + airStretch - 0.16 * vis.land + breathe;
     const bodyScaleX = Math.pow(bodyScaleY, -0.8);                        // squash and stretch keep the volume
+    drawGhost();
     const hop = player.walkTime > 0 ? -Math.abs(Math.sin(Math.PI * player.walkTime / WALK_FRAME_TIME)) * 2.2 : 0;   // a small hop on every step
     const pivotX = player.x + player.w / 2, pivotY = player.y + player.h;   // everything pivots around his feet
     ctx.save();
@@ -1236,6 +1291,7 @@ canvas.addEventListener('pointerdown', e => {
       ctx.drawImage(heartImg, 20 + i * (hw + 8), 18, hw, hh);
     }
     ctx.globalAlpha = 1;
+    drawText('LEVEL ' + (levelComplete ? levelNo() - 1 : levelNo()), W / 2, 44, 26, '#fff', TITLE_FONT, 'center', '#000');
     ctx.drawImage(coinImg, 20, 64, 30, 30);
     drawText(String(save.coins), 58, 88, 26, '#ffd21f', 'bold ' + BODY_FONT, 'left', '#000');
 
@@ -1244,6 +1300,7 @@ canvas.addEventListener('pointerdown', e => {
       drawButton(menuBtnImg, lcMenuBtn, hoverBtn === 'menu');
       drawButton(shopBtnImg, lcShopBtn, hoverBtn === 'shop');
       drawButton(cardsBtnImg, lcCardsBtn, hoverBtn === 'cards');
+      drawButton(nextBtnImg, lcNextBtn, hoverBtn === 'next');
     }
     if (gameOver) {
       ctx.drawImage(gameOverImg, 0, 0, W, H);
