@@ -189,6 +189,13 @@ function loadSave(raw) {
   Object.assign(save, { coins: 0, owned: [], equipped: null, offerWindow: -1, offers: [] }, data);
   if (!Array.isArray(save.equipped)) save.equipped = save.owned.slice(0, MAX_EQUIPPED);   // saves from before the cards screen
   save.equipped = save.equipped.filter(id => save.owned.includes(id)).slice(0, MAX_EQUIPPED);
+  applyPerks();
+}
+// accounts that always have everything unlocked: every upgrade now, and every character once they exist
+const OWNER_ACCOUNTS = ['merlinos24maker'];
+function applyPerks() {
+  if (!user || !OWNER_ACCOUNTS.includes(user.toLowerCase())) return;
+  for (const u of UPGRADES) if (!save.owned.includes(u.id)) save.owned.push(u.id);
 }
 try { session = JSON.parse(store.get(SESSION_KEY) || 'null'); } catch (e) { session = null; }
 user = session ? session.name : null;
@@ -868,6 +875,7 @@ const Auth = {
     }
     if (!r.data || !r.data.access_token) return 'Supabase still wants e-mail confirmation: switch "Confirm email" off';
     this.setSession(r.data, name);
+    applyPerks();
     store.set(saveKey(), JSON.stringify(save));   // the new account starts with what you earned as a guest
     await this.push();
     return null;
