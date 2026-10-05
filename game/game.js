@@ -527,7 +527,7 @@ function drawGhost() {
 // SUBJECT 0300: key 1 swings the giant brush, key 2 raises the shield, and walking leaves an ink trail
 const SWING_COOLDOWN = 0.75, SWING_DAMAGE = 3, SWING_REACH = 95, SWING_TIME = 0.24;
 const SHIELD_TIME = 0.6, SHIELD_COOLDOWN = 0.3, PERFECT_WINDOW = 0.2;
-const INK_DAMAGE = 1, INK_LIFE = 1, INK_STEP = 8, INK_HIT_EVERY = 1;
+const INK_DAMAGE = 1, INK_LIFE = 1, INK_STEP = 8, INK_HIT_EVERY = 0.5;
 const swing = { t: 0, cd: 0, dir: 1, done: false };
 const shield = { t: 0, age: 0, cd: 0, flash: 0 };
 const ink = [];            // the pieces of the ink trail
@@ -1199,7 +1199,7 @@ const CHAR_INFO = {
     controls: ['<- ->  walk (leaves an ink trail)', 'UP  jump', '1  swing the giant brush', '2  raise the shield'],
     attacks: [
       'Brush swing: 3 damage to every enemy in front of you, in the direction you look. It cannot reach through platforms. 0.75 s before you can swing again.',
-      'Ink trail: walking leaves a zigzag ink trail. Enemies on it take 1 damage (once a second each). Every piece of the trail is gone after 1 second.',
+      'Ink trail: walking leaves a zigzag ink trail. Enemies on it take 1 damage (once every 0.5 s each). Every piece of the trail is gone after 1 second.',
       'Shield: blocks red guard bullets that come from the side you look at. Block in the first 0.2 s after raising it and it is a PERFECT block: the bullet flies back and does its damage to the enemy. Yellow guards cannot be blocked. Subject 394 only stops with a perfect block (he then takes his 2 damage himself).',
       'Upgrade cards do not work for him yet.',
     ],
