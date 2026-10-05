@@ -146,6 +146,59 @@ function splashSound() {
   osc.stop(t + 0.15);
 }
 
+// --- Coins, upgrades and the shop ------------------------------------------------------
+// You get a coin for every enemy you defeat. The shop sells 9 upgrades, but shows only 3
+// at a time: every 5 minutes it picks 3 new ones at random. You can buy each one once.
+const UPGRADES = [
+  { id: 1, name: 'Second Wind', cost: 100, desc: 'Win back a heart every 60 s, and when you paint a platform green (every other time).' },
+  { id: 2, name: 'Quick Feet', cost: 30, desc: 'You walk 10% faster.' },
+  { id: 3, name: 'Spring Legs', cost: 15, desc: 'You jump 10% faster.' },
+  { id: 4, name: 'Heavy Boots', cost: 15, desc: 'You fall 10% faster.' },
+  { id: 5, name: 'Hard Hitter', cost: 35, desc: 'Every bullet that hits does 1.25 damage.' },
+  { id: 6, name: 'Extra Heart', cost: 75, desc: 'You get 1 extra heart.' },
+  { id: 7, name: 'Double Coins', cost: 50, desc: 'You get 2 coins for every enemy you defeat.' },
+  { id: 8, name: 'Sticky Paint', cost: 50, desc: 'Your bullets slow enemies by 20% for 0.05 s: yellow guards walk slower, red guards shoot slower.' },
+  { id: 9, name: 'Speedy Bullets', cost: 30, desc: 'Your bullets travel 20% faster.' },
+];
+const OFFER_COUNT = 3, OFFER_TIME = 5 * 60 * 1000;
+const SAVE_KEY = 'drawshot-save';
+const save = { coins: 0, owned: [], offerWindow: -1, offers: [] };
+try { Object.assign(save, JSON.parse(localStorage.getItem(SAVE_KEY) || '{}')); } catch (e) { /* no saving: it just lasts until the page closes */ }
+function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
+const has = id => save.owned.includes(id);
+
+// what the upgrades change
+const moveSpeed = () => MOVE_SPEED * (has(2) ? 1.1 : 1);
+const jumpSpeed = () => JUMP_SPEED * (has(3) ? 1.1 : 1);
+const gravityUp = () => GRAVITY_UP * (has(3) ? 1.21 : 1);      // jumping faster, to the same height
+const gravityDown = () => GRAVITY_DOWN * (has(4) ? 1.21 : 1);  // falling 10% faster
+const bulletSpeed = () => BULLET_SPEED * (has(9) ? 1.2 : 1);
+const damage = () => (has(5) ? 1.25 : 1);
+const maxHearts = () => 5 + (has(6) ? 1 : 0);
+const coinsPerKill = () => (has(7) ? 2 : 1);
+
+function giveCoins() { save.coins += coinsPerKill(); writeSave(); }
+
+// Second Wind: +1 heart every 60 s, and when a surface turns green (1st, 3rd, 5th ... time)
+let regenTimer = 0, greenCount = 0;
+function healHeart() { if (hearts > 0) hearts = Math.min(maxHearts(), hearts + 1); }
+function onSurfaceGreen() {
+  greenCount++;
+  if (has(1) && greenCount % 2 === 1) healHeart();
+}
+
+// the 3 upgrades on offer: new ones every 5 minutes (not counting what you already own)
+function ensureOffers() {
+  const win = Math.floor(Date.now() / OFFER_TIME);
+  if (save.offerWindow === win) return;
+  const pool = UPGRADES.filter(u => !has(u.id)).map(u => u.id);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  save.offers = pool.slice(0, OFFER_COUNT);
+  save.offerWindow = win;
+  writeSave();
+}
+const offerSecondsLeft = () => Math.max(0, Math.ceil(((Math.floor(Date.now() / OFFER_TIME) + 1) * OFFER_TIME - Date.now()) / 1000));
+
 // --- Painting the map -----------------------------------------------------------------
 // The goal: paint every surface. Defeating an enemy leaves a paint stain where he stood
 // (yellow for the yellow guard on the ground and big platforms, red for the red guard
@@ -185,6 +238,7 @@ function paintStain(id, x, color) {
   const part = Math.max(0, Math.min(s.n - 1, Math.floor((x - s.minX) / ((s.maxX - s.minX) / s.n))));
   if (paintDone[id][part]) return;           // this part already has paint: nothing happens
   paintDone[id][part] = true;
+  if (isPainted(id)) onSurfaceGreen();
   // one stain is exactly one part of the surface (1/6 of the ground, 1/4 of a big platform)
   const partW = (s.maxX - s.minX) / s.n;
   stains.push({ x: s.minX + (part + 0.5) * partW, y: s.y, w: partW, h: s.stainH, color, surface: id });
@@ -249,7 +303,8 @@ function updateRedGuards(dt) {
     g.flash = Math.max(0, g.flash - dt);
     const pv = redPivot(g);
     g.angle = Math.atan2(target.y - pv.y, target.x - pv.x);       // the gun follows you
-    g.shootTimer -= dt;
+    g.shootTimer -= dt * (g.hitSlow > 0 ? 0.8 : 1);
+    g.hitSlow = Math.max(0, (g.hitSlow || 0) - dt);
     if (g.shootTimer <= 0 && hearts > 0) {
       // slowest on a green (fully painted) platform, a bit slow in a stain, normal otherwise
       g.shootTimer += isPainted(g.platform) ? RED_SHOOT_EVERY_ON_GREEN
@@ -342,8 +397,9 @@ function updateGuards(dt) {
     const st = stainAt(g.surface, g.x + g.w / 2);
     if (st && st !== g.inStain) g.slow += STAIN_SLOW_TIME;
     g.inStain = st;
-    const speed = GUARD_SPEED * (g.slow > 0 ? STAIN_SLOW : 1);
+    const speed = GUARD_SPEED * (g.slow > 0 ? STAIN_SLOW : 1) * (g.hitSlow > 0 ? 0.8 : 1);
     g.slow = Math.max(0, g.slow - dt);
+    g.hitSlow = Math.max(0, (g.hitSlow || 0) - dt);
     g.x += g.dir * speed * dt;
     if (g.x < g.minX) { g.x = g.minX; g.dir = 1; }
     if (g.x + g.w > g.maxX) { g.x = g.maxX - g.w; g.dir = -1; }
@@ -359,14 +415,16 @@ function guardHitbox(g) {
 // --- Hearts ---------------------------------------------------------------------
 // You start with 5. A guard touching you costs one; then you blink for a moment
 // and can't be hurt again straight away.
-const MAX_HEARTS = 5, INVULN_TIME = 1.5;
-let hearts = MAX_HEARTS;
+const INVULN_TIME = 1.5;
+let hearts = 5;
 let invuln = 0;
 let dying = 0;          // short pause after the last heart before the game over screen
 let gameOver = false;
 let levelComplete = false;   // the whole map is painted
 let completeTimer = 0;       // a short pause so you can see the last stain before the screen comes
 let inMenu = true;      // the game starts on the DRAWSHOT menu
+let inShop = false;     // the shop screen (opened from the menu or the level completed screen)
+const shopMsg = { text: '', t: 0, good: false };
 let hoverBtn = null;    // which button the pointer is over: 'play' or 'menu'
 // Button rectangles (set once the drawings have loaded): PLAY on the menu screen
 // and PLAY AGAIN + MENU on the game over screen.
@@ -374,15 +432,31 @@ const menuBtn = { x: 0, y: 0, w: 0, h: 0 };
 const playBtn = { x: 0, y: 0, w: 0, h: 0 };      // on the menu screen
 const lcMenuBtn = { x: 0, y: 0, w: 0, h: 0 };    // MENU on the level completed screen
 const againBtn = { x: 0, y: 0, w: 0, h: 0 };     // PLAY AGAIN on the game over screen
+const shopBtn = { x: 0, y: 0, w: 0, h: 0 };      // SHOP on the menu screen
+const lcShopBtn = { x: 0, y: 0, w: 0, h: 0 };    // SHOP on the level completed screen
+const shopMenuBtn = { x: 0, y: 0, w: 0, h: 0 };  // MENU on the shop screen
+const CARD_W = 300, CARD_H = 440, CARD_GAP = 40, CARD_Y = 128;
+let shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
+const upgradeImgs = {};
+const TITLE_FONT = 'Rye, Georgia, serif', BODY_FONT = '"Trebuchet MS", system-ui, sans-serif';
 
 function toMenu() {
   restart();
   inMenu = true;
+  inShop = false;
+}
+
+function openShop() {
+  ensureOffers();
+  inShop = true;
+  shopMsg.t = 0;
 }
 
 function restart() {
   cam.x = null;
-  hearts = MAX_HEARTS;
+  hearts = maxHearts();
+  regenTimer = 0;
+  greenCount = 0;
   invuln = 0;
   dying = 0;
   gameOver = false;
@@ -431,6 +505,7 @@ function updateHealth(dt) {
 const keys = {};
 addEventListener('keydown', e => {
   if (e.key.startsWith('Arrow')) e.preventDefault();
+  if (inShop) return;
   if (inMenu) {
     if (e.key === 'Enter' || e.key === ' ') { restart(); inMenu = false; }
     return;
@@ -484,7 +559,7 @@ function fire(side) {
     // start at the gun's muzzle
     x: left ? player.x + GUN_GRIP - gun.lw : player.x + player.w - GUN_GRIP + gun.rw,
     y: gunTop() + GUN_H * 0.4,
-    vx: left ? -BULLET_SPEED : BULLET_SPEED,
+    vx: left ? -bulletSpeed() : bulletSpeed(),
   });
 }
 
@@ -499,8 +574,11 @@ function updateBullets(dt) {
         if (b.x + b.w / 2 > hb.x && b.x - b.w / 2 < hb.x + hb.w && b.y + b.h / 2 > hb.y && b.y - b.h / 2 < hb.y + hb.h) {
           hit = true;
           g.flash = 0.15;
-          if (--g.hp <= 0) {
+          if (has(8)) g.hitSlow = 0.05;           // Sticky Paint
+          g.hp -= damage();
+          if (g.hp <= 0) {
             list.splice(j, 1);
+            giveCoins();
             // he leaves a paint stain where he stood (yellow guard: yellow, red guard: red)
             if (list === guards) paintStain(g.surface, g.x + g.w / 2, 'yellow');
             else paintStain(g.platform, g.x + g.w / 2, 'red');
@@ -528,23 +606,24 @@ function update(dt) {
   updateGuards(dt);
   updateRedGuards(dt);
   updateHealth(dt);
+  if (has(1) && hearts > 0 && (regenTimer += dt) >= 60) { regenTimer = 0; healHeart(); }
 
   const dir = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
   // speed eases up and down instead of jumping straight to full speed
-  const wantVx = dir * MOVE_SPEED;
+  const wantVx = dir * moveSpeed();
   const accel = (dir ? ACCEL : DECEL) * dt;
   player.vx += Math.max(-accel, Math.min(accel, wantVx - player.vx));
   if (dir) player.facing = dir;
 
   if (keys.ArrowUp && player.onGround) {
-    player.vy = -JUMP_SPEED;
+    player.vy = -jumpSpeed();
     player.onGround = false;
     vis.jump = 1;
   }
 
   const prevBottom = player.y + player.h;
   const prevHead = player.y;
-  player.vy += (player.vy < 0 ? GRAVITY_UP : GRAVITY_DOWN) * dt;
+  player.vy += (player.vy < 0 ? gravityUp() : gravityDown()) * dt;
   player.x += player.vx * dt;
   player.y += player.vy * dt;
   player.onGround = false;
@@ -600,6 +679,88 @@ function drawButton(img, r, hovered) {
   ctx.drawImage(img, r.x - (w - r.w) / 2, r.y - (h - r.h) / 2, w, h);
 }
 
+
+// where the cards on offer are on screen
+function offerRects() {
+  const n = save.offers.length, startX = (W - (n * CARD_W + (n - 1) * CARD_GAP)) / 2;
+  return save.offers.map((id, i) => ({ id, x: startX + i * (CARD_W + CARD_GAP), y: CARD_Y, w: CARD_W, h: CARD_H }));
+}
+
+function buyOffer(i) {
+  const up = UPGRADES.find(u => u.id === save.offers[i]);
+  if (!up || has(up.id)) return;
+  if (save.coins < up.cost) { Object.assign(shopMsg, { text: 'Not enough coins', t: 1.8, good: false }); return; }
+  save.coins -= up.cost;
+  save.owned.push(up.id);
+  writeSave();
+  Object.assign(shopMsg, { text: 'You bought ' + up.name + '!', t: 1.8, good: true });
+}
+
+function drawText(str, x, y, size, color, font, align, shadow) {
+  ctx.font = font.startsWith('bold ') ? `bold ${size}px ${font.slice(5)}` : `${size}px ${font}`;
+  ctx.textAlign = align || 'center';
+  if (shadow) { ctx.fillStyle = shadow; ctx.fillText(str, x + 3, y + 3); }
+  ctx.fillStyle = color;
+  ctx.fillText(str, x, y);
+}
+
+function wrapLines(str, maxW) {
+  const lines = []; let line = '';
+  for (const word of str.split(' ')) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = word; } else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+// a black and blue card with a picture in the white square at the top, like a trading card
+function drawCard(up, x, y, hovered) {
+  const owned = has(up.id), canPay = save.coins >= up.cost;
+  ctx.save();
+  ctx.translate(x + CARD_W / 2, y + CARD_H / 2);
+  const grow = hovered && !owned ? 1.05 : 1;
+  ctx.scale(grow, grow);
+  ctx.translate(-CARD_W / 2, -CARD_H / 2);
+  ctx.drawImage(cardFrameImg, 0, 0, CARD_W, CARD_H);
+  ctx.drawImage(upgradeImgs[up.id], 60, 46, 180, 180);
+  drawText(up.name, 150, 270, 23, '#ffd21f', TITLE_FONT, 'center', '#000');
+  ctx.font = `bold 14px ${BODY_FONT}`;
+  wrapLines(up.desc, 226).slice(0, 5).forEach((ln, i) => drawText(ln, 150, 296 + i * 18, 14, '#fff', 'bold ' + BODY_FONT, 'center'));
+  ctx.drawImage(coinImg, 98, 378, 32, 32);
+  drawText(String(up.cost), 140, 405, 26, canPay || owned ? '#ffd21f' : '#ff7a6a', 'bold ' + BODY_FONT, 'left');
+  if (owned) {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, 0, CARD_W, CARD_H);
+    ctx.translate(CARD_W / 2, CARD_H / 2);
+    ctx.rotate(-0.2);
+    drawText('OWNED', 0, 12, 52, '#fff', TITLE_FONT, 'center', '#000');
+  }
+  ctx.restore();
+}
+
+function drawShop(dt) {
+  ensureOffers();
+  ctx.drawImage(menuBgImg, 0, 300, W, 400, 0, 0, W, H);   // just the stripes, not the DRAWSHOT title
+  ctx.fillStyle = 'rgba(6,3,14,0.78)';
+  ctx.fillRect(0, 0, W, H);
+  drawText('SHOP', W / 2, 78, 64, '#e2820a', TITLE_FONT, 'center', '#000');
+  const left = offerSecondsLeft();
+  drawText(`New upgrades in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, W / 2, 108, 18, '#cdbfae', 'bold ' + BODY_FONT, 'center');
+  ctx.drawImage(coinImg, W - 168, 34, 38, 38);
+  drawText(String(save.coins), W - 122, 64, 32, '#ffd21f', 'bold ' + BODY_FONT, 'left', '#000');
+  const rs = offerRects();
+  if (!rs.length) drawText('Everything is sold out!', W / 2, 340, 34, '#fff', TITLE_FONT, 'center', '#000');
+  rs.forEach((r, i) => drawCard(UPGRADES.find(u => u.id === r.id), r.x, r.y, hoverBtn === 'card' + i));
+  shopMsg.t = Math.max(0, shopMsg.t - dt);
+  if (shopMsg.t > 0) {
+    ctx.globalAlpha = Math.min(1, shopMsg.t * 2);
+    drawText(shopMsg.text, W / 2, 618, 28, shopMsg.good ? '#8dff7a' : '#ff7a6a', 'bold ' + BODY_FONT, 'center', '#000');
+    ctx.globalAlpha = 1;
+  }
+  drawButton(menuBackImg, shopMenuBtn, hoverBtn === 'menu');
+}
+
 // pointer position in game (canvas) pixels
 function pointerPos(e) {
   const r = canvas.getBoundingClientRect();
@@ -610,8 +771,14 @@ const inRect = (m, r) => m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= 
 // which button (if any) is under the pointer on the current screen
 function buttonAt(e) {
   const m = pointerPos(e);
-  if (inMenu) return inRect(m, playBtn) ? 'play' : null;
-  if (levelComplete) return inRect(m, lcMenuBtn) ? 'menu' : null;
+  if (inShop) {
+    if (inRect(m, shopMenuBtn)) return 'menu';
+    const rs = offerRects();
+    for (let i = 0; i < rs.length; i++) if (inRect(m, rs[i])) return 'card' + i;
+    return null;
+  }
+  if (inMenu) return inRect(m, playBtn) ? 'play' : inRect(m, shopBtn) ? 'shop' : null;
+  if (levelComplete) return inRect(m, lcMenuBtn) ? 'menu' : inRect(m, lcShopBtn) ? 'shop' : null;
   if (gameOver) {
     if (inRect(m, againBtn)) return 'again';
     if (inRect(m, menuBtn)) return 'menu';
@@ -630,6 +797,8 @@ canvas.addEventListener('pointerdown', e => {
   if (id) playPop();
   if (id === 'play' || id === 'again') { restart(); inMenu = false; hoverBtn = null; }
   if (id === 'menu') { toMenu(); hoverBtn = null; }
+  if (id === 'shop') { openShop(); hoverBtn = null; }
+  if (id && id.startsWith('card')) buyOffer(Number(id.slice(4)));
 });
 
 (async function main() {
@@ -644,6 +813,10 @@ canvas.addEventListener('pointerdown', e => {
   const gunRW = gun.rw = Math.round(gunR.width * GUN_H / gunR.height);
   player.y = GROUND_Y - player.h;
 
+  menuBgImg = menuImg; menuBackImg = menuBtnImg;
+  [shopBtnImg, cardFrameImg, coinImg] = await Promise.all(['shop-button', 'card-frame', 'coin'].map(n => load(assetUrl(n))));
+  for (const u of UPGRADES) upgradeImgs[u.id] = await load(assetUrl('upgrade-' + u.id));
+  if (document.fonts) document.fonts.load('24px Rye').catch(() => {});
   // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
   const againW = 300, againH = Math.round(againW * playAgainImg.height / playAgainImg.width);
   Object.assign(againBtn, { x: (W - againW) / 2, y: (H - againH) / 2, w: againW, h: againH });
@@ -655,6 +828,14 @@ canvas.addEventListener('pointerdown', e => {
   Object.assign(lcMenuBtn, { x: W - lcW - 70, y: 500, w: lcW, h: Math.round(lcW * menuBtnImg.height / menuBtnImg.width) });
   const playW = 260;                        // menu: PLAY, smaller and higher up
   Object.assign(playBtn, { x: (W - playW) / 2, y: 270, w: playW, h: Math.round(playW * playBtnImg.height / playBtnImg.width) });
+  {
+    const sw = 220, sh = Math.round(sw * shopBtnImg.height / shopBtnImg.width);
+    Object.assign(shopBtn, { x: (W - sw) / 2, y: playBtn.y + playBtn.h + 14, w: sw, h: sh });
+    Object.assign(lcShopBtn, { x: lcMenuBtn.x, y: lcMenuBtn.y - sh - 12, w: lcMenuBtn.w, h: Math.round(lcMenuBtn.w * shopBtnImg.height / shopBtnImg.width) });
+    lcShopBtn.y = lcMenuBtn.y - lcShopBtn.h - 12;
+    Object.assign(shopMenuBtn, { x: W - 250 - 30, y: H - Math.round(250 * menuBtnImg.height / menuBtnImg.width) - 16, w: 250, h: Math.round(250 * menuBtnImg.height / menuBtnImg.width) });
+  }
+
 
   stainSprites.yellow = stainYellowImg;
   stainSprites.red = stainRedImg;
@@ -671,9 +852,15 @@ canvas.addEventListener('pointerdown', e => {
   function frame(now) {
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
+    if (inShop) {
+      drawShop(dt);
+      requestAnimationFrame(frame);
+      return;
+    }
     if (inMenu) {
       ctx.drawImage(menuImg, 0, 0, W, H);
       drawButton(playBtnImg, playBtn, hoverBtn === 'play');
+      drawButton(shopBtnImg, shopBtn, hoverBtn === 'shop');
       requestAnimationFrame(frame);
       return;
     }
@@ -789,15 +976,18 @@ canvas.addEventListener('pointerdown', e => {
 
     // Hearts: small, top-left corner (screen space). Lost hearts stay as faint ghosts.
     const hh = 38, hw = Math.round(heartImg.width * hh / heartImg.height);
-    for (let i = 0; i < MAX_HEARTS; i++) {
+    for (let i = 0; i < maxHearts(); i++) {
       ctx.globalAlpha = i < hearts ? 1 : 0.18;
       ctx.drawImage(heartImg, 20 + i * (hw + 8), 18, hw, hh);
     }
     ctx.globalAlpha = 1;
+    ctx.drawImage(coinImg, 20, 64, 30, 30);
+    drawText(String(save.coins), 58, 88, 26, '#ffd21f', 'bold ' + BODY_FONT, 'left', '#000');
 
     if (levelComplete) {
       ctx.drawImage(levelCompleteImg, 0, 0, W, H);
       drawButton(menuBtnImg, lcMenuBtn, hoverBtn === 'menu');
+      drawButton(shopBtnImg, lcShopBtn, hoverBtn === 'shop');
     }
     if (gameOver) {
       ctx.drawImage(gameOverImg, 0, 0, W, H);
