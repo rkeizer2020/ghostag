@@ -480,32 +480,133 @@ function guardHitbox(g) {
 // You start with 5. A guard touching you costs one; then you blink for a moment
 // and can't be hurt again straight away.
 const INVULN_TIME = 1.5;
-// Subject 394 (level 2 only): walks exactly the path you walked (jumps included), 35% slower than you.
+// Subject 394 (level 2 only): follows you, 20% slower than you.
 // Every hit takes 2 hearts. 8 bullet hits destroy him.
-const GHOST_LEVEL = 2, GHOST_SPEED = 0.65, GHOST_DELAY = 8, GHOST_DAMAGE = 2, GHOST_FADE = 1.5, GHOST_HP = 8, GHOST_DYING = 0.5;
-const ghost = { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0, hp: GHOST_HP, dead: false, dying: 0, flash: 0 };
+const GHOST_LEVEL = 2, GHOST_SPEED = 0.8, GHOST_DELAY = 8, GHOST_DAMAGE = 2, GHOST_FADE = 1.5, GHOST_HP = 8, GHOST_DYING = 0.5;
+const ghost = { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0, hp: GHOST_HP, dead: false, dying: 0, flash: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, plan: null, planT: 0 };
 let ghostImg;
-function resetGhost() { Object.assign(ghost, { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0, hp: GHOST_HP, dead: false, dying: 0, flash: 0 }); }
+function resetGhost() { Object.assign(ghost, { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0, hp: GHOST_HP, dead: false, dying: 0, flash: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, plan: null, planT: 0 }); }
 function updateGhost(dt) {
   if (levelNo() !== GHOST_LEVEL) return;
   ghost.flash = Math.max(0, ghost.flash - dt);
   if (ghost.dead) { ghost.dying = Math.max(0, ghost.dying - dt); return; }   // destroyed
   if (hearts <= 0) return;
   ghost.time += dt;
-  ghost.trail.push({ t: ghost.time, x: player.x, y: player.y });
-  if (ghost.time < GHOST_DELAY) return;
-  ghost.active = true;
+  if (!ghost.active) {
+    if (ghost.time < GHOST_DELAY) return;
+    // he shows up on the ground at the far end of the map, away from you
+    ghost.active = true;
+    ghost.x = player.x < WORLD_W / 2 ? WORLD_W - WALL_W - 140 : WALL_W + 90;
+    ghost.y = GROUND_Y - player.h; ghost.vx = 0; ghost.vy = 0; ghost.onGround = true;
+  }
   ghost.age += dt;
-  ghost.play += dt * GHOST_SPEED;
-  const tr = ghost.trail;
-  while (ghost.idx > 0 && tr[ghost.idx].t > ghost.play) ghost.idx--;   // (pushed back by a perfect block)
-  while (ghost.idx + 1 < tr.length - 1 && tr[ghost.idx + 1].t <= ghost.play) ghost.idx++;
-  const a = tr[ghost.idx], b = tr[Math.min(ghost.idx + 1, tr.length - 1)];
-  const f = b.t > a.t ? Math.max(0, Math.min(1, (ghost.play - a.t) / (b.t - a.t))) : 0;
-  ghost.x = a.x + (b.x - a.x) * f;
-  ghost.y = a.y + (b.y - a.y) * f;
-  ghost.moving = Math.abs(b.x - a.x) > 0.01 ? 1 : 0;
-  if (ghost.idx > 4000) { tr.splice(0, ghost.idx - 1); ghost.idx = 1; }   // forget the part he already walked
+  if (ghost.age < GHOST_FADE) return;     // he stands still while he fades in
+  ghostChase(dt);
+}
+
+// Subject 394 just follows you. He knows which platform leads to which (found by trying the jumps out in
+// his head), walks to the right spot, jumps up, or walks off an edge to come down, and then walks to you.
+// He is 20% slower than you.
+function simulateMove(x0, feet0, dir, speed, vy0, skip) {   // where does this jump / fall land? (platform index, -1 = the ground)
+  let x = x0 - player.w / 2, y = feet0 - player.h, vy = vy0;
+  for (let i = 0; i < 110; i++) {
+    const prevBottom = y + player.h, prevHead = y, dt = 0.016;
+    vy += (vy < 0 ? GRAVITY_UP : GRAVITY_DOWN) * dt;
+    x = Math.max(WALL_W, Math.min(WORLD_W - WALL_W - player.w, x + dir * speed * dt));
+    y += vy * dt;
+    if (y < CEILING_H - 6) { y = CEILING_H - 6; if (vy < 0) vy = 0; }
+    if (vy < 0) for (const p of platforms) if (x + player.w > p.x && x < p.x + p.w && prevHead >= p.ceil && y < p.ceil) { y = p.ceil; vy = 0; }
+    if (vy >= 0) for (let k = 0; k < platforms.length; k++) {
+      const p = platforms[k];
+      if (k !== skip && x + player.w > p.x && x < p.x + p.w && prevBottom <= p.top && y + player.h >= p.top) return k;
+    }
+    if (y + player.h >= GROUND_Y) return -1;
+  }
+  return null;
+}
+let ghostGraph = null, ghostGraphSpeed = 0;
+function buildGhostGraph(speed) {   // node -1 = the ground, 0.. = the platforms; an edge = a jump or a walk off an edge
+  const minX = WALL_W + 20, maxX = WORLD_W - WALL_W - 20, g = new Map();
+  for (let A = -1; A < platforms.length; A++) {
+    const edges = [], pa = A >= 0 ? platforms[A] : null;
+    const feet = pa ? pa.top : GROUND_Y;
+    const L = pa ? Math.max(minX, pa.x + 10) : minX, R = pa ? Math.min(maxX, pa.x + pa.w - 10) : maxX;
+    const seen = new Set();
+    for (let sx = L; sx <= R; sx += 6) for (const dir of [-1, 1]) {
+      const B = simulateMove(sx, feet, dir, speed, -JUMP_SPEED, A);
+      if (B === null || B === A || (B >= 0 ? platforms[B].top : GROUND_Y) > feet - 15) continue;   // jumps only go up
+      // robust: a few pixels earlier or later has to land on the same platform
+      if (simulateMove(sx - 6, feet, dir, speed, -JUMP_SPEED, A) !== B || simulateMove(sx + 6, feet, dir, speed, -JUMP_SPEED, A) !== B) continue;
+      const key = B + ':' + dir;
+      if (!seen.has(key)) { seen.add(key); edges.push({ to: B, standX: sx, dir, kind: 'jump' }); }
+    }
+    if (pa) for (const side of [-1, 1]) {   // walking off an edge
+      const edge = side < 0 ? pa.x : pa.x + pa.w;
+      if (side < 0 ? pa.x <= minX : pa.x + pa.w >= maxX) continue;
+      const standX = edge + side * 40, B = simulateMove(standX, feet, side, speed, 0, A);
+      if (B !== null && B !== A) edges.push({ to: B, standX, dir: side, kind: 'walk' });
+    }
+    g.set(A, edges);
+  }
+  return g;
+}
+// the first step of the shortest way from node `from` to node `to`
+function ghostNextStep(from, to, speed) {
+  if (!ghostGraph || ghostGraphSpeed !== speed) { ghostGraph = buildGhostGraph(speed); ghostGraphSpeed = speed; }
+  const prev = new Map([[from, null]]), queue = [from];
+  while (queue.length) {
+    const n = queue.shift();
+    if (n === to) break;
+    for (const e of ghostGraph.get(n) || []) if (!prev.has(e.to)) { prev.set(e.to, { from: n, edge: e }); queue.push(e.to); }
+  }
+  if (!prev.has(to) || to === from) return null;
+  let cur = to, step = null;
+  while (prev.get(cur)) { step = prev.get(cur).edge; cur = prev.get(cur).from; }
+  return step;
+}
+// the platform (or ground) a spot is above
+function nodeAt(cx, feet) {
+  let best = -1, bestTop = GROUND_Y;
+  platforms.forEach((p, i) => { if (cx > p.x - 6 && cx < p.x + p.w + 6 && p.top >= feet - 10 && p.top < bestTop) { best = i; bestTop = p.top; } });
+  return best;
+}
+function ghostChase(dt) {
+  const gcx = ghost.x + player.w / 2, pcx = player.x + player.w / 2;
+  const gfeet = ghost.y + player.h, pfeet = player.y + player.h;
+  const speed = moveSpeed() * GHOST_SPEED;
+  let target = pcx, jump = 0;
+  if (ghost.onGround) {
+    const idx = platforms.findIndex(p => Math.abs(gfeet - p.top) < 3 && ghost.x + player.w > p.x && ghost.x < p.x + p.w);   // -1: the ground
+    const step = ghostNextStep(idx, nodeAt(pcx, pfeet), speed);
+    if (step) {
+      target = step.standX;
+      if (step.kind === 'jump' && Math.abs(gcx - step.standX) <= 4) jump = step.dir;
+    }
+  }
+  let dir = Math.abs(target - gcx) > 4 ? Math.sign(target - gcx) : 0;
+  if (jump && ghost.onGround) { ghost.vy = -JUMP_SPEED; ghost.onGround = false; ghost.airDir = jump; }
+  if (!ghost.onGround) dir = ghost.airDir || ghost.dir || 1;                // in the air he keeps going the way he was going
+  if (ghost.kb > 0) { ghost.kb -= dt; ghost.vx = ghost.kbVx; } else ghost.vx = dir * speed;   // (pushed back by a perfect block)
+  if (dir) ghost.dir = dir;
+  // the same physics as yours
+  const prevBottom = ghost.y + player.h, prevHead = ghost.y, startX = ghost.x;
+  ghost.vy += (ghost.vy < 0 ? GRAVITY_UP : GRAVITY_DOWN) * dt;
+  ghost.x += ghost.vx * dt;
+  ghost.y += ghost.vy * dt;
+  ghost.onGround = false;
+  ghost.x = Math.max(WALL_W, Math.min(WORLD_W - WALL_W - player.w, ghost.x));
+  if (ghost.y < CEILING_H - 6) { ghost.y = CEILING_H - 6; if (ghost.vy < 0) ghost.vy = 0; }
+  if (ghost.vy < 0) for (const p of platforms) {
+    if (ghost.x + player.w > p.x && ghost.x < p.x + p.w && prevHead >= p.ceil && ghost.y < p.ceil) { ghost.y = p.ceil; ghost.vy = 0; }
+  }
+  if (ghost.vy >= 0) for (const p of platforms) {
+    const bottom = ghost.y + player.h;
+    if (ghost.x + player.w > p.x && ghost.x < p.x + p.w && prevBottom <= p.top && bottom >= p.top) { ghost.y = p.top - player.h; ghost.vy = 0; ghost.onGround = true; }
+  }
+  if (ghost.y + player.h >= GROUND_Y) { ghost.y = GROUND_Y - player.h; ghost.vy = 0; ghost.onGround = true; }
+  if (ghost.onGround) ghost.airDir = 0;
+  ghost.moving = ghost.onGround && Math.abs(ghost.x - startX) > 0.01 ? 1 : 0;
+  if (ghost.moving) ghost.play += dt;
 }
 function ghostBox() {
   const h = player.h * 1.2, w = h * ghostImg.width / ghostImg.height, cx = ghost.x + player.w / 2, feet = ghost.y + player.h;
@@ -720,7 +821,7 @@ function updateHealth(dt) {
         shield.flash = 0.3;
         invuln = 0.6;
         hurtGhost(GHOST_DAMAGE);
-        ghost.play = Math.max(0, ghost.play - 0.7);
+        ghost.kb = 0.25; ghost.kbVx = (hb.x + hb.w / 2 > p.x + p.w / 2 ? 1 : -1) * 320;   // pushed back
       } else hurtPlayer(GHOST_DAMAGE);
     }
   }
