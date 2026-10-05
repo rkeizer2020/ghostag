@@ -424,8 +424,8 @@ addEventListener('keyup', e => { keys[e.key] = false; });
 
 const player = { x: 100, y: 0, w: 0, h: 0, vx: 0, vy: 0, onGround: false, facing: 1, walkTime: 0 };
 // Subject 0005 (the player) stands still with one drawing and walks with two that swap
-// every 0.05 s. A walk always starts on walk frame 1.
-const WALK_FRAME_TIME = 0.05;
+// every 0.1 s. A walk always starts on walk frame 1.
+const WALK_FRAME_TIME = 0.1;
 
 function gunTop() {
   return player.y + player.h * 0.55 - GUN_H / 2;
