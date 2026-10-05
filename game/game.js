@@ -142,6 +142,42 @@ function splashSound() {
   osc.stop(t + 0.15);
 }
 
+// --- Painting the map -----------------------------------------------------------------
+// The goal: paint every surface. Defeating an enemy leaves a paint stain where he stood
+// (yellow for the yellow guard on the ground and big platforms, red for the red guard
+// on the small platforms), but only on a part of the surface that isn't painted yet.
+// A surface is split in equal parts, and it turns green when every part has a stain:
+// the main ground needs 6, each big platform 4 and each small platform 1.
+const PAINT_SURFACES = {};   // id -> { n parts, minX, maxX, y (the line you stand on) }
+const paintDone = {};        // id -> array of booleans, one per part
+const stains = [];           // { x, y, color }
+const stainSprites = { yellow: null, red: null };
+let paintImgs = null;        // green drawings
+
+function setupPaint() {
+  const span = p => ({ minX: Math.max(p.x, WALL_W), maxX: Math.min(p.x + p.w, WORLD_W - WALL_W), y: p.top });
+  PAINT_SURFACES.ground = { n: 6, minX: WALL_W, maxX: WORLD_W - WALL_W, y: GROUND_Y };
+  platforms.forEach((p, i) => { PAINT_SURFACES[i] = Object.assign({ n: MINI_PLATFORMS.includes(i) ? 1 : 4 }, span(p)); });
+  resetPaint();
+}
+
+function resetPaint() {
+  stains.length = 0;
+  for (const id in PAINT_SURFACES) paintDone[id] = new Array(PAINT_SURFACES[id].n).fill(false);
+}
+
+const isPainted = id => paintDone[id].every(Boolean);
+
+// An enemy was defeated while standing at x on surface `id`.
+function paintStain(id, x, color) {
+  const s = PAINT_SURFACES[id];
+  if (!s) return;
+  const part = Math.max(0, Math.min(s.n - 1, Math.floor((x - s.minX) / ((s.maxX - s.minX) / s.n))));
+  if (paintDone[id][part]) return;           // this part already has paint: nothing happens
+  paintDone[id][part] = true;
+  stains.push({ x, y: s.y, color });
+}
+
 // --- Enemies: the yellow guard ----------------------------------------------
 // Patrols left and right on the main ground or a big platform. He can't jump and
 // never walks off: he turns around at the edge. (8 hits take him out.)
@@ -149,10 +185,10 @@ const GUARD_H = 80, GUARD_SPEED = MOVE_SPEED, GUARD_HP = 8; // as fast as the pl
 const guards = [];
 const guardSprites = { left: null, right: null };
 
-function spawnGuard(x, surfaceY, minX, maxX, dir) {
+function spawnGuard(x, surfaceY, minX, maxX, dir, surface) {
   const img = guardSprites.right;
   const h = GUARD_H, w = Math.round(img.width * h / img.height);
-  guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: GUARD_HP, flash: 0 });
+  guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: GUARD_HP, flash: 0, surface });
 }
 
 // --- Enemies: the red guard ------------------------------------------------------
@@ -245,9 +281,9 @@ const enemyTypes = [
 function spawnSurfaces() {
   const mid = platforms[1], top = platforms[0];
   return [
-    { y: GROUND_Y, minX: WALL_W, maxX: WORLD_W - WALL_W },       // main ground
-    { y: mid.top, minX: mid.x, maxX: mid.x + mid.w },            // lowest big platform
-    { y: top.top, minX: top.x, maxX: top.x + top.w },            // highest platform
+    { id: 'ground', y: GROUND_Y, minX: WALL_W, maxX: WORLD_W - WALL_W },       // main ground
+    { id: 1, y: mid.top, minX: mid.x, maxX: mid.x + mid.w },            // lowest big platform
+    { id: 0, y: top.top, minX: top.x, maxX: top.x + top.w },            // highest platform
   ];
 }
 
@@ -270,7 +306,7 @@ function updateSpawner(dt) {
       if (!best || gap > best.gap) best = { surface, x, gap };
       if (gap >= SPAWN_GAP) break;
     }
-    type.spawn(best.x, best.surface.y, best.surface.minX, best.surface.maxX, Math.random() < 0.5 ? -1 : 1);
+    type.spawn(best.x, best.surface.y, best.surface.minX, best.surface.maxX, Math.random() < 0.5 ? -1 : 1, best.surface.id);
   }
 }
 
@@ -318,6 +354,7 @@ function restart() {
   redGuards.length = 0;
   bullets.length = 0;
   enemyBullets.length = 0;
+  resetPaint();
   for (const type of enemyTypes) type.timer = 0;
   Object.assign(player, { x: 100, y: GROUND_Y - player.h, vx: 0, vy: 0, onGround: false });
   for (const k in keys) keys[k] = false;
@@ -401,7 +438,12 @@ function updateBullets(dt) {
         if (b.x + b.w / 2 > hb.x && b.x - b.w / 2 < hb.x + hb.w && b.y + b.h / 2 > hb.y && b.y - b.h / 2 < hb.y + hb.h) {
           hit = true;
           g.flash = 0.15;
-          if (--g.hp <= 0) list.splice(j, 1);
+          if (--g.hp <= 0) {
+            list.splice(j, 1);
+            // he leaves a paint stain where he stood (yellow guard: yellow, red guard: red)
+            if (list === guards) paintStain(g.surface, g.x + g.w / 2, 'yellow');
+            else paintStain(g.platform, g.x + g.w / 2, 'red');
+          }
         }
       }
     }
@@ -517,8 +559,8 @@ canvas.addEventListener('pointerdown', e => {
 
 (async function main() {
   initAudio();   // starts silent until the first click or key press
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg, playAgainImg, redGuardImg, redGunImg, redBulletImg] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button', 'play-again-button', 'red-guard', 'red-gun', 'red-bullet'].map(n => load(`assets/${n}.png`)));
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg, playAgainImg, redGuardImg, redGunImg, redBulletImg, stainYellowImg, stainRedImg, platGreenImg, groundGreenImg] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button', 'play-again-button', 'red-guard', 'red-gun', 'red-bullet', 'stain-yellow', 'stain-red', 'platform-green', 'ground-green'].map(n => load(`assets/${n}.png`)));
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
   for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
@@ -536,6 +578,10 @@ canvas.addEventListener('pointerdown', e => {
   menuBtn.y = againBtn.y - menuBtn.h - 10;
   const playW = 260;                        // menu: PLAY, smaller and higher up
   Object.assign(playBtn, { x: (W - playW) / 2, y: 270, w: playW, h: Math.round(playW * playBtnImg.height / playBtnImg.width) });
+
+  stainSprites.yellow = stainYellowImg;
+  stainSprites.red = stainRedImg;
+  setupPaint();
 
   redSprites.guard = redGuardImg;
   redSprites.gun = redGunImg;
@@ -563,15 +609,22 @@ canvas.addEventListener('pointerdown', e => {
     ctx.scale(ZOOM, ZOOM);
     ctx.translate(-camX, -camY);
     ctx.drawImage(bg, 0, 0, TILE_W, TILE_H);
-    for (const p of platforms) ctx.drawImage(platSprite, p.x, p.y, p.w, p.h);
+    platforms.forEach((p, i) => ctx.drawImage(isPainted(i) ? platGreenImg : platSprite, p.x, p.y, p.w, p.h));
     // Walls and ground: a white fill plus drawings that run past the map edges,
     // so the edges are completely covered with no background showing through.
     const OVER = 40;
-    ctx.fillStyle = '#fff';
+    const groundDone = isPainted('ground');
+    ctx.fillStyle = groundDone ? '#4caf3c' : '#fff';
     ctx.fillRect(0, GROUND_TOP + 6, WORLD_W, WORLD_H - GROUND_TOP);
+    ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, WORLD_W, CEILING_H - 6);
-    ctx.drawImage(groundSprite, -OVER, GROUND_TOP, WORLD_W + 2 * OVER, GROUND_H + OVER);
+    ctx.drawImage(groundDone ? groundGreenImg : groundSprite, -OVER, GROUND_TOP, WORLD_W + 2 * OVER, GROUND_H + OVER);
     ctx.drawImage(ceilSprite, -OVER, -OVER, WORLD_W + 2 * OVER, CEILING_H + OVER);
+    // paint stains lie on the surface they were made on
+    for (const st of stains) {
+      const img = stainSprites[st.color], sw = 60, sh = sw * img.height / img.width;
+      ctx.drawImage(img, st.x - sw / 2, st.y - sh * 0.7, sw, sh);
+    }
     for (const g of guards) {
       // a hit makes him blink
       if (g.flash > 0 && Math.floor(g.flash * 40) % 2 === 0) continue;
