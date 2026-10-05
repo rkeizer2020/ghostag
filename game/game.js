@@ -373,7 +373,7 @@ function restart() {
   enemyBullets.length = 0;
   resetPaint();
   for (const type of enemyTypes) type.timer = 0;
-  Object.assign(player, { x: 100, y: GROUND_Y - player.h, vx: 0, vy: 0, onGround: false });
+  Object.assign(player, { x: 100, y: GROUND_Y - player.h, vx: 0, vy: 0, onGround: false, walkTime: 0 });
   for (const k in keys) keys[k] = false;
 }
 
@@ -422,7 +422,10 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { keys[e.key] = false; });
 
-const player = { x: 100, y: 0, w: 0, h: 0, vx: 0, vy: 0, onGround: false, facing: 1 };
+const player = { x: 100, y: 0, w: 0, h: 0, vx: 0, vy: 0, onGround: false, facing: 1, walkTime: 0 };
+// Subject 0005 (the player) stands still with one drawing and walks with two that swap
+// every 0.2 s. A walk always starts on walk frame 1.
+const WALK_FRAME_TIME = 0.2;
 
 function gunTop() {
   return player.y + player.h * 0.55 - GUN_H / 2;
@@ -477,6 +480,7 @@ function updateBullets(dt) {
 }
 
 function update(dt) {
+  const startX = player.x;
   updateBullets(dt);
   updateSpawner(dt);
   updateGuards(dt);
@@ -534,6 +538,10 @@ function update(dt) {
     player.vy = 0;
     player.onGround = true;
   }
+
+  // walking = actually moving along a surface (not standing, not in the air, not pushing on a wall)
+  const walking = player.onGround && Math.abs(player.x - startX) > 0.01;
+  player.walkTime = walking ? player.walkTime + dt : 0;
 }
 
 // A button drawing; it grows a little while the pointer is over it.
@@ -576,8 +584,8 @@ canvas.addEventListener('pointerdown', e => {
 
 (async function main() {
   initAudio();   // starts silent until the first click or key press
-  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg, playAgainImg, redGuardImg, redGunImg, redBulletImg, stainYellowImg, stainRedImg, platGreenImg, groundGreenImg] = await Promise.all(
-    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button', 'play-again-button', 'red-guard', 'red-gun', 'red-bullet', 'stain-yellow', 'stain-red', 'platform-green', 'ground-green'].map(n => load(`assets/${n}.png`)));
+  const [bg, sprite, platSprite, groundSprite, wallL, wallR, ceilSprite, gunL, gunR, guardL, guardR, heartImg, gameOverImg, menuImg, menuBtnImg, playBtnImg, playAgainImg, redGuardImg, redGunImg, redBulletImg, stainYellowImg, stainRedImg, platGreenImg, groundGreenImg, walk1Img, walk2Img] = await Promise.all(
+    ['background', 'player', 'platform', 'ground', 'wall-left', 'wall-right', 'ceiling', 'gun-left', 'gun-right', 'guard-left', 'guard-right', 'heart', 'game-over', 'menu', 'menu-button', 'play-button', 'play-again-button', 'red-guard', 'red-gun', 'red-bullet', 'stain-yellow', 'stain-red', 'platform-green', 'ground-green', 'player-walk-1', 'player-walk-2'].map(n => load(`assets/${n}.png`)));
   const bulletNames = { left: ['bullet-l-1', 'bullet-l-2', 'bullet-l-3'], right: ['bullet-r-1', 'bullet-r-2', 'bullet-r-3'] };
   for (const side of ['left', 'right']) bulletSprites[side] = await Promise.all(bulletNames[side].map(n => load(`assets/${n}.png`)));
   player.h = PLAYER_H;
@@ -660,7 +668,10 @@ canvas.addEventListener('pointerdown', e => {
       ctx.restore();
     }
     const blink = invuln > 0 && Math.floor(invuln * 10) % 2 === 0;
-    if (!blink) ctx.drawImage(sprite, player.x, player.y, player.w, player.h);
+    // standing drawing, or the walk drawings (frame 1 first), all drawn at the same size
+    const walkFrame = player.walkTime > 0 ? Math.floor(player.walkTime / WALK_FRAME_TIME) % 2 : -1;
+    const bodyImg = walkFrame < 0 ? sprite : (walkFrame === 0 ? walk1Img : walk2Img);
+    if (!blink) ctx.drawImage(bodyImg, player.x, player.y, player.w, player.h);
     // Left gun on the left side, right gun on the right side of the character.
     const gunY = gunTop();
     if (!blink) {
