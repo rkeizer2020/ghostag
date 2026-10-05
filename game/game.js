@@ -181,7 +181,7 @@ function writeSave() {
   store.set(saveKey(), JSON.stringify(save));
   if (session) { clearTimeout(pushTimer); pushTimer = setTimeout(() => Auth.push().catch(() => {}), 1500); }   // also to the server
 }
-let brushImg, shieldImg, bodyImg0005;   // the drawings of the two characters
+let brushImg, shieldImg, bodyImg0005, manIdleImg, manWalk1Img, manWalk2Img, manCardImg;   // the drawings of the two characters
 // replace the progress in `save` with another saved game (login / logout)
 function loadSave(raw) {
   let data = {};
@@ -202,7 +202,7 @@ const CHARACTERS = [{ id: '0005', name: 'SUBJECT 0005' }, { id: '0300', name: 'S
 const characterUnlocked = id => id === '0005' || isOwner();
 const unlockedCharacters = () => CHARACTERS.filter(c => characterUnlocked(c.id));
 function charId() { return characterUnlocked(save.character) ? save.character : '0005'; }
-const charImg = () => (charId() === '0300' ? brushImg : bodyImg0005);
+const charImg = () => (charId() === '0300' ? manIdleImg : bodyImg0005);
 function applyCharacter() {   // the body is as wide as his drawing
   const img = charImg();
   if (img) player.w = Math.round(img.width * PLAYER_H / img.height);
@@ -1195,7 +1195,7 @@ const CHAR_INFO = {
     attacks: ['Paint bullets: 1 damage each, one shot per press (0.2 s between shots per gun).', 'Your equipped upgrade cards work for him.'],
   },
   '0300': {
-    about: 'A brush with a heart as its tip and a round shield.',
+    about: 'A little black man with a giant brush and a round shield.',
     controls: ['<- ->  walk (leaves an ink trail)', 'UP  jump', '1  swing the giant brush', '2  raise the shield'],
     attacks: [
       'Brush swing: 3 damage to every enemy in front of you, in the direction you look. It cannot reach through platforms. 0.75 s before you can swing again.',
@@ -1225,7 +1225,7 @@ function drawChars() {
     ctx.fillStyle = sel ? 'rgba(20,40,110,0.85)' : 'rgba(12,8,22,0.8)';
     ctx.strokeStyle = sel ? '#4a8bff' : '#000'; ctx.lineWidth = sel ? 6 : 5;
     ctx.beginPath(); ctx.roundRect(r.x, r.y, r.w, r.h, 16); ctx.fill(); ctx.stroke();
-    const img = r.id === '0300' ? brushImg : bodyImg0005, ih = 190, iw = ih * img.width / img.height;
+    const img = r.id === '0300' ? manCardImg : bodyImg0005, ih = 190, iw = ih * img.width / img.height;
     ctx.globalAlpha = unlocked ? 1 : 0.35;
     ctx.drawImage(img, r.x + (r.w - iw) / 2, r.y + 22 + (hov ? -4 : 0), iw, ih);
     ctx.globalAlpha = 1;
@@ -1336,7 +1336,7 @@ canvas.addEventListener('pointerdown', e => {
   player.y = GROUND_Y - player.h;
 
   menuBgImg = menuImg; menuBackImg = menuBtnImg;
-  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button'].map(n => load(assetUrl(n))));
+  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg, manIdleImg, manWalk1Img, manWalk2Img, manCardImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button', 'man-0300-idle', 'man-0300-walk-1', 'man-0300-walk-2', 'man-0300-card'].map(n => load(assetUrl(n))));
   for (const u of UPGRADES) upgradeImgs[u.id] = await load(assetUrl('upgrade-' + u.id));
   if (document.fonts) document.fonts.load('24px Rye').catch(() => {});
   // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
@@ -1488,7 +1488,7 @@ canvas.addEventListener('pointerdown', e => {
       }
       ctx.globalAlpha = 1;
     }
-    const sway = isBrush && player.walkTime === 0 && player.onGround ? Math.sin(performance.now() / 1000 * 1.7) * 0.045 : 0;   // the brush sways when he stands still
+    const sway = isBrush && player.walkTime === 0 && player.onGround ? Math.sin(performance.now() / 1000 * 1.7) * 0.02 : 0;   // he sways when he stands still
     const hop = player.walkTime > 0 ? -Math.abs(Math.sin(Math.PI * player.walkTime / WALK_FRAME_TIME)) * (isBrush ? 5 : 2.2) : 0;   // a small hop on every step
     const pivotX = player.x + player.w / 2, pivotY = player.y + player.h;   // everything pivots around his feet
     ctx.save();
@@ -1498,11 +1498,20 @@ canvas.addEventListener('pointerdown', e => {
     ctx.translate(-pivotX, -pivotY);
     // which drawing: walking swaps walk 1 / walk 2; standing cycles base, low, base, high
     const idleCycle = [idleBaseImg, idleLowImg, idleBaseImg, idleHighImg];
-    if (player.walkTime > 0) setPose(Math.floor(player.walkTime / WALK_FRAME_TIME) % 2 === 0 ? walk1Img : walk2Img, FADE_WALK);
-    else setPose(idleCycle[Math.floor(player.idleTime / IDLE_FRAME_TIME) % 4], FADE_IDLE);
+    if (player.walkTime > 0) setPose(Math.floor(player.walkTime / WALK_FRAME_TIME) % 2 === 0 ? (isBrush ? manWalk1Img : walk1Img) : (isBrush ? manWalk2Img : walk2Img), FADE_WALK);
+    else setPose(isBrush ? manIdleImg : idleCycle[Math.floor(player.idleTime / IDLE_FRAME_TIME) % 4], FADE_IDLE);
     pose.fade = Math.min(1, pose.fade + dt / pose.fadeTime);
     const blink = invuln > 0 && Math.floor(invuln * 10) % 2 === 0;
-    if (!blink && !isBrush) {
+    if (isBrush && !blink && swing.t <= 0) {
+      // the little black man holds his brush behind him, leaning away from the side he faces (like in the logo)
+      const f = player.facing || 1, bh = 92, bw = bh * brushImg.width / brushImg.height;
+      ctx.save();
+      ctx.translate(player.x + player.w / 2 - f * player.w * 0.42, player.y + player.h * 0.8);
+      ctx.rotate(-f * 0.32 + Math.sin(performance.now() / 1000 * 2.3) * 0.03);
+      ctx.drawImage(brushImg, -bw / 2, -bh, bw, bh);
+      ctx.restore();
+    }
+    if (!blink) {
       if (pose.fade < 1 && pose.prev) {
         ctx.drawImage(pose.prev, player.x, player.y, player.w, player.h);
         ctx.globalAlpha = pose.fade * pose.fade * (3 - 2 * pose.fade);   // eased
@@ -1519,8 +1528,7 @@ canvas.addEventListener('pointerdown', e => {
       ctx.drawImage(gunR, player.x + player.w - GUN_GRIP, gunY, gunRW, GUN_H);
     }
     if (isBrush && !blink) {
-      // SUBJECT 0300: the brush with the heart as its tip, and the round shield on the side he faces
-      ctx.drawImage(brushImg, player.x, player.y, player.w, player.h);
+      // SUBJECT 0300: the round shield on the side he faces
       vis.shield += ((player.facing || 1) - vis.shield) * (1 - Math.exp(-dt * 12));
       const up = shield.t > 0;   // raised: bigger and held out in front
       const sw = up ? 50 : 36, sh = sw * shieldImg.height / shieldImg.width;
