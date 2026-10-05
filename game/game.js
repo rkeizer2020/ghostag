@@ -430,9 +430,9 @@ const player = { x: 100, y: 0, w: 0, h: 0, vx: 0, vy: 0, onGround: false, facing
 // every 0.15 s. A walk always starts on walk frame 1.
 const WALK_FRAME_TIME = 0.3;
 // Standing: base -> head low -> base -> head high -> base ... (always starts on base).
-const IDLE_FRAME_TIME = 0.5;
+const IDLE_FRAME_TIME = 0.2;
 // Drawings fade into each other instead of snapping, which makes the animation smoother.
-const FADE_WALK = 0.12, FADE_IDLE = 0.3;
+const FADE_WALK = 0.12, FADE_IDLE = 0.12;
 const cam = { x: null, y: null };
 const pose = { cur: null, prev: null, fade: 1, fadeTime: FADE_IDLE };
 function setPose(img, fadeTime) {
