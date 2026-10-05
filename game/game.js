@@ -217,7 +217,7 @@ loadSave(store.get(saveKey()));
 // the level you are on: completing a level moves you up, dying keeps you where you are (there is no way back)
 const levelNo = () => save.level || 1;
 const owns = id => save.owned.includes(id);
-const has = id => save.equipped.includes(id);   // only equipped cards do anything
+const has = id => charId() === '0005' && save.equipped.includes(id);   // only equipped cards do anything (not for SUBJECT 0300 yet)
 
 // what the upgrades change
 const moveSpeed = () => MOVE_SPEED * (has(2) ? 1.1 : 1);
@@ -391,7 +391,11 @@ function updateRedGuards(dt) {
         b.x + r > p.x && b.x - r < p.x + p.w && b.y + r > p.top && b.y - r < p.ceil);
     // (the red guard's bullets make no sound)
     if (hitsPlayer) {
-      hurtPlayer();
+      if (charId() === '0300' && shield.t > 0 && shieldFaces(b.x - b.vx)) {
+        // blocked. In the first 0.2 s after raising the shield it is a PERFECT block: the bullet is thrown back
+        shield.flash = 0.3;
+        if (shield.age <= PERFECT_WINDOW) reflected.push({ x: b.x, y: b.y, vx: -b.vx * 1.3, vy: -b.vy * 1.3, angle: b.angle + Math.PI, w: b.w, h: b.h, dmg: 1 });
+      } else hurtPlayer();
       enemyBullets.splice(i, 1);
     } else if (hitsWorld) {
       enemyBullets.splice(i, 1);
@@ -494,6 +498,7 @@ function updateGhost(dt) {
   ghost.age += dt;
   ghost.play += dt * GHOST_SPEED;
   const tr = ghost.trail;
+  while (ghost.idx > 0 && tr[ghost.idx].t > ghost.play) ghost.idx--;   // (pushed back by a perfect block)
   while (ghost.idx + 1 < tr.length - 1 && tr[ghost.idx + 1].t <= ghost.play) ghost.idx++;
   const a = tr[ghost.idx], b = tr[Math.min(ghost.idx + 1, tr.length - 1)];
   const f = b.t > a.t ? Math.max(0, Math.min(1, (ghost.play - a.t) / (b.t - a.t))) : 0;
@@ -519,6 +524,84 @@ function drawGhost() {
   ctx.restore();
 }
 
+// SUBJECT 0300: key 1 swings the giant brush, key 2 raises the shield, and walking leaves an ink trail
+const SWING_COOLDOWN = 0.75, SWING_DAMAGE = 3, SWING_REACH = 95, SWING_TIME = 0.24;
+const SHIELD_TIME = 0.6, SHIELD_COOLDOWN = 0.3, PERFECT_WINDOW = 0.2;
+const INK_DAMAGE = 1, INK_LIFE = 1, INK_STEP = 8, INK_HIT_EVERY = 1;
+const swing = { t: 0, cd: 0, dir: 1, done: false };
+const shield = { t: 0, age: 0, cd: 0, flash: 0 };
+const ink = [];            // the pieces of the ink trail
+const reflected = [];      // bullets thrown back by a perfect block
+let lastInk = null, inkZig = 1;
+const overlap = (a, b) => a.x + a.w > b.x && a.x < b.x + b.w && a.y + a.h > b.y && a.y < b.y + b.h;
+// a platform's body is in the way (the brush can't reach through platforms)
+function sightBlocked(x1, y1, x2, y2) {
+  for (let i = 1; i <= 14; i++) {
+    const x = x1 + (x2 - x1) * i / 14, y = y1 + (y2 - y1) * i / 14;
+    if (platforms.some(p => x > p.x && x < p.x + p.w && y > p.top + 2 && y < p.ceil - 2)) return true;
+  }
+  return false;
+}
+function startSwing() {
+  if (swing.cd > 0 || hearts <= 0) return;
+  Object.assign(swing, { t: SWING_TIME, cd: SWING_COOLDOWN, dir: player.facing || 1, done: false });
+}
+function swingHit() {
+  const cx = player.x + player.w / 2, cy = player.y + player.h * 0.5;
+  const zone = { x: swing.dir > 0 ? cx - 6 : cx - SWING_REACH, y: player.y - 18, w: SWING_REACH + 6, h: player.h + 18 };
+  const reaches = hb => overlap(zone, hb) && !sightBlocked(cx, cy, hb.x + hb.w / 2, hb.y + hb.h / 2);
+  for (const list of [guards, redGuards]) for (let j = list.length - 1; j >= 0; j--) if (reaches(guardHitbox(list[j]))) hurtGuard(list, j, SWING_DAMAGE);
+  if (ghostHittable() && reaches(ghostBox())) hurtGhost(SWING_DAMAGE);
+}
+function raiseShield() {
+  if (shield.t > 0 || shield.cd > 0 || hearts <= 0) return;
+  Object.assign(shield, { t: SHIELD_TIME, age: 0 });
+}
+// the shield only stops what comes from the side you look at
+const shieldFaces = fromX => (player.facing >= 0 ? fromX > player.x + player.w / 2 : fromX < player.x + player.w / 2);
+function updateBrushMoves(dt) {
+  swing.cd = Math.max(0, swing.cd - dt);
+  if (swing.t > 0) {
+    swing.t -= dt;
+    if (!swing.done && swing.t <= SWING_TIME * 0.6) { swing.done = true; swingHit(); }   // the hit lands mid-swing
+  }
+  if (shield.t > 0) { shield.age += dt; if ((shield.t -= dt) <= 0) shield.cd = SHIELD_COOLDOWN; }
+  else shield.cd = Math.max(0, shield.cd - dt);
+  shield.flash = Math.max(0, shield.flash - dt);
+  for (let i = reflected.length - 1; i >= 0; i--) {   // thrown-back bullets hurt whoever they hit
+    const r = reflected[i];
+    r.x += r.vx * dt; r.y += r.vy * dt;
+    const rb = { x: r.x - r.w / 2, y: r.y - r.h / 2, w: r.w, h: r.h };
+    let used = false;
+    for (const list of [redGuards, guards]) for (let j = list.length - 1; j >= 0 && !used; j--) if (overlap(rb, guardHitbox(list[j]))) { hurtGuard(list, j, r.dmg); used = true; }
+    if (!used && ghostHittable() && overlap(rb, ghostBox())) { hurtGhost(r.dmg); used = true; }
+    if (used || r.x < WALL_W || r.x > WORLD_W - WALL_W || r.y < CEILING_H - 6 || r.y > GROUND_Y || platforms.some(p => r.x > p.x && r.x < p.x + p.w && r.y > p.top && r.y < p.ceil)) reflected.splice(i, 1);
+  }
+  // ink trail: a zigzag behind him while he walks; every piece is gone after 1 second
+  for (let i = ink.length - 1; i >= 0; i--) if ((ink[i].life -= dt) <= 0) ink.splice(i, 1);
+  if (player.onGround && Math.abs(player.vx) > 40) {
+    if (!lastInk || Math.abs(player.x - lastInk.px) >= INK_STEP) {
+      inkZig = -inkZig;
+      const seg = { x: player.x + player.w / 2, y: player.y + player.h - 4 + inkZig * 4, px: player.x, life: INK_LIFE, prev: lastInk && lastInk.life > 0 ? lastInk : null };
+      ink.push(seg); lastInk = seg;
+    }
+  } else lastInk = null;
+  for (const list of [guards, redGuards]) for (const g of list) g.inkCd = Math.max(0, (g.inkCd || 0) - dt);
+  ghost.inkCd = Math.max(0, (ghost.inkCd || 0) - dt);
+  if (ink.length) {
+    for (const list of [guards, redGuards]) for (let j = list.length - 1; j >= 0; j--) {
+      const g = list[j];
+      if (g.inkCd > 0) continue;
+      const hb = guardHitbox(g);
+      if (ink.some(k => overlap({ x: k.x - 10, y: k.y - 12, w: 20, h: 20 }, hb))) { g.inkCd = INK_HIT_EVERY; hurtGuard(list, j, INK_DAMAGE); }
+    }
+    if (ghostHittable() && !(ghost.inkCd > 0)) {
+      const gb = ghostBox();
+      if (ink.some(k => overlap({ x: k.x - 10, y: k.y - 12, w: 20, h: 20 }, gb))) { ghost.inkCd = INK_HIT_EVERY; hurtGhost(INK_DAMAGE); }
+    }
+  }
+}
+
 let hearts = 5;
 let invuln = 0;
 let dying = 0;          // short pause after the last heart before the game over screen
@@ -527,6 +610,8 @@ let levelComplete = false;   // the whole map is painted
 let completeTimer = 0;       // a short pause so you can see the last stain before the screen comes
 let inMenu = true;      // the game starts on the DRAWSHOT menu
 let inShop = false;     // the shop screen (opened from the menu or the level completed screen)
+let inChars = false;    // the character screen (EQUIP): pick who you play and read what he does
+let viewChar = '0005';  // the character whose info is shown
 let inCards = false;    // the cards screen: pick the (max 3) cards you play with
 let inLogin = false;    // the login box is open
 const shopMsg = { text: '', t: 0, good: false };
@@ -543,10 +628,10 @@ const cardsBtn = { x: 0, y: 0, w: 0, h: 0 };     // CARDS on the menu screen
 const lcNextBtn = { x: 0, y: 0, w: 0, h: 0 };    // NEXT on the level completed screen
 const lcCardsBtn = { x: 0, y: 0, w: 0, h: 0 };   // CARDS on the level completed screen
 const loginBtn = { x: 0, y: 0, w: 0, h: 0 };
-const charBtn = { x: 24, y: 18, w: 210, h: 100 };   // pick your character (menu, top left; only when you have more than one)     // LOGIN on the menu screen
+const equipBtn = { x: 0, y: 0, w: 0, h: 0 };    // EQUIP (character) on the menu screen, under LOGIN     // LOGIN on the menu screen
 const shopMenuBtn = { x: 0, y: 0, w: 0, h: 0 };  // MENU on the shop screen
 const CARD_W = 300, CARD_H = 440, CARD_GAP = 40, CARD_Y = 128;
-let nextBtnImg, cardsBtnImg, loginBtnImg, shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
+let equipBtnImg, nextBtnImg, cardsBtnImg, loginBtnImg, shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
 const upgradeImgs = {};
 const TITLE_FONT = 'Rye, Georgia, serif', BODY_FONT = '"Trebuchet MS", system-ui, sans-serif';
 
@@ -555,6 +640,13 @@ function toMenu() {
   inMenu = true;
   inShop = false;
   inCards = false;
+  inChars = false;
+}
+
+function openChars() {
+  inChars = true;
+  viewChar = charId();
+  shopMsg.t = 0;
 }
 
 function openCards() {
@@ -585,7 +677,8 @@ function restart() {
   enemyBullets.length = 0;
   resetPaint();
   resetGhost();
-  dabs.length = 0;
+  Object.assign(swing, { t: 0, cd: 0 }); Object.assign(shield, { t: 0, age: 0, cd: 0, flash: 0 });
+  ink.length = 0; reflected.length = 0; lastInk = null;
   for (const type of enemyTypes) type.timer = 0;
   Object.assign(player, { x: 100, y: GROUND_Y - player.h, vx: 0, vy: 0, onGround: false, walkTime: 0, idleTime: 0 });
   for (const k in keys) keys[k] = false;
@@ -621,22 +714,35 @@ function updateHealth(dt) {
   // subject 394 takes 2 hearts (harmless while he is still fading in)
   if (ghost.active && !ghost.dead && ghost.age >= GHOST_FADE) {
     const hb = ghostBox();
-    if (p.x + p.w > hb.x && p.x < hb.x + hb.w && p.y + p.h > hb.y && p.y < hb.y + hb.h) hurtPlayer(GHOST_DAMAGE);
+    if (p.x + p.w > hb.x && p.x < hb.x + hb.w && p.y + p.h > hb.y && p.y < hb.y + hb.h) {
+      if (charId() === '0300' && shield.t > 0 && shield.age <= PERFECT_WINDOW && shieldFaces(hb.x + hb.w / 2)) {
+        // a perfect block: no damage to you, he takes the 2 damage himself and is pushed back
+        shield.flash = 0.3;
+        invuln = 0.6;
+        hurtGhost(GHOST_DAMAGE);
+        ghost.play = Math.max(0, ghost.play - 0.7);
+      } else hurtPlayer(GHOST_DAMAGE);
+    }
   }
 }
 
 const keys = {};
 addEventListener('keydown', e => {
   if (e.key.startsWith('Arrow')) e.preventDefault();
-  if (inShop || inCards || inLogin) return;
+  if (inShop || inCards || inChars || inLogin) return;
   if (inMenu) {
     if (e.key === 'Enter' || e.key === ' ') { restart(); inMenu = false; }
     return;
   }
   if (gameOver || levelComplete) return;   // on these screens the only way on is the MENU button
   if (!e.repeat) {
-    if (e.key === '1') fire('left');
-    if (e.key === '2') fire('right');
+    if (charId() === '0300') {   // the brush: 1 swings, 2 raises the shield
+      if (e.key === '1') startSwing();
+      if (e.key === '2') raiseShield();
+    } else {
+      if (e.key === '1') fire('left');
+      if (e.key === '2') fire('right');
+    }
   }
   keys[e.key] = true;
 });
@@ -654,8 +760,6 @@ const cam = { x: null, y: null };
 // Smooth, procedural movement of the drawing: lean into the run, a hop on every step,
 // stretch when jumping, squash when landing, and a gentle breathing while standing still.
 const vis = { tilt: 0, jump: 0, land: 0, shield: 1 };
-const dabs = [];   // little paint dabs the brush leaves behind (SUBJECT 0300)
-let dabTimer = 0;
 const pose = { cur: null, prev: null, fade: 1, fadeTime: FADE_IDLE };
 function setPose(img, fadeTime) {
   if (img === pose.cur) return;
@@ -688,6 +792,27 @@ function fire(side) {
   });
 }
 
+// one enemy takes damage (a bullet, a brush swing, the ink trail or a reflected bullet); a dead guard leaves a stain
+function hurtGuard(list, j, amount) {
+  const g = list[j];
+  g.flash = 0.15;
+  g.hp -= amount;
+  if (g.hp <= 0) {
+    list.splice(j, 1);
+    giveCoins();
+    // he leaves a paint stain where he stood (yellow guard: yellow, red guard: red)
+    if (list === guards) paintStain(g.surface, g.x + g.w / 2, 'yellow');
+    else paintStain(g.platform, g.x + g.w / 2, 'red');
+  }
+}
+function hurtGhost(amount) {
+  if (ghost.dead) return;
+  ghost.flash = 0.15;
+  ghost.hp -= amount;
+  if (ghost.hp <= 0) { ghost.dead = true; ghost.dying = GHOST_DYING; giveCoins(); }
+}
+const ghostHittable = () => ghost.active && !ghost.dead && ghost.age >= GHOST_FADE;
+
 function updateBullets(dt) {
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
@@ -697,9 +822,7 @@ function updateBullets(dt) {
       const gb = ghostBox();
       if (b.x + b.w / 2 > gb.x && b.x - b.w / 2 < gb.x + gb.w && b.y + b.h / 2 > gb.y && b.y - b.h / 2 < gb.y + gb.h) {
         hit = true;
-        ghost.flash = 0.15;
-        ghost.hp -= damage();
-        if (ghost.hp <= 0) { ghost.dead = true; ghost.dying = GHOST_DYING; giveCoins(); }
+        hurtGhost(damage());
       }
     }
     for (const list of [guards, redGuards]) {
@@ -707,16 +830,8 @@ function updateBullets(dt) {
         const g = list[j], hb = guardHitbox(g);
         if (b.x + b.w / 2 > hb.x && b.x - b.w / 2 < hb.x + hb.w && b.y + b.h / 2 > hb.y && b.y - b.h / 2 < hb.y + hb.h) {
           hit = true;
-          g.flash = 0.15;
           if (has(8)) g.hitSlow = 0.05;           // Sticky Paint
-          g.hp -= damage();
-          if (g.hp <= 0) {
-            list.splice(j, 1);
-            giveCoins();
-            // he leaves a paint stain where he stood (yellow guard: yellow, red guard: red)
-            if (list === guards) paintStain(g.surface, g.x + g.w / 2, 'yellow');
-            else paintStain(g.platform, g.x + g.w / 2, 'red');
-          }
+          hurtGuard(list, j, damage());
         }
       }
     }
@@ -740,11 +855,7 @@ function update(dt) {
   updateGuards(dt);
   updateRedGuards(dt);
   updateGhost(dt);
-  for (let i = dabs.length - 1; i >= 0; i--) if ((dabs[i].life -= dt) <= 0) dabs.splice(i, 1);
-  if (charId() === '0300' && player.onGround && Math.abs(player.vx) > 40 && (dabTimer -= dt) <= 0) {   // paint dabs behind him
-    dabTimer = 0.06;
-    dabs.push({ x: player.x + player.w / 2 - Math.sign(player.vx) * 8 + (Math.random() - 0.5) * 6, y: player.y + player.h - 2 - Math.random() * 3, r: 3 + Math.random() * 3, life: 0.7, max: 0.7, c: Math.random() < 0.5 ? '#e2820a' : '#ffd21f' });
-  }
+  if (charId() === '0300') updateBrushMoves(dt);
   updateHealth(dt);
   if (has(1) && hearts > 0 && (regenTimer += dt) >= 60) { regenTimer = 0; healHeart(); }
 
@@ -1043,6 +1154,7 @@ function drawCards(dt) {
   ctx.fillStyle = 'rgba(6,3,14,0.78)';
   ctx.fillRect(0, 0, W, H);
   drawText('CARDS', W / 2, 78, 64, '#e2820a', TITLE_FONT, 'center', '#000');
+  if (charId() === '0300') drawText('These cards do not work for SUBJECT 0300 yet', W / 2, 106, 18, '#ff9a4a', 'bold ' + BODY_FONT, 'center', '#000');
   const lay = cardsLayout();
   lay.slots.forEach((r, i) => {
     if (r.id) { drawCard(UPGRADES.find(u => u.id === r.id), r.x, r.y, hoverBtn === 'slot' + i, SLOT_SCALE); return; }
@@ -1075,6 +1187,78 @@ function drawCards(dt) {
   drawButton(menuBackImg, shopMenuBtn, hoverBtn === 'menu');
 }
 
+// --- the character screen: pick who you play, tap a character to read what he does ---
+const CHAR_INFO = {
+  '0005': {
+    about: 'Two paint guns, one on each side.',
+    controls: ['<- ->  walk', 'UP  jump', '1  fire the left gun', '2  fire the right gun'],
+    attacks: ['Paint bullets: 1 damage each, one shot per press (0.2 s between shots per gun).', 'Your equipped upgrade cards work for him.'],
+  },
+  '0300': {
+    about: 'A brush with a heart as its tip and a round shield.',
+    controls: ['<- ->  walk (leaves an ink trail)', 'UP  jump', '1  swing the giant brush', '2  raise the shield'],
+    attacks: [
+      'Brush swing: 3 damage to every enemy in front of you, in the direction you look. It cannot reach through platforms. 0.75 s before you can swing again.',
+      'Ink trail: walking leaves a zigzag ink trail. Enemies on it take 1 damage (once a second each). Every piece of the trail is gone after 1 second.',
+      'Shield: blocks red guard bullets that come from the side you look at. Block in the first 0.2 s after raising it and it is a PERFECT block: the bullet flies back and does its damage to the enemy. Yellow guards cannot be blocked. Subject 394 only stops with a perfect block (he then takes his 2 damage himself).',
+      'Upgrade cards do not work for him yet.',
+    ],
+  },
+};
+const CHAR_CARD = { w: 220, h: 320, gap: 24, x: 56, y: 118 };
+function charsLayout() {
+  const cards = CHARACTERS.map((c, i) => ({ id: c.id, x: CHAR_CARD.x + i * (CHAR_CARD.w + CHAR_CARD.gap), y: CHAR_CARD.y, w: CHAR_CARD.w, h: CHAR_CARD.h }));
+  return { cards, info: { x: 56 + CHARACTERS.length * (CHAR_CARD.w + CHAR_CARD.gap) + 8, y: 118, w: 0, h: 480 }, equip: { x: 0, y: 0, w: 230, h: 60 } };
+}
+function drawChars() {
+  ctx.drawImage(menuBgImg, 0, 300, W, 400, 0, 0, W, H);
+  ctx.fillStyle = 'rgba(6,3,14,0.78)';
+  ctx.fillRect(0, 0, W, H);
+  drawText('CHARACTERS', W / 2, 78, 60, '#e2820a', TITLE_FONT, 'center', '#000');
+  const lay = charsLayout();
+  lay.info.w = W - 56 - lay.info.x;
+  lay.equip.x = CHAR_CARD.x; lay.equip.y = CHAR_CARD.y + CHAR_CARD.h + 22; lay.equip.w = CHARACTERS.length * CHAR_CARD.w + (CHARACTERS.length - 1) * CHAR_CARD.gap;   // under the characters
+  chars.equipRect = lay.equip;
+  lay.cards.forEach((r, i) => {
+    const unlocked = characterUnlocked(r.id), sel = viewChar === r.id, equipped = charId() === r.id, hov = hoverBtn === 'cc' + i;
+    ctx.save();
+    ctx.fillStyle = sel ? 'rgba(20,40,110,0.85)' : 'rgba(12,8,22,0.8)';
+    ctx.strokeStyle = sel ? '#4a8bff' : '#000'; ctx.lineWidth = sel ? 6 : 5;
+    ctx.beginPath(); ctx.roundRect(r.x, r.y, r.w, r.h, 16); ctx.fill(); ctx.stroke();
+    const img = r.id === '0300' ? brushImg : bodyImg0005, ih = 190, iw = ih * img.width / img.height;
+    ctx.globalAlpha = unlocked ? 1 : 0.35;
+    ctx.drawImage(img, r.x + (r.w - iw) / 2, r.y + 22 + (hov ? -4 : 0), iw, ih);
+    ctx.globalAlpha = 1;
+    drawText('SUBJECT', r.x + r.w / 2, r.y + 252, 18, '#fff', TITLE_FONT, 'center', '#000');
+    drawText(r.id, r.x + r.w / 2, r.y + 284, 30, '#ffd21f', TITLE_FONT, 'center', '#000');
+    if (!unlocked) drawText('LOCKED', r.x + r.w / 2, r.y + 120, 28, '#ff7a6a', TITLE_FONT, 'center', '#000');
+    if (equipped) drawText('EQUIPPED', r.x + r.w / 2, r.y + 312, 15, '#8dff7a', 'bold ' + BODY_FONT, 'center', '#000');
+    ctx.restore();
+  });
+  const info = CHAR_INFO[viewChar], c = CHARACTERS.find(c => c.id === viewChar);
+  ctx.fillStyle = 'rgba(12,8,22,0.8)'; ctx.strokeStyle = '#000'; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.roundRect(lay.info.x, lay.info.y, lay.info.w, lay.info.h, 16); ctx.fill(); ctx.stroke();
+  const x = lay.info.x + 24; let y = lay.info.y + 44;
+  drawText(c.name, x, y, 30, '#ffd21f', TITLE_FONT, 'left', '#000'); y += 28;
+  ctx.font = `bold 16px ${BODY_FONT}`;
+  drawText(info.about, x, y, 16, '#cdbfae', 'bold ' + BODY_FONT, 'left'); y += 32;
+  drawText('BUTTONS', x, y, 15, '#4a8bff', 'bold ' + BODY_FONT, 'left'); y += 22;
+  info.controls.forEach(t => { drawText(t, x + 8, y, 16, '#fff', 'bold ' + BODY_FONT, 'left'); y += 21; });
+  y += 10;
+  drawText('ATTACKS', x, y, 15, '#4a8bff', 'bold ' + BODY_FONT, 'left'); y += 22;
+  ctx.font = `bold 15px ${BODY_FONT}`;
+  info.attacks.forEach(t => { wrapLines(t, lay.info.w - 56).forEach((ln, i) => { drawText((i === 0 ? '- ' : '   ') + ln, x + 8, y, 15, '#fff', 'bold ' + BODY_FONT, 'left'); y += 19; }); y += 5; });
+  const eq = charId() === viewChar, un = characterUnlocked(viewChar), er = lay.equip;
+  ctx.save();
+  ctx.fillStyle = eq ? '#3a8a3a' : un ? (hoverBtn === 'equipchar' ? '#ffe25a' : '#f7cd00') : '#555';
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.roundRect(er.x, er.y, er.w, er.h, 14); ctx.fill(); ctx.stroke();
+  ctx.restore();
+  drawText(eq ? 'EQUIPPED' : un ? 'EQUIP' : 'LOCKED', er.x + er.w / 2, er.y + 40, 26, eq ? '#fff' : '#2e1008', TITLE_FONT, 'center');
+  drawButton(menuBackImg, shopMenuBtn, hoverBtn === 'menu');
+}
+const chars = { equipRect: null };
+
 // pointer position in game (canvas) pixels
 function pointerPos(e) {
   const r = canvas.getBoundingClientRect();
@@ -1086,6 +1270,13 @@ const inRect = (m, r) => m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= 
 function buttonAt(e) {
   const m = pointerPos(e);
   if (inLogin) return null;
+  if (inChars) {
+    if (inRect(m, shopMenuBtn)) return 'menu';
+    if (chars.equipRect && inRect(m, chars.equipRect)) return 'equipchar';
+    const lay = charsLayout();
+    for (let i = 0; i < lay.cards.length; i++) if (inRect(m, lay.cards[i])) return 'cc' + i;
+    return null;
+  }
   if (inCards) {
     if (inRect(m, shopMenuBtn)) return 'menu';
     const lay = cardsLayout();
@@ -1099,7 +1290,7 @@ function buttonAt(e) {
     for (let i = 0; i < rs.length; i++) if (inRect(m, rs[i])) return 'card' + i;
     return null;
   }
-  if (inMenu) return inRect(m, playBtn) ? 'play' : inRect(m, shopBtn) ? 'shop' : inRect(m, cardsBtn) ? 'cards' : inRect(m, loginBtn) ? 'login' : (inRect(m, charBtn) && unlockedCharacters().length > 1) ? 'char' : null;
+  if (inMenu) return inRect(m, playBtn) ? 'play' : inRect(m, shopBtn) ? 'shop' : inRect(m, cardsBtn) ? 'cards' : inRect(m, loginBtn) ? 'login' : inRect(m, equipBtn) ? 'equip' : null;
   if (levelComplete) return inRect(m, lcMenuBtn) ? 'menu' : inRect(m, lcShopBtn) ? 'shop' : inRect(m, lcCardsBtn) ? 'cards' : inRect(m, lcNextBtn) ? 'next' : null;
   if (gameOver) {
     if (inRect(m, againBtn)) return 'again';
@@ -1123,11 +1314,9 @@ canvas.addEventListener('pointerdown', e => {
   if (id === 'cards') { openCards(); hoverBtn = null; }
   if (id === 'next') { restart(); inMenu = false; hoverBtn = null; }
   if (id === 'login') { openLogin(); hoverBtn = null; }
-  if (id === 'char') {   // next unlocked character
-    const list = unlockedCharacters(), i = list.findIndex(c => c.id === charId());
-    save.character = list[(i + 1) % list.length].id;
-    writeSave(); applyCharacter();
-  }
+  if (id === 'equip') { openChars(); hoverBtn = null; }
+  if (id && id.startsWith('cc')) viewChar = CHARACTERS[Number(id.slice(2))].id;
+  if (id === 'equipchar' && characterUnlocked(viewChar)) { save.character = viewChar; writeSave(); applyCharacter(); }
   if (id && id.startsWith('slot')) toggleEquip(cardsLayout().slots[Number(id.slice(4))].id);
   if (id && id.startsWith('own')) toggleEquip(cardsLayout().own[Number(id.slice(3))].id);
   if (id && id.startsWith('card')) buyOffer(Number(id.slice(4)));
@@ -1147,7 +1336,7 @@ canvas.addEventListener('pointerdown', e => {
   player.y = GROUND_Y - player.h;
 
   menuBgImg = menuImg; menuBackImg = menuBtnImg;
-  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300'].map(n => load(assetUrl(n))));
+  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button'].map(n => load(assetUrl(n))));
   for (const u of UPGRADES) upgradeImgs[u.id] = await load(assetUrl('upgrade-' + u.id));
   if (document.fonts) document.fonts.load('24px Rye').catch(() => {});
   // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
@@ -1172,8 +1361,10 @@ canvas.addEventListener('pointerdown', e => {
     lcCardsBtn.y = lcShopBtn.y - lcCardsBtn.h - 12;
     Object.assign(lcNextBtn, { x: lcCardsBtn.x, y: 0, w: lcCardsBtn.w, h: Math.round(lcCardsBtn.w * nextBtnImg.height / nextBtnImg.width) });
     lcNextBtn.y = lcCardsBtn.y - lcNextBtn.h - 12;
+    const ew = 150;
     const lw = 150;
     Object.assign(loginBtn, { x: W - lw - 24, y: 18, w: lw, h: Math.round(lw * loginBtnImg.height / loginBtnImg.width) });
+    Object.assign(equipBtn, { x: W - ew - 24, y: loginBtn.y + loginBtn.h + 36, w: ew, h: Math.round(ew * equipBtnImg.height / equipBtnImg.width) });
     Object.assign(shopMenuBtn, { x: W - 250 - 30, y: H - Math.round(250 * menuBtnImg.height / menuBtnImg.width) - 16, w: 250, h: Math.round(250 * menuBtnImg.height / menuBtnImg.width) });
   }
 
@@ -1193,6 +1384,11 @@ canvas.addEventListener('pointerdown', e => {
   function frame(now) {
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
+    if (inChars) {
+      drawChars();
+      requestAnimationFrame(frame);
+      return;
+    }
     if (inCards) {
       drawCards(dt);
       requestAnimationFrame(frame);
@@ -1210,17 +1406,7 @@ canvas.addEventListener('pointerdown', e => {
       drawButton(shopBtnImg, shopBtn, hoverBtn === 'shop');
       drawButton(cardsBtnImg, cardsBtn, hoverBtn === 'cards');
       drawButton(loginBtnImg, loginBtn, hoverBtn === 'login');
-      if (unlockedCharacters().length > 1) {   // character picker
-        const c = CHARACTERS.find(c => c.id === charId()), img = charImg(), hov = hoverBtn === 'char';
-        ctx.fillStyle = hov ? 'rgba(20,12,6,0.8)' : 'rgba(10,6,3,0.62)';
-        ctx.strokeStyle = '#000'; ctx.lineWidth = 5;
-        ctx.beginPath(); ctx.roundRect(charBtn.x, charBtn.y, charBtn.w, charBtn.h, 14); ctx.fill(); ctx.stroke();
-        const ih = charBtn.h - 18, iw = ih * img.width / img.height;
-        ctx.drawImage(img, charBtn.x + 12 + (50 - iw) / 2, charBtn.y + 9, iw, ih);
-        drawText(c.name.split(' ')[0], charBtn.x + 128, charBtn.y + 40, 19, '#fff', TITLE_FONT, 'center', '#000');
-        drawText(c.id, charBtn.x + 128, charBtn.y + 70, 28, '#ffd21f', TITLE_FONT, 'center', '#000');
-        drawText('tap to change', charBtn.x + 128, charBtn.y + 90, 12, '#cdbfae', 'bold ' + BODY_FONT, 'center');
-      }
+      drawButton(equipBtnImg, equipBtn, hoverBtn === 'equip');
       if (user) drawText(user, loginBtn.x + loginBtn.w / 2, loginBtn.y + loginBtn.h + 24, 20, '#fff', 'bold ' + BODY_FONT, 'center', '#000');
       requestAnimationFrame(frame);
       return;
@@ -1290,8 +1476,18 @@ canvas.addEventListener('pointerdown', e => {
     const bodyScaleX = Math.pow(bodyScaleY, -0.8);                        // squash and stretch keep the volume
     drawGhost();
     const isBrush = charId() === '0300';
-    for (const d of dabs) { ctx.globalAlpha = Math.max(0, d.life / d.max) * 0.85; ctx.fillStyle = d.c; ctx.beginPath(); ctx.arc(d.x, d.y, d.r * (0.6 + 0.4 * d.life / d.max), 0, 6.2832); ctx.fill(); }
-    ctx.globalAlpha = 1;
+    if (ink.length) {   // the ink trail (each piece fades out and is gone after 1 s)
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const k of ink) {
+        if (!k.prev) continue;
+        ctx.globalAlpha = Math.min(1, k.life / 0.35) * 0.95;
+        ctx.strokeStyle = '#141e6e'; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.moveTo(k.prev.x, k.prev.y); ctx.lineTo(k.x, k.y); ctx.stroke();
+        ctx.strokeStyle = '#4a63ff'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(k.prev.x, k.prev.y - 1); ctx.lineTo(k.x, k.y - 1); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
     const sway = isBrush && player.walkTime === 0 && player.onGround ? Math.sin(performance.now() / 1000 * 1.7) * 0.045 : 0;   // the brush sways when he stands still
     const hop = player.walkTime > 0 ? -Math.abs(Math.sin(Math.PI * player.walkTime / WALK_FRAME_TIME)) * (isBrush ? 5 : 2.2) : 0;   // a small hop on every step
     const pivotX = player.x + player.w / 2, pivotY = player.y + player.h;   // everything pivots around his feet
@@ -1326,15 +1522,41 @@ canvas.addEventListener('pointerdown', e => {
       // SUBJECT 0300: the brush with the heart as its tip, and the round shield on the side he faces
       ctx.drawImage(brushImg, player.x, player.y, player.w, player.h);
       vis.shield += ((player.facing || 1) - vis.shield) * (1 - Math.exp(-dt * 12));
-      const sw = 36, sh = sw * shieldImg.height / shieldImg.width;
+      const up = shield.t > 0;   // raised: bigger and held out in front
+      const sw = up ? 50 : 36, sh = sw * shieldImg.height / shieldImg.width;
       ctx.save();
-      ctx.translate(player.x + player.w / 2 + vis.shield * (player.w / 2 + 7), player.y + player.h * 0.62);
+      ctx.translate(player.x + player.w / 2 + vis.shield * (player.w / 2 + (up ? 20 : 7)), player.y + player.h * (up ? 0.5 : 0.62));
+      if (shield.flash > 0) {   // a ring when something is blocked
+        ctx.strokeStyle = shield.age <= PERFECT_WINDOW + 0.1 ? '#ffffff' : '#ffd21f'; ctx.lineWidth = 4; ctx.globalAlpha = shield.flash / 0.3;
+        ctx.beginPath(); ctx.arc(0, 0, sw * 0.5 + (0.3 - shield.flash) * 90, 0, 6.2832); ctx.stroke(); ctx.globalAlpha = 1;
+      }
       ctx.rotate(vis.shield * 0.12 + Math.sin(performance.now() / 1000 * 2.1) * 0.03);
       ctx.scale(Math.max(0.3, Math.abs(vis.shield)), 1);
       ctx.drawImage(shieldImg, -sw / 2, -sh / 2, sw, sh);
       ctx.restore();
     }
     ctx.restore();
+    if (isBrush && swing.t > 0) {   // the giant brush swings over his head and down in front of him
+      const p = 1 - swing.t / SWING_TIME, e = p * p * (3 - 2 * p), ang = swing.dir * (-1.1 + 2.9 * e);
+      const bh = 118, bw = bh * brushImg.width / brushImg.height;
+      ctx.save();
+      ctx.translate(player.x + player.w / 2, player.y + player.h * 0.62);
+      ctx.strokeStyle = '#4a63ff'; ctx.globalAlpha = 0.55 * (1 - p); ctx.lineWidth = 9; ctx.lineCap = 'round';
+      ctx.beginPath();
+      if (swing.dir > 0) ctx.arc(0, 0, 84, -Math.PI / 2 - 1.1, -Math.PI / 2 + ang, false);
+      else ctx.arc(0, 0, 84, -Math.PI / 2 + ang, -Math.PI / 2 + 1.1, false);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.rotate(ang);
+      ctx.drawImage(brushImg, -bw / 2, -bh, bw, bh);
+      ctx.restore();
+    }
+    for (const r of reflected) {   // bullets thrown back by a perfect block
+      ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.angle);
+      ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 14;
+      ctx.drawImage(redBulletImg, -r.w / 2, -r.h / 2, r.w, r.h);
+      ctx.restore();
+    }
     for (const b of enemyBullets) {
       ctx.save();
       ctx.translate(b.x, b.y);
