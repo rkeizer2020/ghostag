@@ -45,6 +45,8 @@ const load = src => new Promise(r => { const i = new Image(); i.onload = () => r
 // Key 1 fires the left gun, key 2 the right gun: one bullet per press (holding does nothing).
 // Each shot is a random one of the 3 paint colours drawn for that direction.
 const BULLET_W = 34, BULLET_SPEED = 450;
+const SHOT_COOLDOWN = 0.4;                      // seconds before the same gun can fire again
+const lastShot = { left: -Infinity, right: -Infinity };   // each gun has its own cool down
 const bullets = [];
 const bulletSprites = { left: [], right: [] };
 const gun = { lw: 0, rw: 0 };
@@ -369,6 +371,7 @@ function restart() {
   guards.length = 0;
   redGuards.length = 0;
   bullets.length = 0;
+  lastShot.left = lastShot.right = -Infinity;
   enemyBullets.length = 0;
   resetPaint();
   for (const type of enemyTypes) type.timer = 0;
@@ -433,6 +436,9 @@ function gunTop() {
 function fire(side) {
   const sprites = bulletSprites[side];
   if (!sprites.length) return;
+  const now = performance.now() / 1000;
+  if (now - lastShot[side] < SHOT_COOLDOWN) return;   // this gun is still cooling down
+  lastShot[side] = now;
   const img = sprites[Math.floor(Math.random() * sprites.length)];
   const left = side === 'left';
   bullets.push({
