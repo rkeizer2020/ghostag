@@ -163,16 +163,24 @@ const UPGRADES = [
 const OFFER_COUNT = 3, OFFER_TIME = 5 * 60 * 1000;
 const MAX_EQUIPPED = 3;
 const SAVE_KEY = 'drawshot-save';           // the guest save; a logged in player gets 'drawshot-save:<name>'
-const USER_KEY = 'drawshot-user', ACCOUNTS_KEY = 'drawshot-accounts';
+// Supabase project for the accounts (the publishable key is meant to be public; saves are protected by row level security)
+const SUPA_URL = 'https://pxesgizsahewtzssgqyf.supabase.co';
+const SUPA_KEY = 'sb_publishable_mqgWcQrbYFRuP1shEuOIPg_9xpjm86I';
+const SESSION_KEY = 'drawshot-session';
 const save = { coins: 0, owned: [], equipped: [], offerWindow: -1, offers: [] };
 let user = null;                             // the logged in username, or null for a guest
+let session = null;                          // {name, uid, access, refresh, exp} while logged in
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* no saving: it just lasts until the page closes */ } },
   del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } },
 };
 const saveKey = () => (user ? SAVE_KEY + ':' + user : SAVE_KEY);
-function writeSave() { store.set(saveKey(), JSON.stringify(save)); }
+let pushTimer = 0;
+function writeSave() {
+  store.set(saveKey(), JSON.stringify(save));
+  if (session) { clearTimeout(pushTimer); pushTimer = setTimeout(() => Auth.push().catch(() => {}), 1500); }   // also to the server
+}
 // replace the progress in `save` with another saved game (login / logout)
 function loadSave(raw) {
   let data = {};
@@ -182,7 +190,8 @@ function loadSave(raw) {
   if (!Array.isArray(save.equipped)) save.equipped = save.owned.slice(0, MAX_EQUIPPED);   // saves from before the cards screen
   save.equipped = save.equipped.filter(id => save.owned.includes(id)).slice(0, MAX_EQUIPPED);
 }
-user = store.get(USER_KEY);
+try { session = JSON.parse(store.get(SESSION_KEY) || 'null'); } catch (e) { session = null; }
+user = session ? session.name : null;
 loadSave(store.get(saveKey()));
 const owns = id => save.owned.includes(id);
 const has = id => save.equipped.includes(id);   // only equipped cards do anything
@@ -802,50 +811,86 @@ function drawShop(dt) {
   drawButton(menuBackImg, shopMenuBtn, hoverBtn === 'menu');
 }
 
-// --- Accounts: username + password -------------------------------------------
-// NOTE: this keeps the accounts in this browser only (localStorage). The Auth object is the one
-// place that would be swapped for a real server (see the steps in the chat) to log in on any device.
+// --- Accounts: username + password, kept on Supabase ----------------------------
+// Supabase logs in with an e-mail address, so the username is turned into a made-up one
+// (name@drawshot.game). The player never sees it and never has to give a real e-mail address.
+async function supa(path, { method = 'GET', body, token, headers = {} } = {}) {
+  const h = { apikey: SUPA_KEY, 'Content-Type': 'application/json', ...headers };
+  if (token) h.Authorization = 'Bearer ' + token;
+  const res = await fetch(SUPA_URL + path, { method, headers: h, body: body ? JSON.stringify(body) : undefined });
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* empty answer */ }
+  return { ok: res.ok, status: res.status, data };
+}
+
 const Auth = {
-  users() { try { return JSON.parse(store.get(ACCOUNTS_KEY) || '{}') || {}; } catch (e) { return {}; } },
-  async hash(salt, pw) {
-    const text = salt + ':' + pw;
-    try {
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    } catch (e) {   // no crypto.subtle (insecure page): a simple fallback hash
-      let h = 5381; for (const c of text) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0;
-      return 'x' + h.toString(16);
-    }
-  },
+  email: name => name.toLowerCase() + '@drawshot.game',
   check(name, pw) {
     if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) return 'Username: 3-16 letters, numbers or _';
     if (pw.length < 6) return 'Password: at least 6 characters';
     return null;
   },
-  enter(name) {   // switch to this player's save
-    user = name;
-    store.set(USER_KEY, name);
-    loadSave(store.get(saveKey()));
+  setSession(d, name) {
+    const shown = (d.user && d.user.user_metadata && d.user.user_metadata.username) || name;
+    session = { name: shown, uid: d.user.id, access: d.access_token, refresh: d.refresh_token, exp: Date.now() + (d.expires_in || 3600) * 1000 };
+    user = session.name;
+    store.set(SESSION_KEY, JSON.stringify(session));
+  },
+  async token() {   // a valid access token, refreshed when it is about to run out
+    if (!session) return null;
+    if (Date.now() > session.exp - 60000) {
+      const r = await supa('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: session.refresh } });
+      if (!r.ok) return null;
+      this.setSession({ ...r.data, user: r.data.user || { id: session.uid } }, session.name);
+    }
+    return session.access;
+  },
+  async push() {   // my progress to the server
+    const token = await this.token(); if (!token) return;
+    await supa('/rest/v1/saves?on_conflict=user_id', { method: 'POST', token, headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: { user_id: session.uid, data: save, updated_at: new Date().toISOString() } });
+  },
+  async pull() {   // the progress from the server (if there is any) replaces what is on this device
+    const token = await this.token(); if (!token) return;
+    const r = await supa('/rest/v1/saves?select=data&user_id=eq.' + session.uid, { token });
+    if (!r.ok) return;
+    if (Array.isArray(r.data) && r.data.length) { loadSave(JSON.stringify(r.data[0].data)); store.set(saveKey(), JSON.stringify(save)); }
+    else await this.push();
   },
   async register(name, pw) {
     const bad = this.check(name, pw); if (bad) return bad;
-    const key = name.toLowerCase(), users = this.users();
-    if (users[key]) return 'That username is taken';
-    const salt = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    users[key] = { name, salt, hash: await this.hash(salt, pw) };
-    store.set(ACCOUNTS_KEY, JSON.stringify(users));
-    const progress = JSON.stringify(save);   // the new account keeps what you earned as a guest
-    user = name; store.set(USER_KEY, name); store.set(saveKey(), progress);
+    let r;
+    try { r = await supa('/auth/v1/signup', { method: 'POST', body: { email: this.email(name), password: pw, data: { username: name } } }); }
+    catch (e) { return 'Cannot reach the server'; }
+    if (!r.ok) {
+      const text = JSON.stringify(r.data || '').toLowerCase();
+      return text.includes('already') ? 'That username is taken' : ((r.data && (r.data.msg || r.data.message)) || 'Could not create the account');
+    }
+    if (!r.data || !r.data.access_token) return 'Supabase still wants e-mail confirmation: switch "Confirm email" off';
+    this.setSession(r.data, name);
+    store.set(saveKey(), JSON.stringify(save));   // the new account starts with what you earned as a guest
+    await this.push();
     return null;
   },
   async login(name, pw) {
-    const u = this.users()[name.toLowerCase()];
-    if (!u || u.hash !== await this.hash(u.salt, pw)) return 'Wrong username or password';
-    this.enter(u.name);
+    const bad = this.check(name, pw); if (bad) return 'Wrong username or password';
+    let r;
+    try { r = await supa('/auth/v1/token?grant_type=password', { method: 'POST', body: { email: this.email(name), password: pw } }); }
+    catch (e) { return 'Cannot reach the server'; }
+    if (!r.ok) return r.status >= 500 ? 'The server has a problem, try again' : 'Wrong username or password';
+    this.setSession(r.data, name);
+    loadSave(store.get(saveKey()));
+    try { await this.pull(); } catch (e) { /* offline: the copy on this device is used */ }
     return null;
   },
-  logout() { user = null; store.del(USER_KEY); loadSave(store.get(saveKey())); },
+  logout() {
+    const token = session && session.access;
+    if (token) supa('/auth/v1/logout', { method: 'POST', token }).catch(() => {});
+    session = null; user = null; store.del(SESSION_KEY);
+    loadSave(store.get(SAVE_KEY));
+  },
 };
+if (session) Auth.pull().catch(() => {});   // already logged in from last time: fetch the latest progress
 
 const loginBox = (() => {
   const css = (el, o) => Object.assign(el.style, o);
@@ -872,7 +917,10 @@ const loginBox = (() => {
     msg.textContent = '';
   };
   async function run(fn) {
-    const err = await fn(nameIn.value.trim(), passIn.value);
+    msg.style.color = '#cdbfae'; msg.textContent = 'One moment...';
+    for (const el of [loginB, regB]) el.disabled = true;
+    const err = await fn(nameIn.value.trim(), passIn.value).catch(() => 'Something went wrong, try again');
+    for (const el of [loginB, regB]) el.disabled = false;
     if (err) { msg.style.color = '#ff7a6a'; msg.textContent = err; return; }
     passIn.value = ''; show();
     msg.style.color = '#8dff7a'; msg.textContent = 'Welcome, ' + user + '!';
