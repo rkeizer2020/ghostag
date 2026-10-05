@@ -169,6 +169,11 @@ function resetPaint() {
 
 const isPainted = id => paintDone[id].every(Boolean);
 
+// the paint stain (if any) that covers position x on surface `id`
+function stainAt(id, x) {
+  return stains.find(st => st.surface === id && x >= st.x - st.w / 2 && x <= st.x + st.w / 2) || null;
+}
+
 // An enemy was defeated while standing at x on surface `id`.
 function paintStain(id, x, color) {
   const s = PAINT_SURFACES[id];
@@ -178,28 +183,31 @@ function paintStain(id, x, color) {
   paintDone[id][part] = true;
   // one stain is exactly one part of the surface (1/6 of the ground, 1/4 of a big platform)
   const partW = (s.maxX - s.minX) / s.n;
-  stains.push({ x: s.minX + (part + 0.5) * partW, y: s.y, w: partW, h: s.stainH, color });
+  stains.push({ x: s.minX + (part + 0.5) * partW, y: s.y, w: partW, h: s.stainH, color, surface: id });
 }
 
 // --- Enemies: the yellow guard ----------------------------------------------
 // Patrols left and right on the main ground or a big platform. He can't jump and
 // never walks off: he turns around at the edge. (8 hits take him out.)
 const GUARD_H = 80, GUARD_SPEED = MOVE_SPEED, GUARD_HP = 8; // as fast as the player
+// Walking onto a paint stain slows a guard down by 30% for 1 second. Every stain he walks
+// onto adds another second, so crossing 3 stains gives 3 seconds of slowness.
+const STAIN_SLOW = 0.7, STAIN_SLOW_TIME = 1;
 const guards = [];
 const guardSprites = { left: null, right: null };
 
 function spawnGuard(x, surfaceY, minX, maxX, dir, surface) {
   const img = guardSprites.right;
   const h = GUARD_H, w = Math.round(img.width * h / img.height);
-  guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: GUARD_HP, flash: 0, surface });
+  guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: GUARD_HP, flash: 0, surface, slow: 0, inStain: stainAt(surface, x + w / 2) });
 }
 
 // --- Enemies: the red guard ------------------------------------------------------
 // Stands on the small platforms and ONLY there, at most one per small platform
 // (so 4 at most). He can't be hurt by touching him and doesn't hurt you by touching:
-// every 1.25 s he shoots a bullet at the spot where you are at that moment. His gun
+// every 1.25 s (every 2 s while he stands in a paint stain) he shoots a bullet at the spot where you are at that moment. His gun
 // hangs a little way from his body and always points at you, like an outstretched arm.
-const RED_HP = 3, RED_SHOOT_EVERY = 1.25, RED_BULLET_SPEED = 320, RED_BULLET_W = 28;
+const RED_HP = 3, RED_SHOOT_EVERY = 1.25, RED_SHOOT_EVERY_IN_STAIN = 2, RED_BULLET_SPEED = 320, RED_BULLET_W = 28;
 const RED_GUN_LEN = 46, RED_GUN_DIST = 50;   // gun length, and its distance from his body centre
 const MINI_PLATFORMS = [2, 3, 4, 5];          // indices into `platforms`: the four small ones
 const redGuards = [];
@@ -239,7 +247,7 @@ function updateRedGuards(dt) {
     g.angle = Math.atan2(target.y - pv.y, target.x - pv.x);       // the gun follows you
     g.shootTimer -= dt;
     if (g.shootTimer <= 0 && hearts > 0) {
-      g.shootTimer += RED_SHOOT_EVERY;
+      g.shootTimer += stainAt(g.platform, g.x + g.w / 2) ? RED_SHOOT_EVERY_IN_STAIN : RED_SHOOT_EVERY;
       const reach = RED_GUN_DIST + RED_GUN_LEN / 2;               // from his body to the muzzle
       const bh = RED_BULLET_W * redSprites.bullet.height / redSprites.bullet.width;
       enemyBullets.push({
@@ -315,7 +323,13 @@ function updateSpawner(dt) {
 
 function updateGuards(dt) {
   for (const g of guards) {
-    g.x += g.dir * GUARD_SPEED * dt;
+    // stepping onto a stain (a different one than before) adds a second of slowness
+    const st = stainAt(g.surface, g.x + g.w / 2);
+    if (st && st !== g.inStain) g.slow += STAIN_SLOW_TIME;
+    g.inStain = st;
+    const speed = GUARD_SPEED * (g.slow > 0 ? STAIN_SLOW : 1);
+    g.slow = Math.max(0, g.slow - dt);
+    g.x += g.dir * speed * dt;
     if (g.x < g.minX) { g.x = g.minX; g.dir = 1; }
     if (g.x + g.w > g.maxX) { g.x = g.maxX - g.w; g.dir = -1; }
     g.flash = Math.max(0, g.flash - dt);
