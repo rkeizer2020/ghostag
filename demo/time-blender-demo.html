@@ -118,7 +118,7 @@ function poseFor(st,o){const t=o.t,sp=o.speed,ph=o.ph;
   P.hilt.ang=lerp(P.hilt.ang,.75,sw);P.trail+=6*Math.sin(a*Math.PI);P.footN[0]+=4*sw}
  return P}
 /* the slash from the video: a big bright crescent with sharp streaks */
-function slashFx(c,ox,oy,f,k,seed,S){if(k<0||k>1)return;const R=88*S,p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-1.25,th1=.95,N=26;
+function slashFx(c,ox,oy,f,k,seed,S){if(k<0||k>1)return;const R=88*S,p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-2.3,th1=-2.3+TAU*.6,N=40;
  c.save();c.globalCompositeOperation='lighter';c.shadowColor='#ffd84a';c.shadowBlur=22*S;
  const pt=(u,r)=>{const a=lerp(th0,th0+(th1-th0)*p,u);return [ox+f*Math.cos(a)*r,oy+Math.sin(a)*r]};
  c.beginPath();for(let i=0;i<=N;i++){const u=i/N,th=Math.pow(Math.sin(Math.PI*u),.7)*30*S,q=pt(u,R+th*.5);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}
