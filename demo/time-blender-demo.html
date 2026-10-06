@@ -109,8 +109,8 @@ function pose(state,k){
  if(state=='idle'){p.ub=[0,0,-1,-1][k%4];p.armFarA=[.08,.08,.16,.16][k%4];p.slosh=k%4<2?-1:1;p.handDy=p.ub}
  else if(state=='walk'){const a=k/8*2*Math.PI,sw=Math.round(1.6*Math.sin(a));p.nearX=1+sw;p.farX=-2-sw;
   p.nearLift=Math.max(0,Math.round(1.6*Math.cos(a)));p.farLift=Math.max(0,Math.round(-1.6*Math.cos(a)));
-  p.ub=Math.abs(Math.sin(a))>.7?-1:0;p.armFarA=-.45*Math.sin(a);p.slosh=Math.cos(a)>0?1:-1;
-  p.handDx=Math.round(Math.sin(a+Math.PI)*.8);p.handDy=p.ub;p.tb=Math.round(Math.sin(a)*.8)}
+  p.ub=0;p.armFarA=-.4*Math.sin(a);p.slosh=Math.cos(a)>0?1:-1;
+  p.handDx=0;p.handDy=0;p.tb=0}
  else if(state=='crouch'){p.ub=-2;p.nearX=3;p.farX=-4;p.armFarA=.5;p.handDy=-2}
  else if(state=='up'){p.ub=1;p.nearX=3;p.nearLift=3;p.farX=-3;p.farLift=2;p.armFarA=2.3;p.slosh=1;p.handDy=3;p.handDx=1;p.tb=-2}
  else if(state=='mid'){p.ub=0;p.nearX=2;p.nearLift=2;p.farX=-3;p.farLift=2;p.armFarA=1.6;p.handDy=2;p.tb=-1}
@@ -149,7 +149,7 @@ function step(){
  if(!me.ground){me.vy+=.2;me.y+=me.vy;if(me.y>=GROUND){me.y=GROUND;if(me.vy>1.6)me.land=5;me.vy=0;me.ground=true}}
  if(me.land>0)me.land--;
  if(me.x>W-2){setRoom(room+1);me.x=5}else if(me.x<2){setRoom(room-1);me.x=W-5}
- if(me.ground&&Math.abs(me.vx)>.2)me.walkT+=Math.abs(me.vx)*(8/14);else if(me.ground&&me.vx==0)me.idleT+=1/22;
+ if(me.ground&&Math.abs(me.vx)>.2)me.walkT+=Math.abs(me.vx)*(8/26);else if(me.ground&&me.vx==0)me.idleT+=1/22;
 }
 function stateNow(){
  if(!me.ground)return me.vy<-1.5?'up':(me.vy>1.5?'fall':'mid');
@@ -171,7 +171,7 @@ const jumpSeq=['crouch','up','up','mid','fall','land'];
 function previews(ts){
  for(const k in prev){prev[k].clearRect(0,0,56,52)}
  drawChar(prev.idle,28,48,'idle',Math.floor(ts/400)%4,1);
- drawChar(prev.walk,28,48,'walk',Math.floor(ts/110)%8,1);
+ drawChar(prev.walk,28,48,'walk',Math.floor(ts/200)%8,1);
  const j=Math.floor(ts/260)%jumpSeq.length,yy=[0,7,11,13,6,0][j];
  drawChar(prev.jump,28,48-yy*.7,jumpSeq[j],0,1);
  requestAnimationFrame(previews)}
