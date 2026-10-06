@@ -116,7 +116,7 @@ function poseFor(st,o){const t=o.t,sp=o.speed,ph=o.ph;
  /* the swing adds only the slash effect: the body keeps doing whatever it was doing */
  return P}
 /* the slash from the video: a big bright crescent with sharp streaks */
-function slashFx(c,hx,oy,f,k,seed,S){if(k<0||k>1)return;const R=40*S,ox=hx+f*(R+14*S),p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-TAU*.3,th1=TAU*.3,N=40;
+function slashFx(c,hx,oy,f,k,seed,S){if(k<0||k>1)return;const R=54*S,ox=hx+f*(R+12*S),p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-TAU*.3,th1=TAU*.3,N=40;
  c.save();c.globalCompositeOperation='lighter';c.shadowColor='#ffd84a';c.shadowBlur=22*S;
  const pt=(u,r)=>{const a=lerp(th0,th0+(th1-th0)*p,u);return [ox+f*Math.cos(a)*r,oy+Math.sin(a)*r]};
  c.beginPath();for(let i=0;i<=N;i++){const u=i/N,th=Math.pow(Math.sin(Math.PI*u),.7)*15*S,q=pt(u,R+th*.5);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}
@@ -386,7 +386,7 @@ function loop(ts){const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=
  const h=(FLOOR-me.y),sw=clamp(30-h*.06,12,30),sg=g.createRadialGradient(sx,FLOOR+6,2,sx,FLOOR+6,sw);sg.addColorStop(0,'rgba(10,4,16,'+(.5-h*.001)+')');sg.addColorStop(1,'rgba(10,4,16,0)');g.save();g.fillStyle=sg;g.beginPath();g.ellipse(sx,FLOOR+6,sw,sw*.28,0,0,TAU);g.fill();g.restore();
  const atkOn=atkP>.3&&atkP<.8;energy(P,atkOn);drawParts(g,dtms/1000);
  heroDraw(g,sx,me.y,me.face,P,0,sq,SC_);
- for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}slashFx(g,f.x-cam,f.y,f.f,k,f.seed,SC_*1.15)}
+ for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}slashFx(g,me.x-cam+(me.vx||0)*0,me.y-44*SC_,f.f,k,f.seed,SC_*1.15)}
  drawFront(g,sc,clock,cam,room);
  requestAnimationFrame(loop)}
 /* ---- animation previews ---- */
