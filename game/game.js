@@ -626,7 +626,7 @@ function drawGhost() {
 }
 
 // SUBJECT 0300: key 1 swings the giant brush, key 2 raises the shield, and walking leaves an ink trail
-const SWING_COOLDOWN = 0.75, SWING_DAMAGE = 3, SWING_REACH = 95, SWING_TIME = 0.24;
+const SWING_COOLDOWN = 0.75, SWING_DAMAGE = 3, SWING_REACH = 130, SWING_TIME = 0.24;
 const SHIELD_TIME = 0.6, SHIELD_COOLDOWN = 0.3, PERFECT_WINDOW = 0.2;
 const INK_DAMAGE = 1, INK_LIFE = 1, INK_STEP = 8, INK_HIT_EVERY = 0.5;
 const swing = { t: 0, cd: 0, dir: 1, done: false };
@@ -1605,7 +1605,7 @@ canvas.addEventListener('pointerdown', e => {
     const blink = invuln > 0 && Math.floor(invuln * 10) % 2 === 0;
     if (isBrush && !blink && swing.t <= 0) {
       // the little black man holds his brush behind him, leaning away from the side he faces (like in the logo)
-      const f = player.facing || 1, bh = 92, bw = bh * brushImg.width / brushImg.height;
+      const f = player.facing || 1, bh = 126, bw = bh * brushImg.width / brushImg.height;
       ctx.save();
       ctx.translate(player.x + player.w / 2 - f * player.w * 0.42, player.y + player.h * 0.8);
       ctx.rotate(-f * 0.32 + Math.sin(performance.now() / 1000 * 2.3) * 0.03);
@@ -1647,13 +1647,13 @@ canvas.addEventListener('pointerdown', e => {
     ctx.restore();
     if (isBrush && swing.t > 0) {   // the giant brush swings over his head and down in front of him
       const p = 1 - swing.t / SWING_TIME, e = p * p * (3 - 2 * p), ang = swing.dir * (-1.1 + 2.9 * e);
-      const bh = 118, bw = bh * brushImg.width / brushImg.height;
+      const bh = 162, bw = bh * brushImg.width / brushImg.height;
       ctx.save();
       ctx.translate(player.x + player.w / 2, player.y + player.h * 0.62);
       ctx.strokeStyle = '#4a63ff'; ctx.globalAlpha = 0.55 * (1 - p); ctx.lineWidth = 9; ctx.lineCap = 'round';
       ctx.beginPath();
-      if (swing.dir > 0) ctx.arc(0, 0, 84, -Math.PI / 2 - 1.1, -Math.PI / 2 + ang, false);
-      else ctx.arc(0, 0, 84, -Math.PI / 2 + ang, -Math.PI / 2 + 1.1, false);
+      if (swing.dir > 0) ctx.arc(0, 0, 115, -Math.PI / 2 - 1.1, -Math.PI / 2 + ang, false);
+      else ctx.arc(0, 0, 115, -Math.PI / 2 + ang, -Math.PI / 2 + 1.1, false);
       ctx.stroke();
       ctx.globalAlpha = 1;
       ctx.rotate(ang);
