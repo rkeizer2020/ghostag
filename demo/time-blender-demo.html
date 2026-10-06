@@ -54,10 +54,12 @@ const oc=document.createElement('canvas');oc.width=CW;oc.height=CH;const o=oc.ge
 const sil=document.createElement('canvas');sil.width=CW;sil.height=CH;const s2=sil.getContext('2d');
 const fin=document.createElement('canvas');fin.width=CW;fin.height=CH;const f=fin.getContext('2d');
 C.staff='#6e3426';C.staffH='#9a5236';C.gem='#fff0b0';C.gemD='#f0c860';
-function R(x0,y0,x1,y1,c){o.fillStyle=c;o.fillRect(OX+x0,OY-y1,x1-x0,y1-y0)}
-function P(x,y,c){R(x,y,x+1,y+1,c)}
-function ln(x0,y0,x1,y1,c,w){let dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1,e=dx-dy;
- for(;;){R(x0,y0,x0+w,y0+w,c);if(x0==x1&&y0==y1)break;const e2=2*e;if(e2>-dy){e-=dy;x0+=sx}if(e2<dx){e+=dx;y0+=sy}}}
+const K=0.7;
+function R(x0,y0,x1,y1,c){const X0=Math.round(x0*K),X1=Math.max(X0+1,Math.round(x1*K)),Y0=Math.round(y0*K),Y1=Math.max(Y0+1,Math.round(y1*K));o.fillStyle=c;o.fillRect(OX+X0,OY-Y1,X1-X0,Y1-Y0)}
+function P(x,y,c){const X=Math.round(x*K),Y=Math.round(y*K);o.fillStyle=c;o.fillRect(OX+X,OY-Y-1,1,1)}
+function ln(x0,y0,x1,y1,c,w){x0=Math.round(x0*K);y0=Math.round(y0*K);x1=Math.round(x1*K);y1=Math.round(y1*K);w=Math.max(1,Math.round(w*K));
+ let dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1,e=dx-dy;o.fillStyle=c;
+ for(;;){o.fillRect(OX+x0,OY-y0-w,w,w);if(x0==x1&&y0==y1)break;const e2=2*e;if(e2>-dy){e-=dy;x0+=sx}if(e2<dx){e+=dx;y0+=sy}}}
 function leg(lx,lift,far){const p=far?C.pantsD:C.pants,b=far?C.bootD:C.boot;
  R(lx-2,2+lift,lx+2,9,p);
  if(!far){R(lx-2,2+lift,lx-1,9,C.pantsH);R(lx+1,2+lift,lx+2,9,C.pantsD);R(lx-1,5+lift,lx+1,7+lift,C.buckle);P(lx-1,5+lift,C.lidD)}
@@ -138,9 +140,9 @@ game.addEventListener('pointerdown',()=>game.focus());
 for(const [id,kk] of[['bl','l'],['br','r'],['bj','j']]){const b=document.getElementById(id);
  b.addEventListener('pointerdown',e=>{e.preventDefault();key[kk]=1});for(const ev of['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,()=>{key[kk]=0})}
 function step(){
- const dir=key.r-key.l,tv=dir*1.15;me.vx+=(tv-me.vx)*.28;if(Math.abs(me.vx)<.03)me.vx=0;
+ const dir=key.r-key.l,tv=dir*.95;me.vx+=(tv-me.vx)*.28;if(Math.abs(me.vx)<.03)me.vx=0;
  if(dir)me.face=dir;
- if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-3.1;me.ground=false;jumpHeld=true}
+ if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-2.65;me.ground=false;jumpHeld=true}
  if(!key.j)jumpHeld=false;
  if(!me.ground&&!key.j&&me.vy<-1.2)me.vy=-1.2;
  me.x+=me.vx;
@@ -159,7 +161,7 @@ function drawBg(c,idx,ts){const b=BG[idx],im=imgs[idx];if(!im.complete||!im.natu
 let last=0,acc=0;
 function loop(ts){acc+=Math.min(100,ts-last);last=ts;while(acc>=1000/60){step();acc-=1000/60}
  drawBg(g,room,ts);
- const hgt=GROUND-me.y,sw=Math.max(2,6-Math.round(hgt/6));
+ const hgt=GROUND-me.y,sw=Math.max(2,4-Math.round(hgt/8));
  g.fillStyle='rgba(20,10,28,.35)';g.fillRect(Math.round(me.x)-sw,GROUND,sw*2,1);
  const st=stateNow();drawChar(g,me.x,me.y,st,frameOf(st),me.face);
  requestAnimationFrame(loop)}
@@ -170,7 +172,7 @@ function previews(ts){
  for(const k in prev){prev[k].clearRect(0,0,56,52)}
  drawChar(prev.idle,28,48,'idle',Math.floor(ts/400)%4,1);
  drawChar(prev.walk,28,48,'walk',Math.floor(ts/110)%8,1);
- const j=Math.floor(ts/260)%jumpSeq.length,yy=[0,9,14,16,8,0][j];
+ const j=Math.floor(ts/260)%jumpSeq.length,yy=[0,7,11,13,6,0][j];
  drawChar(prev.jump,28,48-yy*.7,jumpSeq[j],0,1);
  requestAnimationFrame(previews)}
 setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimationFrame(previews);
