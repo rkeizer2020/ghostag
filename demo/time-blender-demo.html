@@ -35,7 +35,8 @@ h2{font-family:var(--display);font-size:12px;font-weight:400;margin:6px 0 0}
 <div class="bar"><button id="prev" type="button" aria-label="Previous room">◀</button><div class="name" id="name"></div><select id="sel" aria-label="Choose a room"></select><button id="next" type="button" aria-label="Next room">▶</button><button id="snd" type="button" aria-pressed="true">Sound on</button></div>
 <div class="stage"><canvas id="game" tabindex="0" aria-label="Game: use arrow keys to move, space to jump and Q to hit"></canvas></div>
 <div class="pad"><div class="dir"><button id="bl" type="button" aria-label="Walk left">◀</button><button id="br" type="button" aria-label="Walk right">▶</button></div><div class="dir"><button id="bh" type="button">Hit</button><button id="bj" type="button">Jump</button></div></div>
-<p class="hint">Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to run, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>Q</kbd> to swing the sword, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</p>
+<div class="pad"><div class="dir"><button id="bhurt" type="button">Take damage</button><button id="bheal" type="button">Heal</button></div></div>
+<p class="hint">Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to run, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>Q</kbd> to swing the sword, <kbd>H</kbd> to take damage, <kbd>J</kbd> to heal, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</p>
 <h2>Animations</h2>
 <section class="previews">
 <div class="card"><canvas id="p-idle"></canvas><span>Standing still</span></div>
@@ -345,7 +346,7 @@ const parts=[],trail=[];let clock=0;
 function tryAttack(){if(me.atk<0){me.atk=0;whoosh()}}
 function onKey(e,v){const k=e.key;let h=true;
  if(k=='ArrowLeft'||k=='a'||k=='A')key.l=v;else if(k=='ArrowRight'||k=='d'||k=='D')key.r=v;
- else if(k==' '||k=='ArrowUp'||k=='w'||k=='W')key.j=v;else if(v&&(k=='q'||k=='Q'))tryAttack();
+ else if(k==' '||k=='ArrowUp'||k=='w'||k=='W')key.j=v;else if(v&&(k=='q'||k=='Q'))tryAttack();else if(v&&(k=='h'||k=='H'))hurt();else if(v&&(k=='j'||k=='J'))heal();
  else if(v&&k=='[')setRoom(room-1);else if(v&&k==']')setRoom(room+1);else h=false;if(h)e.preventDefault()}
 addEventListener('keydown',e=>onKey(e,1));addEventListener('keyup',e=>onKey(e,0));
 game.addEventListener('pointerdown',()=>game.focus());
@@ -377,6 +378,30 @@ function drawParts(c,dt){c.save();c.globalCompositeOperation='lighter';
   const gr=c.createRadialGradient(x,p.y,0,x,p.y,p.r*4);gr.addColorStop(0,'rgba(255,240,150,'+a+')');gr.addColorStop(.4,'rgba(255,200,60,'+a*.5+')');gr.addColorStop(1,'rgba(255,190,40,0)');c.fillStyle=gr;c.beginPath();c.arc(x,p.y,p.r*4,0,TAU);c.fill()}
  c.restore()}
 function heroDraw(c,x,y,face,P,lean,sq,S){c.save();c.translate(x+face*S*(P.lunge||0),y);c.scale(face*S*(1+(1-sq)*.5),-S*sq);drawHero(c,P);c.restore()}
+/* ---- health: the character's own head (no hat) per hit point, on a small factory plate ---- */
+const HP={max:5,hp:5,slots:[0,1,2,3,4].map(()=>({fill:1,flash:0,shake:0,pop:0}))};
+function hurt(){if(HP.hp<=0)return;HP.hp--;const s=HP.slots[HP.hp];s.flash=1;s.shake=1}
+function heal(){if(HP.hp>=HP.max)return;const s=HP.slots[HP.hp];s.pop=1;HP.hp++}
+function hudUpdate(dt){HP.slots.forEach((s,i)=>{const tg=i<HP.hp?1:0;s.fill+=clamp(tg-s.fill,-dt*1.6,dt*1.6);s.flash=Math.max(0,s.flash-dt*3);s.shake=Math.max(0,s.shake-dt*2.2);s.pop=Math.max(0,s.pop-dt*2.2)})}
+function headIcon(c,cx,cy,r,s,t){c.save();c.translate(cx,cy);const pop=1+.22*Math.sin(s.pop*Math.PI);c.scale(pop,pop);
+ c.beginPath();c.arc(0,0,r,0,TAU);c.fillStyle=lgrad(c,-r*.5,-r,r*.5,r,s.fill>.02?HC.glass:['#d9dedc','#a7b3b0']);c.fill();c.save();c.clip();
+ if(s.fill>.02){const sy=lerp(r*1.05,-r*.12,s.fill),w=Math.sin(t*2.4)*1.4;c.beginPath();c.moveTo(-r-2,sy+w);c.quadraticCurveTo(-r*.35,sy-2.6-w,0,sy);c.quadraticCurveTo(r*.35,sy+2.6+w,r+2,sy-w);c.lineTo(r+2,r+2);c.lineTo(-r-2,r+2);c.closePath();
+  c.fillStyle=lgrad(c,0,sy,0,r,HC.liq);c.fill();c.fillStyle='rgba(255,255,255,.65)';for(const b of[[-4,.35,1.6],[3,.12,1.2],[5,.55,1.7]]){const by=sy+(r-sy)*b[1];c.beginPath();c.arc(b[0]*r/14,by+Math.sin(t*2+b[0])*.8,b[2],0,TAU);c.fill()}}
+ if(s.flash>0){c.fillStyle='rgba(255,255,255,'+s.flash*.85+')';c.fillRect(-r,-r,2*r,2*r)}c.restore();
+ c.beginPath();c.arc(0,0,r,0,TAU);c.strokeStyle=OUT;c.lineWidth=3;c.stroke();
+ c.fillStyle='rgba(255,255,255,'+(s.fill>.02?.88:.5)+')';c.beginPath();c.ellipse(-r*.42,-r*.4,r*.17,r*.34,.5,0,TAU);c.fill();
+ if(s.fill<=.02){c.strokeStyle='rgba(42,24,48,.7)';c.lineWidth=1.6;c.beginPath();c.moveTo(r*.15,-r*.7);c.lineTo(-r*.05,-r*.2);c.lineTo(r*.2,r*.15);c.lineTo(0,r*.55);c.stroke()}
+ c.restore()}
+function drawHud(c,t){const x0=26,y0=22,N=HP.max,W=N*56+34,Hh=70;
+ gearAt(c,x0+W-6,y0+Hh+4,17,8,t*.35,GS.copper,4);
+ tubeH(c,-12,x0+8,y0+Hh/2-9,18);flange(c,x0-12,y0+Hh/2-15,12,30);
+ rrect(c,x0,y0,W,Hh,14);c.fillStyle=lgrad(c,0,y0,0,y0+Hh,['#8a4a2c','#5a2c24','#3a2342']);c.fill();c.strokeStyle=OUT;c.lineWidth=4;c.stroke();
+ rrect(c,x0+5,y0+5,W-10,Hh-10,10);c.strokeStyle=CL.copL;c.lineWidth=2.5;c.stroke();
+ rrect(c,x0+9,y0+9,W-18,Hh-18,8);c.fillStyle='#1c1226';c.fill();c.strokeStyle=OUT;c.lineWidth=2;c.stroke();
+ c.fillStyle=CL.copH;for(const [rx,ry] of[[x0+13,y0+13],[x0+W-13,y0+13],[x0+13,y0+Hh-13],[x0+W-13,y0+Hh-13]]){c.beginPath();c.arc(rx,ry,2.8,0,TAU);c.fill();c.strokeStyle=OUT;c.lineWidth=1;c.stroke()}
+ for(let i=0;i<N;i++){const s=HP.slots[i],cx=x0+45+i*56,cy=y0+Hh/2,sh=s.shake*Math.sin(t*60)*3;
+  c.beginPath();c.arc(cx,cy,23,0,TAU);c.fillStyle='#2b1d33';c.fill();c.strokeStyle=i<HP.hp?CL.copL:'#5a3a62';c.lineWidth=2.5;c.stroke();
+  headIcon(c,cx+sh,cy,17,s,t)}}
 let last=0,acc=0;
 function loop(ts){const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=1000/60){step();acc-=1000/60}
  g.setTransform(Q,0,0,Q,0,0);const sc=SC[room];
@@ -387,7 +412,7 @@ function loop(ts){const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=
  const atkOn=atkP>.3&&atkP<.8;energy(P,atkOn);drawParts(g,dtms/1000);
  heroDraw(g,sx,me.y,me.face,P,0,sq,SC_);
  for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}slashFx(g,me.x-cam+(me.vx||0)*0,me.y-44*SC_,f.f,k,f.seed,SC_*1.15)}
- drawFront(g,sc,clock,cam,room);
+ drawFront(g,sc,clock,cam,room);hudUpdate(dtms/1000);drawHud(g,clock);
  requestAnimationFrame(loop)}
 /* ---- animation previews ---- */
 const pv={idle:document.getElementById('p-idle'),walk:document.getElementById('p-walk'),jump:document.getElementById('p-jump'),hit:document.getElementById('p-hit')};
@@ -404,6 +429,7 @@ function previews(ts){const t=ts/1000;
   if(k>=0.3){const c=pv.hit.getContext('2d'),q=pv.hit.width/300;c.setTransform(q,0,0,q,0,0);slashFx(c,150,222-44*1.75,1,(k-.3)/.7*.9,7,1.75*.8)}}
  requestAnimationFrame(previews)}
 setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimationFrame(previews);
-window.__demo={me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
+document.getElementById('bhurt').onclick=()=>{hurt();game.focus()};document.getElementById('bheal').onclick=()=>{heal();game.focus()};
+window.__demo={HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
 
 </script>
