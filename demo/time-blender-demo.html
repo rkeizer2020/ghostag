@@ -62,9 +62,9 @@ function ln(x0,y0,x1,y1,c,w){x0=Math.round(x0*K);y0=Math.round(y0*K);x1=Math.rou
  let dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1,e=dx-dy;o.fillStyle=c;
  for(;;){o.fillRect(OX+x0,OY-y0-w,w,w);if(x0==x1&&y0==y1)break;const e2=2*e;if(e2>-dy){e-=dy;x0+=sx}if(e2<dx){e+=dx;y0+=sy}}}
 function leg(lx,lift,far){const p=far?C.pantsD:C.pants,b=far?C.bootD:C.boot;
- R(lx-2,2+lift,lx+2,9,p);
- if(!far){R(lx-2,2+lift,lx-1,9,C.pantsH);R(lx+1,2+lift,lx+2,9,C.pantsD);R(lx-1,5+lift,lx+1,7+lift,C.buckle);P(lx-1,5+lift,C.lidD)}
- R(lx-2,0+lift,lx+3,2+lift,b);R(lx+3,0+lift,lx+4,1+lift,b)}
+ R(lx-1,2+lift,lx+2,9,p);
+ if(!far){R(lx-1,2+lift,lx,9,C.pantsH);R(lx+1,2+lift,lx+2,9,C.pantsD);R(lx,5+lift,lx+1,7+lift,C.buckle)}
+ R(lx-1,0+lift,lx+3,2+lift,b);R(lx+3,0+lift,lx+4,1+lift,b)}
 function arm(sx,sy,ang,L,col,hand){const tx=sx+Math.round(L*Math.sin(ang)),ty=sy-Math.round(L*Math.cos(ang));
  ln(sx,sy,tx,ty,col,2);R(tx-1,ty-1,tx+2,ty+2,hand);return [tx,ty]}
 function buildChar(p){
@@ -73,10 +73,10 @@ function buildChar(p){
  arm(-4,15+u,p.armFarA,6,C.armD,C.hand);R(-5,14+u,-2,17+u,C.armD);
  leg(p.farX,p.farLift,true);
  // baggy hips
- R(-5,8,5,13,C.pants);R(-6,9,6,12,C.pants);R(-6,9,-5,12,C.pantsH);R(5,9,6,12,C.pantsD);R(-5,12,5,13,C.armD);P(2,12,C.buckle);P(3,12,C.buckle);
+ R(-4,8,4,13,C.pants);R(-5,9,5,12,C.pants);R(-5,9,-4,12,C.pantsH);R(4,9,5,12,C.pantsD);R(-4,12,4,13,C.armD);P(1,12,C.buckle);P(2,12,C.buckle);
  leg(p.nearX,p.nearLift,false);
  // torso
- R(-3,13+u,4,17+u,C.shirt);R(-3,13+u,-2,17+u,C.shirtD);R(0,13+u,2,17+u,C.pants);R(3,13+u,4,17+u,C.shirtD);
+ R(-2,13+u,3,17+u,C.shirt);R(-2,13+u,-1,17+u,C.shirtD);R(0,13+u,2,17+u,C.pants);R(2,13+u,3,17+u,C.shirtD);
  // collar
  R(-3,17+u,5,19+u,C.collar);R(-4,19+u,6,21+u,C.collar);R(-4,19+u,6,20+u,C.collarD);P(-4,20+u,C.collarH);P(-3,20+u,C.collarH);
  // glass head (no cap)
