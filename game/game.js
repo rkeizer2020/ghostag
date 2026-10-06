@@ -322,12 +322,11 @@ const STAIN_SLOW = 0.7, STAIN_SLOW_TIME = 1;
 const guards = [];
 const guardSprites = { left: null, right: null };
 
-function spawnGuard(x, surfaceY, minX, maxX, dir, surface, blue = false) {
+function spawnGuard(x, surfaceY, minX, maxX, dir, surface) {
   const img = guardSprites.right;
   const h = GUARD_H, w = Math.round(img.width * h / img.height);
-  guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: blue ? BLUE_HP : GUARD_HP, flash: 0, surface, slow: 0, inStain: stainAt(surface, x + w / 2), blue });
+  guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: GUARD_HP, flash: 0, surface, slow: 0, inStain: stainAt(surface, x + w / 2) });
 }
-const BLUE_HP = 8, BLUE_SPEED = 1.25;   // the blue guard (level 3): a faster, tougher yellow guard
 
 // --- Enemies: the red guard ------------------------------------------------------
 // Stands on the small platforms and ONLY there, at most one per small platform
@@ -419,7 +418,6 @@ const SPAWN_GAP = 220; // an enemy never spawns closer than this (px) to the pla
 const enemyTypes = [
   { name: 'guard', every: 7.5, timer: 0, spawn: spawnGuard },
   { name: 'redGuard', every: 20, timer: 0, trySpawn: trySpawnRedGuard },   // small platforms only
-  { name: 'blueGuard', every: 9, timer: 0, onlyLevel: 3, spawn: (x, y, minX, maxX, dir, surface) => spawnGuard(x, y, minX, maxX, dir, surface, true) },   // level 3
   // new enemies are added here and spawn the same way
 ];
 
@@ -473,7 +471,7 @@ function updateGuards(dt) {
     const st = stainAt(g.surface, g.x + g.w / 2);
     if (st && st !== g.inStain) g.slow += STAIN_SLOW_TIME;
     g.inStain = st;
-    const speed = GUARD_SPEED * (g.blue ? BLUE_SPEED : 1) * (g.slow > 0 ? STAIN_SLOW : 1) * (g.hitSlow > 0 ? 0.8 : 1);
+    const speed = GUARD_SPEED * (g.slow > 0 ? STAIN_SLOW : 1) * (g.hitSlow > 0 ? 0.8 : 1);
     g.slow = Math.max(0, g.slow - dt);
     g.hitSlow = Math.max(0, (g.hitSlow || 0) - dt);
     g.x += g.dir * speed * dt;
@@ -785,6 +783,7 @@ function registerKill() {
 function startBoss() {
   lvl3.bossStarted = true;
   guards.length = 0; redGuards.length = 0; enemyBullets.length = 0;       // the arena is cleared
+  grabber.state = 'idle'; grabber.ext = 0; player.stunT = 0;                // (and the blue guard in the ceiling is gone)
   Object.assign(boss, { active: true, dead: false, hp: BOSS_HP, announce: 2.6, atkCd: 3, state: 'move', seeT: 0, wanderT: 0 });
   boss.x = (player.x < WORLD_W / 2 ? WORLD_W - WALL_W - BOSS_W - 60 : WALL_W + 60);
   boss.y = GROUND_Y - BOSS_H; boss.vx = boss.vy = 0; boss.onGround = true;
@@ -1049,6 +1048,97 @@ function drawBoss() {
   }
 }
 
+// --- Level 3: the blue guard hangs from a metal box in the ceiling. He can't be killed. Every 7.5 s his grab arm
+// goes for you: 1 s before, a red target shows up on you (it follows you, then locks). The arm is lightning fast,
+// so keep moving. If it catches you he drops you on the top big platform and you take 3 hearts (no blocking that).
+const GRAB_EVERY = 7.5, GRAB_WARN = 1, GRAB_LOCK = 0.25, GRAB_R = 52, GRAB_DMG = 3;
+const grabber = { state: 'idle', t: 0, cd: 4, tx: 0, ty: 0, caught: false, anim: 0, ext: 0 };
+let metalBoxImg;
+const GRAB_BOX = { x: WORLD_W / 2 - 120, y: 0, w: 240, h: 0 };      // the box: centred in the ceiling (its height follows the drawing)
+const grabAnchor = () => ({ x: WORLD_W / 2, y: CEILING_H - 6 + (GRAB_BOX.h || 70) * 0.5 });
+function resetGrabber() { Object.assign(grabber, { state: 'idle', t: 0, cd: 4, caught: false, ext: 0 }); player.stunT = 0; }
+function grabberActive() { return levelNo() === BOSS_LEVEL && !lvl3.bossStarted && !levelComplete; }
+function updateGrabber(dt) {
+  const g = grabber, pc = { x: player.x + player.w / 2, y: player.y + player.h * 0.5 }, a = grabAnchor();
+  g.anim += dt;
+  if (!grabberActive() || hearts <= 0) { if (g.state !== 'idle') { g.state = 'idle'; g.ext = 0; player.stunT = 0; } return; }
+  g.cd -= dt;                              // 7.5 s from the start of one grab to the start of the next
+  if (g.state === 'idle') {
+    if (g.cd <= 0) { Object.assign(g, { state: 'aim', t: 0, tx: pc.x, ty: pc.y, caught: false, cd: GRAB_EVERY }); }
+  } else if (g.state === 'aim') {          // the red target: follows you, locks the last 0.25 s
+    g.t += dt;
+    if (g.t < GRAB_WARN - GRAB_LOCK) { const k = 1 - Math.exp(-dt * 9); g.tx += (pc.x - g.tx) * k; g.ty += (pc.y - g.ty) * k; }
+    if (g.t >= GRAB_WARN) {                // lightning fast: the arm is there at once
+      g.caught = invuln <= 0 && Math.hypot(pc.x - g.tx, pc.y - g.ty) < GRAB_R;
+      g.state = 'strike'; g.t = 0;
+    }
+  } else if (g.state === 'strike') {
+    g.t += dt; g.ext = Math.min(1, g.t / 0.08);
+    if (g.t >= 0.08) { g.t = 0; g.state = g.caught ? 'drag' : 'miss'; if (g.caught) { player.stunT = 1; g.dragFrom = { x: player.x, y: player.y }; } }
+  } else if (g.state === 'miss') {         // it missed: the arm stays a moment, then goes back
+    g.t += dt; g.ext = Math.max(0, 1 - Math.max(0, g.t - 0.2) / 0.3);
+    if (g.t >= 0.5) { g.state = 'idle'; g.ext = 0; }
+  } else if (g.state === 'drag') {         // it pulls you up to the box
+    g.t += dt;
+    const f = Math.min(1, g.t / 0.4), e = f * f * (3 - 2 * f);
+    player.x = g.dragFrom.x + (a.x - player.w / 2 - g.dragFrom.x) * e; player.y = g.dragFrom.y + (a.y - player.h / 2 - g.dragFrom.y) * e;
+    player.vx = player.vy = 0;
+    g.tx = player.x + player.w / 2; g.ty = player.y + player.h / 2;
+    if (g.t >= 0.5) {                      // ...and drops you on the top big platform
+      const top = platforms[0];
+      player.x = top.x + 70 + Math.random() * (top.w - 140 - player.w); player.y = top.top - player.h; player.vx = player.vy = 0; player.onGround = true;
+      invuln = 0; hurtPlayer(GRAB_DMG);
+      player.stunT = 0.25; g.state = 'release'; g.t = 0;
+    }
+  } else if (g.state === 'release') {
+    g.t += dt; g.ext = Math.max(0, 1 - g.t / 0.3);
+    if (g.t >= 0.3) { g.state = 'idle'; g.ext = 0; }
+  }
+}
+function drawGrabberBack() {                 // the metal box and the hanging blue guard
+  if (!grabberActive()) return;
+  const bw = GRAB_BOX.w, bh = metalBoxImg.height * bw / metalBoxImg.width;
+  GRAB_BOX.h = bh;
+  const bx = WORLD_W / 2 - bw / 2, by = CEILING_H - 14;
+  // the guard hangs from the box by his hands
+  const gh = 84, gw = Math.round(gh * blueGuardR.width / blueGuardR.height), gx = WORLD_W / 2 - gw / 2 + 4, gy = by + bh + 26 + Math.sin(grabber.anim * 2) * 3;
+  ctx.save();
+  ctx.strokeStyle = '#0e0806'; ctx.lineWidth = 9; ctx.lineCap = 'round';
+  for (const dx of [-22, 22]) { ctx.beginPath(); ctx.moveTo(WORLD_W / 2 + dx, by + bh - 8); ctx.lineTo(WORLD_W / 2 + dx * 0.7, gy + 14); ctx.stroke(); }
+  ctx.rotate(0);
+  ctx.drawImage(blueGuardR, gx, gy, gw, gh);
+  ctx.drawImage(metalBoxImg, bx, by, bw, bh);
+  ctx.restore();
+}
+function drawGrabberFront() {                // the grab arm and the red target
+  const g = grabber;
+  if (!grabberActive() && g.state === 'idle') return;
+  const a = grabAnchor();
+  if (g.state === 'aim') {                   // the red target
+    const k = g.t / GRAB_WARN, locked = g.t >= GRAB_WARN - GRAB_LOCK, r = GRAB_R * (1.7 - 0.7 * k), pulse = locked ? 1 : 0.65 + 0.35 * Math.sin(g.t * 16);
+    ctx.save();
+    ctx.translate(g.tx, g.ty);
+    ctx.globalAlpha = pulse; ctx.strokeStyle = '#ff2a2a'; ctx.lineWidth = locked ? 6 : 4;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.2832); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, GRAB_R * 0.35, 0, 6.2832); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r - 10, 0); ctx.lineTo(-GRAB_R * 0.5, 0); ctx.moveTo(r + 10, 0); ctx.lineTo(GRAB_R * 0.5, 0); ctx.moveTo(0, -r - 10); ctx.lineTo(0, -GRAB_R * 0.5); ctx.moveTo(0, r + 10); ctx.lineTo(0, GRAB_R * 0.5); ctx.stroke();
+    if (locked) { ctx.fillStyle = 'rgba(255,42,42,0.25)'; ctx.beginPath(); ctx.arc(0, 0, GRAB_R, 0, 6.2832); ctx.fill(); }
+    ctx.restore();
+  }
+  if (g.ext > 0.001) {                       // the arm: a long grey arm with a claw, from the box to the target
+    const tx = a.x + (g.tx - a.x) * g.ext, ty = a.y + (g.ty - a.y) * g.ext;
+    ctx.save(); ctx.lineCap = 'round';
+    ctx.strokeStyle = '#0e0806'; ctx.lineWidth = 20; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(tx, ty); ctx.stroke();
+    ctx.strokeStyle = '#8a90a4'; ctx.lineWidth = 11; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(tx, ty); ctx.stroke();
+    ctx.strokeStyle = '#cfd4e2'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.x - 2, a.y); ctx.lineTo(tx - 2, ty); ctx.stroke();
+    const ang = Math.atan2(ty - a.y, tx - a.x), open = g.caught ? 0.15 : 0.7;   // the claw closes when it caught you
+    ctx.translate(tx, ty); ctx.rotate(ang);
+    ctx.strokeStyle = '#0e0806'; ctx.lineWidth = 9;
+    for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(22, sd * 30 * open, 40, sd * 12 * open); ctx.stroke(); }
+    ctx.restore();
+  }
+}
+
 let hearts = 5;
 let invuln = 0;
 let dying = 0;          // short pause after the last heart before the game over screen
@@ -1136,6 +1226,7 @@ function restart() {
   resetPaint();
   resetGhost();
   resetBossFight();
+  resetGrabber();
   Object.assign(swing, { t: 0, cd: 0 }); Object.assign(shield, { t: 0, age: 0, cd: 0, flash: 0 });
   ink.length = 0; reflected.length = 0; lastInk = null;
   for (const type of enemyTypes) type.timer = 0;
@@ -1334,24 +1425,27 @@ function update(dt) {
   updateGuards(dt);
   updateRedGuards(dt);
   updateGhost(dt);
-  if (levelNo() === BOSS_LEVEL) { updateBoss(dt); updateBossHazards(dt); }
+  if (levelNo() === BOSS_LEVEL) { updateBoss(dt); updateBossHazards(dt); updateGrabber(dt); }
   if (charId() === '0300') updateBrushMoves(dt);
   updateHealth(dt);
   if (has(1) && hearts > 0 && (regenTimer += dt) >= 60) { regenTimer = 0; healHeart(); }
 
-  const dir = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
+  const stunned = player.stunT > 0;           // being carried by the grab arm: no control
+  if (stunned) player.stunT -= dt;
+  const dir = stunned ? 0 : (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
   // speed eases up and down instead of jumping straight to full speed
   const wantVx = dir * moveSpeed();
   const accel = (dir ? ACCEL : DECEL) * dt;
   player.vx += Math.max(-accel, Math.min(accel, wantVx - player.vx));
   if (dir) player.facing = dir;
 
-  if (keys.ArrowUp && player.onGround) {
+  if (!stunned && keys.ArrowUp && player.onGround) {
     player.vy = -jumpSpeed();
     player.onGround = false;
     vis.jump = 1;
   }
 
+  if (grabber.state === 'drag') return;       // the arm carries you: no physics
   const prevBottom = player.y + player.h;
   const prevHead = player.y;
   player.vy += (player.vy < 0 ? gravityUp() : gravityDown()) * dt;
@@ -1671,7 +1765,7 @@ function drawCards(dt) {
 const LEVEL_INFO = {
   1: 'Paint the whole map green by defeating enemies. Yellow and red guards.',
   2: 'Same map, but subject 394 hunts you down. He follows you and takes 2 hearts.',
-  3: 'A blue guard joins the others. Defeat 35 enemies to call the boss. Nothing gets painted: only the boss counts. Or press BOSS to start at the boss fight.',
+  3: 'A blue guard hangs from the ceiling and grabs at you: watch the red target. Defeat 35 enemies to call the boss. Nothing gets painted. Or press BOSS.',
 };
 const LV_TILE = { w: 300, h: 330, gap: 70, y: 128 };
 function levelsLayout() {
@@ -1892,9 +1986,9 @@ canvas.addEventListener('pointerdown', e => {
 
   menuBgImg = menuImg; menuBackImg = menuBtnImg;
   let bossImgList;
-  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg, manIdleImg, manWalk1Img, manWalk2Img, manCardImg, manUpImg, manApexImg, manFallImg, ...bossImgList] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button', 'man-0300-idle', 'man-0300-walk-1', 'man-0300-walk-2', 'man-0300-card', 'man-0300-jump-up', 'man-0300-jump-apex', 'man-0300-jump-fall', 'boss-idle', 'boss-walk-1', 'boss-walk-2', 'boss-jump', 'boss-attack', 'pillar', 'bomb', 'blue-guard-left', 'blue-guard-right', 'levels-button', 'boss-button'].map(n => load(assetUrl(n))));
+  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg, manIdleImg, manWalk1Img, manWalk2Img, manCardImg, manUpImg, manApexImg, manFallImg, ...bossImgList] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button', 'man-0300-idle', 'man-0300-walk-1', 'man-0300-walk-2', 'man-0300-card', 'man-0300-jump-up', 'man-0300-jump-apex', 'man-0300-jump-fall', 'boss-idle', 'boss-walk-1', 'boss-walk-2', 'boss-jump', 'boss-attack', 'pillar', 'bomb', 'blue-guard-left', 'blue-guard-right', 'levels-button', 'boss-button', 'metal-box'].map(n => load(assetUrl(n))));
   bossImgs = { idle: bossImgList[0], walk1: bossImgList[1], walk2: bossImgList[2], jump: bossImgList[3], attack: bossImgList[4], pillar: bossImgList[5], bomb: bossImgList[6] };
-  blueGuardL = bossImgList[7]; blueGuardR = bossImgList[8]; levelsBtnImg = bossImgList[9]; bossBtnImg = bossImgList[10]; playImgRef = playBtnImg;
+  blueGuardL = bossImgList[7]; blueGuardR = bossImgList[8]; levelsBtnImg = bossImgList[9]; bossBtnImg = bossImgList[10]; metalBoxImg = bossImgList[11]; playImgRef = playBtnImg;
   for (const u of UPGRADES) upgradeImgs[u.id] = await load(assetUrl('upgrade-' + u.id));
   if (document.fonts) document.fonts.load('24px Rye').catch(() => {});
   // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
@@ -2029,7 +2123,7 @@ canvas.addEventListener('pointerdown', e => {
     for (const g of guards) {
       // a hit makes him blink
       if (g.flash > 0 && Math.floor(g.flash * 40) % 2 === 0) continue;
-      ctx.drawImage(g.blue ? (g.dir > 0 ? blueGuardR : blueGuardL) : (g.dir > 0 ? guardR : guardL), g.x, g.y, g.w, g.h);
+      ctx.drawImage(g.dir > 0 ? guardR : guardL, g.x, g.y, g.w, g.h);
     }
     for (const g of redGuards) {
       if (g.flash > 0 && Math.floor(g.flash * 40) % 2 === 0) continue;
@@ -2054,6 +2148,7 @@ canvas.addEventListener('pointerdown', e => {
     const bodyScaleY = 1 + 0.1 * vis.jump + airStretch - 0.16 * vis.land + breathe;
     const bodyScaleX = Math.pow(bodyScaleY, -0.8);                        // squash and stretch keep the volume
     drawBossHazards();
+    drawGrabberBack();
     drawGhost();
     drawBoss();
     const isBrush = charId() === '0300';
@@ -2157,6 +2252,7 @@ canvas.addEventListener('pointerdown', e => {
       if (b.kind === 'button') drawButtonShot(b.w); else ctx.drawImage(redBulletImg, -b.w / 2, -b.h / 2, b.w, b.h);
       ctx.restore();
     }
+    drawGrabberFront();
     drawBossAir();
     for (const b of bullets) ctx.drawImage(b.img, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
 
