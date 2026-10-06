@@ -294,18 +294,18 @@ function drawFg(c,t,i,cam){c.save();c.globalAlpha=.92;
 function drawScene(c,sc,t,cam){
  const fog='rgba(58,38,66,';
  tile(c,cam*.12,()=>{c.drawImage(sc._wall,-80,-40,WW+160,HH+80)});
- tile(c,cam*.28,()=>{if(sc.far&&sc.far.length)drawChain(c,sc.far,t)});c.fillStyle=fog+'.36)';c.fillRect(0,0,WW,HH);
- tile(c,cam*.55,()=>{if(sc.midDraw)sc.midDraw(c,t)});c.fillStyle=fog+'.13)';c.fillRect(0,0,WW,HH);
+ tile(c,cam*.28,()=>{if(sc.far&&sc.far.length)drawChain(c,sc.far,t)});c.fillStyle=fog+'.36)';c.fillRect(0,0,WW,HH+80);
+ tile(c,cam*.55,()=>{if(sc.midDraw)sc.midDraw(c,t)});c.fillStyle=fog+'.13)';c.fillRect(0,0,WW,HH+80);
  tile(c,cam*.8,()=>{if(sc.mid&&sc.mid.length)drawChain(c,sc.mid,t);for(const x of sc.lamps||[])lampAt(c,x,sc.ceil?36:0,t)});
  tile(c,cam*.8,()=>{if(sc.ceil=='girder')girder(c);else if(sc.ceil=='pipes')ceilPipes(c)});
- if(sc.glow){const g=c.createRadialGradient(sc.glow[0],sc.glow[1],10,sc.glow[0],sc.glow[1],380);g.addColorStop(0,sc.glow[2]);g.addColorStop(1,'rgba(255,140,60,0)');c.fillStyle=g;c.fillRect(0,0,WW,HH)}
+ if(sc.glow){const g=c.createRadialGradient(sc.glow[0],sc.glow[1],10,sc.glow[0],sc.glow[1],380);g.addColorStop(0,sc.glow[2]);g.addColorStop(1,'rgba(255,140,60,0)');c.fillStyle=g;c.fillRect(0,0,WW,HH+80)}
  drawFloorWorld(c,sc,cam);
  tile(c,cam,()=>{if(sc.near&&sc.near.length)drawChain(c,sc.near,t);steam(c,t,sc.vents||[])});
- if(sc.tint){c.fillStyle=sc.tint;c.fillRect(0,0,WW,HH)}}
+ if(sc.tint){c.fillStyle=sc.tint;c.fillRect(0,0,WW,HH+80)}}
 function drawFront(c,sc,t,cam,i){drawFg(c,t,i,cam);const g=c.createRadialGradient(WW/2,HH*.55,HH*.3,WW/2,HH*.55,WW*.75);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(10,4,16,.55)');c.fillStyle=g;c.fillRect(0,0,WW,HH)}
 
 
-const WORLD=1920,SC_=0.82;
+const WORLD=1920,SC_=0.82,YS=45;
 const Q=Math.min(2,window.devicePixelRatio||1);
 const game=document.getElementById('game');game.width=WW*Q;game.height=HH*Q;const g=game.getContext('2d');
 /* ---- sound: decoded from the embedded mp3 files ---- */
@@ -357,12 +357,12 @@ function step(){clock+=1/60;
  const dir=key.r-key.l;
  if(me.kb>0){me.kb--;me.vx*=.93}else{me.vx+=(dir*MAXV-me.vx)*.2;if(Math.abs(me.vx)<.05)me.vx=0;if(dir)me.face=dir}
  if(me.ignT>0){me.ignT--;if(me.ignT===0)me.ign=null}
- if(me.kb<=0&&key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-11.5;me.ground=false;jumpHeld=true}
- if(!key.j)jumpHeld=false;if(!me.ground&&!key.j&&me.vy<-5&&me.kb<=0)me.vy=-5;
+ if(me.kb<=0&&key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-6.6;me.ground=false;jumpHeld=true}
+ if(!key.j)jumpHeld=false;
  if(me.ground&&key.d&&me.kb<=0){const pl=PLAT.find(p=>Math.abs(p.y-me.y)<2&&me.x>=p.x0-5&&me.x<=p.x1+5);if(pl){me.ign=pl;me.ignT=16;me.ground=false;me.vy=1}}
  let nx=me.x+me.vx;if(me.vx){const gn=groundAt(nx+Math.sign(me.vx)*6);if(gn<me.y-8){nx=me.x;if(me.kb<=0)me.vx=0}}me.x=nx;
  if(me.ground){const sy=supportY(me.x,me.y-3,me.ign);if(sy>me.y+1.5)me.ground=false;else me.y=sy}
- if(!me.ground){me.vy+=.72;const py=me.y;me.y+=me.vy;if(me.vy>=0){const sy=supportY(me.x,py,me.ign);if(me.y>=sy){me.y=sy;if(me.vy>1.0)play('land',{gain:.07});if(me.vy>9)me.land=8;me.vy=0;me.ground=true}}}
+ if(!me.ground){const gg=(key.j&&me.vy<0&&me.kb<=0)?.136:.5;me.vy=Math.min(11,me.vy+gg);const py=me.y;me.y+=me.vy;if(me.vy>=0){const sy=supportY(me.x,py,me.ign);if(me.y>=sy){me.y=sy;if(me.vy>1.0)play('land',{gain:.07});if(me.vy>9)me.land=8;me.vy=0;me.ground=true}}}
  if(me.land>0)me.land--;
  if(me.atk>=0){me.atk++;if(me.atk===8)fxs.push({x:me.x,y:me.y-44*SC_,f:me.atkFace,t0:clock,seed:(Math.random()*9999)|0});if(me.atk>=26)me.atk=-1}
  me.speed=Math.min(1,Math.abs(me.vx)/MAXV);
@@ -423,7 +423,7 @@ function genRoom(safeX){
  TER=[];const pits=[];const nPit=Math.floor(rnd(0,3.2));let tries=0;
  while(pits.length<nPit&&tries++<40){const w=rnd(210,340),x=rnd(320,WORLD-320-w),d=Math.random()<.5?32:48;if(Math.abs(x+w/2-safeX)<w/2+280)continue;if(pits.some(p=>x<p.x1+200&&x+w>p.x0-200))continue;pits.push({x0:x,x1:x+w,y:FLOOR+d})}
  pits.sort((a,b)=>a.x0-b.x0);let cx=0;for(const p of pits){if(p.x0>cx)TER.push({x0:cx,x1:p.x0,y:FLOOR});TER.push(p);cx=p.x1}if(cx<WORLD)TER.push({x0:cx,x1:WORLD,y:FLOOR});
- PLAT=[];const tiers=[72,138,200];
+ PLAT=[];const tiers=[96,172,236];
  const place=(tier,near)=>{for(let k=0;k<80;k++){const w=rnd(130,210);let x=near&&near.length?near[Math.floor(Math.random()*near.length)].cx+rnd(-190,190)-w/2:rnd(140,WORLD-140-w);x=clamp(x,100,WORLD-100-w);const y=FLOOR-tiers[tier];
   if(PLAT.some(p=>Math.abs(p.y-y)<60&&x<p.x1+70&&x+w>p.x0-70))continue;const pl={x0:x,x1:x+w,y,cx:x+w/2};PLAT.push(pl);return pl}return null};
  const t0=[],t1=[],t2=[];for(let i=0,n=2+Math.floor(rnd(0,2.9));i<n;i++){const p=place(0,null);if(p)t0.push(p)}
@@ -467,7 +467,7 @@ function updateEnemies(){for(let i=ENM.length-1;i>=0;i--){const e=ENM[i];if(e.de
    e.fireT-=1/60;if(e.fireT>0&&e.fireT<=.6)e.chg=1-e.fireT/.6;
    if(e.fireT<=0){const K=1.5,ex=e.x+e.face*10*K,ey=e.y+3*K,a=Math.atan2(me.y-34-ey,me.x-ex);BUL.push({x:ex,y:ey,vx:Math.cos(a)*6.2,vy:Math.sin(a)*6.2,life:0,tr:[]});e.muz=.2;e.fireT=2.5;e.chg=0;play('laser',{gain:.3*clamp(1-d/900,.25,1)})}}
   else{const tx=e.ax+Math.sin(e.t*.8)*120,ty=e.ay+Math.sin(e.t*1.7)*16;e.vx+=((tx-e.x)*.02-e.vx)*.06;e.vy+=((ty-e.y)*.02-e.vy)*.06;if(Math.abs(e.vx)>.3)e.face=e.vx>0?1:-1;e.chg=0}
-  e.x+=e.vx;e.y+=e.vy;e.y=Math.min(e.y,FLOOR-45);e.rot+=.7;
+  e.x+=e.vx;e.y+=e.vy;e.y=clamp(e.y,150,FLOOR-45);e.rot+=.7;
 }}}
 function drawFloorWorld(c,sc,cam){
  for(const s of TER){const sx0=s.x0-cam,sx1=s.x1-cam;if(sx1<-30||sx0>WW+30)continue;const d=s.y-FLOOR;
@@ -525,9 +525,21 @@ function loopGain(name,v){const L=loops[name];if(!L)return;L.g.gain.setTargetAtT
 function updateLoops(){if(!ac||ac.state!=='running')return;loopStart('roll');loopStart('drone');let ds=1e9,dd=1e9;
  for(const e of ENM){if(e.dead)continue;const d=Math.hypot(e.x-me.x,e.y-me.y);if(e.type=='saw'&&d<ds)ds=d;if(e.type=='drone'&&d<dd)dd=d}
  loopGain('roll',.03*clamp(1-ds/700,0,1));loopGain('drone',.05*clamp(1-dd/800,0,1))}
+const CEIL_H=78;
+const CEIL_GEARS=chain([[3,1.4,9,null,0,'copper'],[0,0,7,0,20,'slate'],[0,0,10,1,-18,'bright'],[0,0,8,2,25,'copper'],[0,0,11,3,-20,'slate'],[0,0,7,4,22,'bright'],[0,0,9,5,-24,'copper'],[0,0,12,6,18,'slate'],[0,0,8,7,-22,'bright'],[0,0,10,8,25,'copper'],[0,0,7,9,-18,'slate'],[0,0,9,10,22,'bright']],1.0);
+function drawCeiling(c,t,cam){
+ c.fillStyle='#1c1226';c.fillRect(0,HH-YS,WW,YS+2);
+ tile(c,cam*.8,()=>{
+  c.fillStyle=lgrad(c,0,0,0,CEIL_H,['#3a1c18','#6e3426','#4a2430']);c.fillRect(-2,0,WW+4,CEIL_H);
+  c.strokeStyle='rgba(217,131,72,.55)';c.lineWidth=3;c.beginPath();for(let x=-40;x<WW+80;x+=80){c.moveTo(x,CEIL_H-16);c.lineTo(x+40,10);c.lineTo(x+80,CEIL_H-16)}c.stroke();
+  c.fillStyle='rgba(240,168,104,.8)';for(let x=0;x<WW;x+=80){c.beginPath();c.arc(x,12,2.6,0,TAU);c.fill();c.beginPath();c.arc(x+40,CEIL_H-22,2.6,0,TAU);c.fill()}
+  drawChain(c,CEIL_GEARS,t);
+  c.fillStyle=lgrad(c,0,CEIL_H-9,0,CEIL_H+3,[CL.copH,CL.copL,CL.cop]);c.fillRect(-2,CEIL_H-9,WW+4,12);c.strokeStyle=CL.out;c.lineWidth=3;c.beginPath();c.moveTo(-2,CEIL_H+3);c.lineTo(WW+2,CEIL_H+3);c.stroke();
+  const sg=c.createLinearGradient(0,CEIL_H+3,0,CEIL_H+46);sg.addColorStop(0,'rgba(10,4,16,.45)');sg.addColorStop(1,'rgba(10,4,16,0)');c.fillStyle=sg;c.fillRect(-2,CEIL_H+3,WW+4,43)})}
 let last=0,acc=0;
 function loop(ts){const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=1000/60){step();acc-=1000/60}
  g.setTransform(Q,0,0,Q,0,0);const sc=SC[room];
+ g.save();g.translate(0,-YS);
  drawScene(g,sc,clock,cam);
  for(const p of PLAT)drawPlat(g,p,cam);
  for(const e of ENM)drawEnemy(g,e,cam,clock);updateLoops();
@@ -538,6 +550,7 @@ function loop(ts){const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=
  g.save();if(me.inv>0&&((me.inv/5)|0)%2)g.globalAlpha=.35;if(me.dead)g.globalAlpha=.5;heroDraw(g,sx,me.y,me.face,P,0,sq,SC_);g.restore();
  drawDebris(g,dtms/1000);drawLasers(g,cam,clock);
  for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}slashFx(g,me.x-cam,me.y-44*SC_,f.f,k,f.seed,SC_*1.15)}
+ g.restore();drawCeiling(g,clock,cam);
  drawFront(g,sc,clock,cam,room);hudUpdate(dtms/1000);drawHud(g,clock);
  if(me.dead){g.fillStyle='rgba(10,4,16,.55)';g.fillRect(0,0,WW,HH);g.fillStyle='#fff3cf';g.textAlign='center';g.font='bold 30px "Press Start 2P","Courier New",monospace';g.fillText('Knocked out',WW/2,HH/2-6);g.font='16px "Space Mono","Courier New",monospace';g.fillStyle='#f0a868';g.fillText('Refilling your head...',WW/2,HH/2+28);g.textAlign='left'}
  requestAnimationFrame(loop)}
