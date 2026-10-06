@@ -167,7 +167,8 @@ const SAVE_KEY = 'drawshot-save';           // the guest save; a logged in playe
 const SUPA_URL = 'https://pxesgizsahewtzssgqyf.supabase.co';
 const SUPA_KEY = 'sb_publishable_mqgWcQrbYFRuP1shEuOIPg_9xpjm86I';
 const SESSION_KEY = 'drawshot-session';
-const save = { coins: 0, owned: [], equipped: [], offerWindow: -1, offers: [], level: 1, character: '0005' };
+const save = { coins: 0, owned: [], equipped: [], offerWindow: -1, offers: [], level: 1, best: 1, character: '0005' };
+const MAX_LEVEL = 3;                         // how many levels there are
 let user = null;                             // the logged in username, or null for a guest
 let session = null;                          // {name, uid, access, refresh, exp} while logged in
 const store = {
@@ -188,8 +189,11 @@ function loadSave(raw) {
   let data = {};
   try { data = JSON.parse(raw || '{}') || {}; } catch (e) { /* start fresh */ }
   for (const k of Object.keys(save)) delete save[k];
-  Object.assign(save, { coins: 0, owned: [], equipped: null, offerWindow: -1, offers: [], level: 1, character: '0005' }, data);
+  Object.assign(save, { coins: 0, owned: [], equipped: null, offerWindow: -1, offers: [], level: 1, best: 1, character: '0005' }, data);
   if (!(save.level >= 1)) save.level = 1;
+  if (!(save.best >= 1)) save.best = 1;
+  save.best = Math.min(MAX_LEVEL, Math.max(save.best, save.level));           // older saves only knew `level` (= how far you were)
+  save.level = Math.max(1, Math.min(save.level, bestLevel()));               // the level you play: never further than you have reached
   if (!Array.isArray(save.equipped)) save.equipped = save.owned.slice(0, MAX_EQUIPPED);   // saves from before the cards screen
   save.equipped = save.equipped.filter(id => save.owned.includes(id)).slice(0, MAX_EQUIPPED);
   applyPerks();
@@ -200,7 +204,7 @@ const OWNER_ACCOUNTS = ['merlinos24maker'];
 const isOwner = () => !!user && OWNER_ACCOUNTS.includes(user.toLowerCase());
 // the playable characters: 0005 is always there; the others are unlocked for the owner account for now
 const CHARACTERS = [{ id: '0005', name: 'SUBJECT 0005', unlockLevel: 1 }, { id: '0300', name: 'SUBJECT 0300', unlockLevel: 2 }];
-const characterUnlocked = id => isOwner() || levelNo() >= ((CHARACTERS.find(c => c.id === id) || {}).unlockLevel || 1);   // reaching level 2 unlocks 0300
+const characterUnlocked = id => isOwner() || bestLevel() >= ((CHARACTERS.find(c => c.id === id) || {}).unlockLevel || 1);   // reaching level 2 unlocks 0300
 const unlockedCharacters = () => CHARACTERS.filter(c => characterUnlocked(c.id));
 function charId() { return characterUnlocked(save.character) ? save.character : '0005'; }
 const charImg = () => (charId() === '0300' ? manIdleImg : bodyImg0005);
@@ -216,7 +220,9 @@ try { session = JSON.parse(store.get(SESSION_KEY) || 'null'); } catch (e) { sess
 user = session ? session.name : null;
 loadSave(store.get(saveKey()));
 // the level you are on: completing a level moves you up, dying keeps you where you are (there is no way back)
-function levelNo() { return save.level || 1; }   // (a function so it can be used while the save is being loaded)
+function levelNo() { return save.level || 1; }   // the level you play now (a function so it can be used while the save is being loaded)
+// how far you may go: the furthest level you reached; merlinos24maker has every level
+function bestLevel() { return isOwner() ? MAX_LEVEL : Math.min(MAX_LEVEL, save.best || 1); }
 const owns = id => save.owned.includes(id);
 const has = id => charId() === '0005' && save.equipped.includes(id);   // only equipped cards do anything (not for SUBJECT 0300 yet)
 
@@ -737,11 +743,11 @@ function updateBrushMoves(dt) {
   }
 }
 
-// --- Level 3: 50 kills call the boss ------------------------------------------------
+// --- Level 3: 35 kills call the boss ------------------------------------------------
 // The boss is a fat white man in a black suit with a red tie. He walks around the map, and when he
 // sees you (in range, and not through a platform) he runs at you, faster than you. 125 hits take him down.
-// Every attack of his takes 1.5 hearts. No time limit, and nothing gets painted in this level.
-const BOSS_LEVEL = 3, BOSS_KILLS = 50;
+// Every attack of his, and touching him, takes 1.5 hearts. No time limit, and nothing gets painted in this level.
+const BOSS_LEVEL = 3, BOSS_KILLS = 35;
 const BOSS_W = 120, BOSS_H = 180, BOSS_HP = 125, BOSS_DMG = 1.5;
 const BOSS_JUMP_V = Math.sqrt(2 * GRAVITY_UP * 275);         // jumps up through platforms from below
 const BOSS_SIGHT = 640, BOSS_WALK = 0.65, BOSS_RUN = 1.1;      // sight range (px); 35% slower than you / 10% faster than you
@@ -1007,6 +1013,8 @@ let levelComplete = false;   // the whole map is painted
 let completeTimer = 0;       // a short pause so you can see the last stain before the screen comes
 let inMenu = true;      // the game starts on the DRAWSHOT menu
 let inShop = false;     // the shop screen (opened from the menu or the level completed screen)
+let lcLevel = 1, lcHasNext = true, lcNewChar = null;   // the level you just completed, whether there is a next one, a character it unlocked
+let inLevels = false;   // the level select screen
 let inChars = false;    // the character screen (EQUIP): pick who you play and read what he does
 let viewChar = '0005';  // the character whose info is shown
 let inCards = false;    // the cards screen: pick the (max 3) cards you play with
@@ -1025,10 +1033,12 @@ const cardsBtn = { x: 0, y: 0, w: 0, h: 0 };     // CARDS on the menu screen
 const lcNextBtn = { x: 0, y: 0, w: 0, h: 0 };    // NEXT on the level completed screen
 const lcCardsBtn = { x: 0, y: 0, w: 0, h: 0 };   // CARDS on the level completed screen
 const loginBtn = { x: 0, y: 0, w: 0, h: 0 };
+const levelsBtn = { x: 0, y: 0, w: 0, h: 0 };   // LEVELS on the menu screen, under EQUIP
+const lvPlayBtn = { x: 0, y: 0, w: 0, h: 0 };   // PLAY on the level select screen
 const equipBtn = { x: 0, y: 0, w: 0, h: 0 };    // EQUIP (character) on the menu screen, under LOGIN     // LOGIN on the menu screen
 const shopMenuBtn = { x: 0, y: 0, w: 0, h: 0 };  // MENU on the shop screen
 const CARD_W = 300, CARD_H = 440, CARD_GAP = 40, CARD_Y = 128;
-let equipBtnImg, nextBtnImg, cardsBtnImg, loginBtnImg, shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
+let levelsBtnImg, playImgRef, equipBtnImg, nextBtnImg, cardsBtnImg, loginBtnImg, shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
 const upgradeImgs = {};
 const TITLE_FONT = 'Rye, Georgia, serif', BODY_FONT = '"Trebuchet MS", system-ui, sans-serif';
 
@@ -1038,6 +1048,12 @@ function toMenu() {
   inShop = false;
   inCards = false;
   inChars = false;
+  inLevels = false;
+}
+
+function openLevels() {
+  inLevels = true;
+  shopMsg.t = 0;
 }
 
 function openChars() {
@@ -1114,6 +1130,16 @@ function updateHealth(dt) {
       break;
     }
   }
+  // touching the boss hurts too (a perfect block hits him back for the same damage)
+  if (bossHittable()) {
+    const bb = bossBox();
+    if (p.x + p.w > bb.x && p.x < bb.x + bb.w && p.y + p.h > bb.y && p.y < bb.y + bb.h) {
+      if (charId() === '0300' && shield.t > 0 && shield.age <= PERFECT_WINDOW && shieldFaces(bb.x + bb.w / 2)) {
+        shield.flash = 0.3; invuln = 0.6; hurtBoss(BOSS_DMG);
+      } else hurtPlayer(BOSS_DMG);
+      return;
+    }
+  }
   // subject 394 takes 2 hearts (harmless while he is still fading in)
   if (ghost.active && !ghost.dead && ghost.age >= GHOST_FADE) {
     const hb = ghostBox();
@@ -1132,7 +1158,7 @@ function updateHealth(dt) {
 const keys = {};
 addEventListener('keydown', e => {
   if (e.key.startsWith('Arrow')) e.preventDefault();
-  if (inShop || inCards || inChars || inLogin) return;
+  if (inShop || inCards || inChars || inLevels || inLogin) return;
   if (inMenu) {
     if (e.key === 'Enter' || e.key === ' ') { restart(); inMenu = false; }
     return;
@@ -1596,6 +1622,53 @@ function drawCards(dt) {
   drawButton(menuBackImg, shopMenuBtn, hoverBtn === 'menu');
 }
 
+// --- the level select screen: a schema of the levels, go back to any level you have reached ---
+const LEVEL_INFO = {
+  1: 'Paint the whole map green by defeating enemies. Yellow and red guards.',
+  2: 'Same map, but subject 394 hunts you down. He follows you and takes 2 hearts.',
+  3: 'A blue guard joins the others. Defeat 35 enemies to call the boss. Nothing gets painted: only the boss counts.',
+};
+const LV_TILE = { w: 300, h: 330, gap: 70, y: 128 };
+function levelsLayout() {
+  const x0 = (W - (MAX_LEVEL * LV_TILE.w + (MAX_LEVEL - 1) * LV_TILE.gap)) / 2;
+  return Array.from({ length: MAX_LEVEL }, (_, i) => ({ n: i + 1, x: x0 + i * (LV_TILE.w + LV_TILE.gap), y: LV_TILE.y, w: LV_TILE.w, h: LV_TILE.h }));
+}
+function drawLevels(dt) {
+  ctx.drawImage(menuBgImg, 0, 300, W, 400, 0, 0, W, H);
+  ctx.fillStyle = 'rgba(6,3,14,0.78)';
+  ctx.fillRect(0, 0, W, H);
+  drawText('LEVELS', W / 2, 78, 60, '#e2820a', TITLE_FONT, 'center', '#000');
+  const tiles = levelsLayout();
+  tiles.forEach((t, i) => {
+    const open = t.n <= bestLevel(), sel = levelNo() === t.n, cleared = save.best > t.n, hov = hoverBtn === 'lv' + i && open;
+    if (i) {   // the path between the levels
+      const prev = tiles[i - 1];
+      ctx.save(); ctx.strokeStyle = open ? '#e2820a' : '#4a4660'; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.setLineDash([2, 16]);
+      ctx.beginPath(); ctx.moveTo(prev.x + prev.w + 8, t.y + 110); ctx.lineTo(t.x - 8, t.y + 110); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.fillStyle = sel ? 'rgba(20,40,110,0.88)' : 'rgba(12,8,22,0.82)';
+    ctx.strokeStyle = sel ? '#4a8bff' : '#000'; ctx.lineWidth = sel ? 7 : 5;
+    ctx.beginPath(); ctx.roundRect(t.x, t.y + (hov ? -5 : 0), t.w, t.h, 18); ctx.fill(); ctx.stroke();
+    ctx.globalAlpha = open ? 1 : 0.45;
+    drawText('LEVEL ' + t.n, t.x + t.w / 2, t.y + 52, 34, '#ffd21f', TITLE_FONT, 'center', '#000');
+    ctx.font = `bold 16px ${BODY_FONT}`;
+    wrapLines(LEVEL_INFO[t.n], t.w - 44).forEach((ln, j) => drawText(ln, t.x + t.w / 2, t.y + 98 + j * 22, 16, '#fff', 'bold ' + BODY_FONT, 'center'));
+    ctx.globalAlpha = 1;
+    if (!open) { drawText('LOCKED', t.x + t.w / 2, t.y + t.h - 62, 26, '#ff7a6a', TITLE_FONT, 'center', '#000'); drawText('Finish level ' + (t.n - 1) + ' first', t.x + t.w / 2, t.y + t.h - 32, 15, '#cdbfae', 'bold ' + BODY_FONT, 'center'); }
+    else if (cleared) drawText('COMPLETED', t.x + t.w / 2, t.y + t.h - 28, 22, '#8dff7a', 'bold ' + BODY_FONT, 'center', '#000');
+    else drawText('OPEN', t.x + t.w / 2, t.y + t.h - 28, 22, '#4a8bff', 'bold ' + BODY_FONT, 'center', '#000');
+    if (sel) drawText('SELECTED', t.x + t.w / 2, t.y + t.h - 60, 15, '#fff', 'bold ' + BODY_FONT, 'center');
+    ctx.restore();
+  });
+  shopMsg.t = Math.max(0, shopMsg.t - dt);
+  if (shopMsg.t > 0) { ctx.globalAlpha = Math.min(1, shopMsg.t * 2); drawText(shopMsg.text, W / 2, 486, 22, '#ff7a6a', 'bold ' + BODY_FONT, 'center', '#000'); ctx.globalAlpha = 1; }
+  drawText('Press PLAY to start level ' + levelNo(), W / 2, 522, 18, '#cdbfae', 'bold ' + BODY_FONT, 'center');
+  drawButton(playImgRef, lvPlayBtn, hoverBtn === 'lvplay');
+  drawButton(menuBackImg, shopMenuBtn, hoverBtn === 'menu');
+}
+
 // --- the character screen: pick who you play, tap a character to read what he does ---
 const CHAR_INFO = {
   '0005': {
@@ -1683,6 +1756,13 @@ const inRect = (m, r) => m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= 
 function buttonAt(e) {
   const m = pointerPos(e);
   if (inLogin) return null;
+  if (inLevels) {
+    if (inRect(m, shopMenuBtn)) return 'menu';
+    if (inRect(m, lvPlayBtn)) return 'lvplay';
+    const ts = levelsLayout();
+    for (let i = 0; i < ts.length; i++) if (inRect(m, ts[i])) return 'lv' + i;
+    return null;
+  }
   if (inChars) {
     if (inRect(m, shopMenuBtn)) return 'menu';
     if (chars.equipRect && inRect(m, chars.equipRect)) return 'equipchar';
@@ -1703,8 +1783,8 @@ function buttonAt(e) {
     for (let i = 0; i < rs.length; i++) if (inRect(m, rs[i])) return 'card' + i;
     return null;
   }
-  if (inMenu) return inRect(m, playBtn) ? 'play' : inRect(m, shopBtn) ? 'shop' : inRect(m, cardsBtn) ? 'cards' : inRect(m, loginBtn) ? 'login' : inRect(m, equipBtn) ? 'equip' : null;
-  if (levelComplete) return inRect(m, lcMenuBtn) ? 'menu' : inRect(m, lcShopBtn) ? 'shop' : inRect(m, lcCardsBtn) ? 'cards' : inRect(m, lcNextBtn) ? 'next' : null;
+  if (inMenu) return inRect(m, playBtn) ? 'play' : inRect(m, shopBtn) ? 'shop' : inRect(m, cardsBtn) ? 'cards' : inRect(m, loginBtn) ? 'login' : inRect(m, equipBtn) ? 'equip' : inRect(m, levelsBtn) ? 'levels' : null;
+  if (levelComplete) return inRect(m, lcMenuBtn) ? 'menu' : inRect(m, lcShopBtn) ? 'shop' : inRect(m, lcCardsBtn) ? 'cards' : (lcHasNext && inRect(m, lcNextBtn)) ? 'next' : null;
   if (gameOver) {
     if (inRect(m, againBtn)) return 'again';
     if (inRect(m, menuBtn)) return 'menu';
@@ -1728,6 +1808,13 @@ canvas.addEventListener('pointerdown', e => {
   if (id === 'next') { restart(); inMenu = false; hoverBtn = null; }
   if (id === 'login') { openLogin(); hoverBtn = null; }
   if (id === 'equip') { openChars(); hoverBtn = null; }
+  if (id === 'levels') { openLevels(); hoverBtn = null; }
+  if (id && id.startsWith('lv') && id !== 'lvplay' && id !== 'levels') {          // pick a level you have reached
+    const n = Number(id.slice(2)) + 1;
+    if (n <= bestLevel()) { save.level = n; writeSave(); }
+    else Object.assign(shopMsg, { text: 'Finish level ' + (n - 1) + ' first', t: 2, good: false });
+  }
+  if (id === 'lvplay') { inLevels = false; restart(); inMenu = false; hoverBtn = null; }
   if (id && id.startsWith('cc')) viewChar = CHARACTERS[Number(id.slice(2))].id;
   if (id === 'equipchar' && characterUnlocked(viewChar)) { save.character = viewChar; writeSave(); applyCharacter(); }
   if (id && id.startsWith('slot')) toggleEquip(cardsLayout().slots[Number(id.slice(4))].id);
@@ -1750,9 +1837,9 @@ canvas.addEventListener('pointerdown', e => {
 
   menuBgImg = menuImg; menuBackImg = menuBtnImg;
   let bossImgList;
-  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg, manIdleImg, manWalk1Img, manWalk2Img, manCardImg, manUpImg, manApexImg, manFallImg, ...bossImgList] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button', 'man-0300-idle', 'man-0300-walk-1', 'man-0300-walk-2', 'man-0300-card', 'man-0300-jump-up', 'man-0300-jump-apex', 'man-0300-jump-fall', 'boss-idle', 'boss-walk-1', 'boss-walk-2', 'boss-jump', 'boss-attack', 'pillar', 'bomb', 'blue-guard-left', 'blue-guard-right'].map(n => load(assetUrl(n))));
+  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg, manIdleImg, manWalk1Img, manWalk2Img, manCardImg, manUpImg, manApexImg, manFallImg, ...bossImgList] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button', 'man-0300-idle', 'man-0300-walk-1', 'man-0300-walk-2', 'man-0300-card', 'man-0300-jump-up', 'man-0300-jump-apex', 'man-0300-jump-fall', 'boss-idle', 'boss-walk-1', 'boss-walk-2', 'boss-jump', 'boss-attack', 'pillar', 'bomb', 'blue-guard-left', 'blue-guard-right', 'levels-button'].map(n => load(assetUrl(n))));
   bossImgs = { idle: bossImgList[0], walk1: bossImgList[1], walk2: bossImgList[2], jump: bossImgList[3], attack: bossImgList[4], pillar: bossImgList[5], bomb: bossImgList[6] };
-  blueGuardL = bossImgList[7]; blueGuardR = bossImgList[8];
+  blueGuardL = bossImgList[7]; blueGuardR = bossImgList[8]; levelsBtnImg = bossImgList[9]; playImgRef = playBtnImg;
   for (const u of UPGRADES) upgradeImgs[u.id] = await load(assetUrl('upgrade-' + u.id));
   if (document.fonts) document.fonts.load('24px Rye').catch(() => {});
   // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
@@ -1779,8 +1866,11 @@ canvas.addEventListener('pointerdown', e => {
     lcNextBtn.y = lcCardsBtn.y - lcNextBtn.h - 12;
     const ew = 150;
     const lw = 150;
+    const lvw = 150;
     Object.assign(loginBtn, { x: W - lw - 24, y: 18, w: lw, h: Math.round(lw * loginBtnImg.height / loginBtnImg.width) });
     Object.assign(equipBtn, { x: W - ew - 24, y: loginBtn.y + loginBtn.h + 36, w: ew, h: Math.round(ew * equipBtnImg.height / equipBtnImg.width) });
+    Object.assign(levelsBtn, { x: W - lvw - 24, y: equipBtn.y + equipBtn.h + 10, w: lvw, h: Math.round(lvw * levelsBtnImg.height / levelsBtnImg.width) });
+    { const pw = 240; Object.assign(lvPlayBtn, { x: (W - pw) / 2, y: 540, w: pw, h: Math.round(pw * playBtnImg.height / playBtnImg.width) }); }
     Object.assign(shopMenuBtn, { x: W - 250 - 30, y: H - Math.round(250 * menuBtnImg.height / menuBtnImg.width) - 16, w: 250, h: Math.round(250 * menuBtnImg.height / menuBtnImg.width) });
   }
 
@@ -1800,6 +1890,11 @@ canvas.addEventListener('pointerdown', e => {
   function frame(now) {
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
+    if (inLevels) {
+      drawLevels(dt);
+      requestAnimationFrame(frame);
+      return;
+    }
     if (inChars) {
       drawChars();
       requestAnimationFrame(frame);
@@ -1823,6 +1918,7 @@ canvas.addEventListener('pointerdown', e => {
       drawButton(cardsBtnImg, cardsBtn, hoverBtn === 'cards');
       drawButton(loginBtnImg, loginBtn, hoverBtn === 'login');
       drawButton(equipBtnImg, equipBtn, hoverBtn === 'equip');
+      drawButton(levelsBtnImg, levelsBtn, hoverBtn === 'levels');
       if (user) drawText(user, loginBtn.x + loginBtn.w / 2, loginBtn.y + loginBtn.h + 24, 20, '#fff', 'bold ' + BODY_FONT, 'center', '#000');
       requestAnimationFrame(frame);
       return;
@@ -1833,7 +1929,15 @@ canvas.addEventListener('pointerdown', e => {
       const done = levelNo() === BOSS_LEVEL ? (boss.active && boss.dead && boss.dying <= 0) : Object.keys(PAINT_SURFACES).every(isPainted);
       if (hearts > 0 && done) {
         completeTimer += dt;
-        if (completeTimer > 1.2) { levelComplete = true; save.level = levelNo() + 1; writeSave(); }   // on to the next level
+        if (completeTimer > 1.2) {
+          levelComplete = true;
+          const doneLevel = levelNo(), before = bestLevel();
+          lcLevel = doneLevel; lcHasNext = doneLevel < MAX_LEVEL;
+          save.best = Math.min(MAX_LEVEL, Math.max(save.best, doneLevel + 1));        // the next level opens
+          save.level = Math.min(MAX_LEVEL, doneLevel + 1);                              // and is the one that comes next
+          lcNewChar = CHARACTERS.find(c => c.unlockLevel > before && c.unlockLevel <= bestLevel()) || null;
+          writeSave();
+        }
       }
     }
 
@@ -2030,18 +2134,18 @@ canvas.addEventListener('pointerdown', e => {
       }
       if (boss.announce > 0) { ctx.globalAlpha = Math.min(1, boss.announce); drawText('THE BOSS APPEARS!', W / 2, 330, 54, '#ff4a3a', TITLE_FONT, 'center', '#000'); ctx.globalAlpha = 1; }
     }
-    drawText('LEVEL ' + (levelComplete ? levelNo() - 1 : levelNo()), W / 2, 44, 26, '#fff', TITLE_FONT, 'center', '#000');
+    drawText('LEVEL ' + (levelComplete ? lcLevel : levelNo()), W / 2, 44, 26, '#fff', TITLE_FONT, 'center', '#000');
     ctx.drawImage(coinImg, 20, 64, 30, 30);
     drawText(String(save.coins), 58, 88, 26, '#ffd21f', 'bold ' + BODY_FONT, 'left', '#000');
 
     if (levelComplete) {
       ctx.drawImage(levelCompleteImg, 0, 0, W, H);
-      const fresh = CHARACTERS.find(c => c.unlockLevel === levelNo());   // reaching this level just unlocked a character
-      if (fresh && fresh.unlockLevel > 1) drawText('NEW CHARACTER UNLOCKED: ' + fresh.name, W / 2, 222, 26, '#ffd21f', TITLE_FONT, 'center', '#000');
+      if (lcNewChar) drawText('NEW CHARACTER UNLOCKED: ' + lcNewChar.name, W / 2, 222, 26, '#ffd21f', TITLE_FONT, 'center', '#000');
+      if (!lcHasNext) drawText('MORE LEVELS COMING SOON', W / 2, lcNewChar ? 256 : 222, 24, '#fff', TITLE_FONT, 'center', '#000');
       drawButton(menuBtnImg, lcMenuBtn, hoverBtn === 'menu');
       drawButton(shopBtnImg, lcShopBtn, hoverBtn === 'shop');
       drawButton(cardsBtnImg, lcCardsBtn, hoverBtn === 'cards');
-      drawButton(nextBtnImg, lcNextBtn, hoverBtn === 'next');
+      if (lcHasNext) drawButton(nextBtnImg, lcNextBtn, hoverBtn === 'next');
     }
     if (gameOver) {
       ctx.drawImage(gameOverImg, 0, 0, W, H);
