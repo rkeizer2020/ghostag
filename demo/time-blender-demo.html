@@ -782,7 +782,7 @@ function drawParts2(c,t){PARTS.show=Math.max(0,PARTS.show-1/60*1.5);const x0=26,
  c.save();c.textAlign='left';c.textBaseline='middle';c.font='700 17px '+SERIF;c.fillStyle='#fff3cf';c.fillText(PARTS.n,x0+38,y0+16);c.restore()}
 /* ---- pause: gear button top right (mouse or Tab) ---- */
 let paused=false,pauseSel=1;const PAUSE_BTN={x:WW-46,y:46,r:22};
-function pauseItems(){return ['GO BACK TO MENU','GO FURTHER']}
+function pauseItems(){return ['GO BACK TO MENU','CONTINUE']}
 function setPause(v){paused=v;pauseSel=1;key.l=key.r=key.j=key.d=key.x=0;me.vx=0;if(v)play('impact',{gain:.1,rate:1.5})}
 function pauseHit(x,y){for(let i=0;i<2;i++){if(Math.abs(x-480)<190&&Math.abs(y-(262+i*60))<26)return i}return -1}
 function pauseAct(i){if(i===0){paused=false;SAVE.room=room;SCENE='menu';optMode=false;startFade=-1;menuStart=(performance.now()-FLOW0)/1000}else setPause(false)}
