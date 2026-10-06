@@ -67,10 +67,10 @@ function hiltPos(P){const a=P.hilt.ang;return [-5+Math.cos(a)*11,31+Math.sin(a)*
 function drawHero(c,P){
  const OL=2.6;c.save();c.rotate(-P.lean);
  const hx=-1,hy=15;
+ /* legs come out from under the cloak */
  const leg=(f,far)=>{const h0=hx+(far?-1:2),k=ik(h0,hy,f[0],f[1]+3,7,8,1);limb(c,[[h0,hy],[k[0],k[1]],[k[2],k[3]]],far?5.2:5.8,far?'#33203f':'#4d3160',OL*.8);
-  c.beginPath();c.ellipse(f[0]+2.5,f[1]+1.8,5,2.8,0,0,TAU);fillOut(c,HC.boot,OL*.8);
-  c.beginPath();c.ellipse(k[2]+.3,k[3]+.6,4.2,2.4,0,0,TAU);c.strokeStyle=OUT;c.lineWidth=5.2;c.stroke();c.strokeStyle=far?'#9a6a36':'#d4a05a';c.lineWidth=2.8;c.stroke()};
- leg(P.footF,true);
+  c.beginPath();c.ellipse(f[0]+2.5,f[1]+1.8,5,2.8,0,0,TAU);fillOut(c,HC.boot,OL*.8)};
+ leg(P.footF,true);leg(P.footN,false);
  /* the hilt of the golden sword; the blade stays on the far side behind the body */
  {const [gx,gy,a]=hiltPos(P),dx=Math.cos(a),dy=Math.sin(a),px=-dy,py=dx;c.save();c.shadowColor=HC.glow;c.shadowBlur=10;
   c.strokeStyle=OUT;c.lineCap='round';c.lineWidth=9;c.beginPath();c.moveTo(gx-px*6,gy-py*6);c.lineTo(gx+px*6,gy+py*6);c.stroke();
@@ -78,16 +78,19 @@ function drawHero(c,P){
   c.strokeStyle=HC.gold[1];c.lineWidth=5;c.beginPath();c.moveTo(gx-px*6,gy-py*6);c.lineTo(gx+px*6,gy+py*6);c.stroke();
   c.strokeStyle='#8a5a2a';c.lineWidth=4;c.beginPath();c.moveTo(gx,gy);c.lineTo(gx+dx*8,gy+dy*8);c.stroke();
   c.beginPath();c.arc(gx+dx*10.5,gy+dy*10.5,3.6,0,TAU);fillOut(c,HC.gold[1],1.8);c.restore()}
- /* long pointed cloak: smooth, no stripes; covers the whole visible side down to the ground */
- {const tx=-17-P.trail,ty=2+P.lift,sw=P.sway;
-  c.beginPath();c.moveTo(10,43);c.bezierCurveTo(18,35,17,18,7,6);
-  c.lineTo(1,8);c.lineTo(-1,1+P.lift*.3);c.lineTo(-6,6);c.lineTo(-8,0.5+P.lift*.5);c.lineTo(-13,5);c.lineTo(-16-P.trail*.35,.5+P.lift*.8);c.lineTo(tx+sw,ty);
-  c.bezierCurveTo(tx+12,ty+14,-19,26,-10,43);c.closePath();
-  c.fillStyle=lgrad(c,0,43,0,0,HC.cape);c.fill();c.strokeStyle=OUT;c.lineWidth=OL+.6;c.lineJoin='round';c.stroke()}
- leg(P.footN,false);
+ /* waist and chest: the front stays visible next to the cloak */
+ rrect(c,-7,12,17,18,6);fillOut(c,lgrad(c,-7,0,10,0,['#7a5486','#5a3a62','#3a2342']),OL);
+ rrect(c,-7.5,26,18,4,2);fillOut(c,HC.copD,2);c.fillStyle=HC.cop;c.fillRect(3,26.6,5,2.8);
+ rrect(c,-6,29,15,15,5);fillOut(c,lgrad(c,-6,0,9,0,['#a29d62','#c9c488','#c9c488']),OL);c.fillStyle='#5a3a62';c.fillRect(2.5,30,3.4,13);
+ /* long cloak behind the body; its hem hangs over about three quarters of the legs when standing */
+ {const sp=P.sp,xF=3.5-8*sp,hem=4+12*sp,tx=-18-P.trail,ty=hem-2+P.lift,sw=P.sway;
+  c.beginPath();c.moveTo(8,44);c.bezierCurveTo(9,37,xF+3,30,xF,22);c.bezierCurveTo(xF-.5,16,xF-1,hem+4,xF-1,hem);
+  c.lineTo(xF-5,hem-3+P.lift*.3);c.lineTo(xF-7,hem+1);c.lineTo(xF-12,hem-4+P.lift*.5);c.lineTo(xF-14,hem+1);c.lineTo(xF-19,hem-3+P.lift*.7);c.lineTo(tx+sw,ty);
+  c.bezierCurveTo(tx+14,ty+14,-21,30,-10,44);c.closePath();
+  c.fillStyle=lgrad(c,0,44,0,0,HC.cape);c.fill();c.strokeStyle=OUT;c.lineWidth=OL+.6;c.lineJoin='round';c.stroke()}
  /* head: a big glass bulb leaning forward, topped with the flat hat */
  c.save();c.translate(1,40);c.rotate(-P.tilt);c.translate(-1,-40+P.bob);
- c.beginPath();c.ellipse(2,43,8.5,4.4,0,0,TAU);fillOut(c,lgrad(c,0,48,0,40,[HC.collarH,HC.collar,HC.collarD]),OL*.9);
+ c.beginPath();c.ellipse(2,43,8.5,4.4,0,0,TAU);fillOut(c,lgrad(c,0,47,0,39,[HC.collarH,HC.collar,HC.collarD]),OL*.9);
  const hc=[2,59],hr=17.5;
  c.save();c.beginPath();c.ellipse(hc[0],hc[1],hr,hr*1.03,0,0,TAU);c.fillStyle=lgrad(c,-8,hc[1]+14,10,hc[1]-16,HC.glass);c.fill();c.clip();
  const sl=(P.slosh||0)*3,lv=hc[1]-2;c.beginPath();c.moveTo(-30,lv-sl);c.quadraticCurveTo(-8,lv-sl-3,2,lv);c.quadraticCurveTo(12,lv+sl+3,34,lv+sl);c.lineTo(34,hc[1]-28);c.lineTo(-30,hc[1]-28);c.closePath();
@@ -102,13 +105,13 @@ function drawHero(c,P){
  c.restore();c.restore()}
 /* pose: stand, walk (lean forward, short quick steps), jump, land and the sword swing */
 function poseFor(st,o){const t=o.t,sp=o.speed,ph=o.ph;
- const P={lean:.02,tilt:.03,bob:Math.sin(t*1.9)*1,footN:[5,0],footF:[-3,0],trail:2+Math.sin(t*1.4)*1.3,lift:0,sway:Math.sin(t*2.2)*1,slosh:Math.sin(t*2)*.4,squash:1,lunge:0,t,
+ const P={lean:.02+Math.sin(t*1.1)*.014,tilt:.03+Math.sin(t*1.4)*.03,bob:Math.sin(t*1.9)*1.9,sp:0,footN:[5+Math.sin(t*.9)*1,0],footF:[-3-Math.sin(t*.9)*.8,0],trail:2+Math.sin(t*1.4)*2.4,lift:0,sway:Math.sin(t*2.2)*2.4,slosh:Math.sin(t*2)*.6,squash:1,lunge:0,t,
   hilt:{ang:2.55+Math.sin(t*1.7)*.05}};
  if(st=='walk'){const A=11*Math.min(1,sp+.1),s=Math.sin(ph),k=Math.cos(ph);P.footN=[4+A*s,Math.max(0,k)*8*sp+Math.max(0,k)*1.5];P.footF=[-4-A*s,Math.max(0,-k)*8*sp+Math.max(0,-k)*1.5];
-  P.lean=.04+.14*sp;P.tilt=.03+.04*sp;P.bob=Math.sin(ph*2)*1.4*sp;P.trail=6+18*sp;P.sway=Math.sin(ph*2)*2.2*sp;P.slosh=Math.cos(ph)*.9;P.hilt.ang=2.55+Math.sin(ph*2)*.1*sp;P.lift=3*sp}
- else if(st=='up'){P.footN=[8,11];P.footF=[-6,9];P.lean=.05;P.tilt=0;P.bob=0;P.trail=4;P.lift=9;P.hilt.ang=2.2;P.slosh=1}
- else if(st=='mid'){P.footN=[7,9];P.footF=[-5,8];P.lean=.06;P.tilt=.02;P.bob=0;P.trail=5;P.lift=7;P.hilt.ang=2.3}
- else if(st=='fall'){P.footN=[8,5];P.footF=[-6,2];P.lean=.08;P.tilt=.05;P.bob=0;P.trail=3;P.lift=12;P.sway=Math.sin(t*14)*1.6;P.hilt.ang=2.7;P.slosh=-1}
+  P.sp=sp;P.lean=.04+.14*sp;P.tilt=.03+.04*sp;P.bob=Math.sin(ph*2)*1.2*sp;P.trail=6+18*sp;P.sway=Math.sin(ph*2)*2.2*sp;P.slosh=Math.cos(ph)*.9;P.hilt.ang=2.55+Math.sin(ph*2)*.1*sp;P.lift=3*sp}
+ else if(st=='up'){P.sp=.5;P.footN=[8,11];P.footF=[-6,9];P.lean=.05;P.tilt=0;P.bob=0;P.trail=4;P.lift=9;P.hilt.ang=2.2;P.slosh=1}
+ else if(st=='mid'){P.sp=.5;P.footN=[7,9];P.footF=[-5,8];P.lean=.06;P.tilt=.02;P.bob=0;P.trail=5;P.lift=7;P.hilt.ang=2.3}
+ else if(st=='fall'){P.sp=.7;P.footN=[8,5];P.footF=[-6,2];P.lean=.08;P.tilt=.05;P.bob=0;P.trail=3;P.lift=12;P.sway=Math.sin(t*14)*1.6;P.hilt.ang=2.7;P.slosh=-1}
  else if(st=='land'){P.footN=[9,0];P.footF=[-7,0];P.lean=.1;P.tilt=.04;P.bob=-2;P.trail=1;P.squash=.9}
  if(o.atk>=0){const a=o.atk,sw=a<.2?0:(a<.5?ease((a-.2)/.3):(a<.9?1-ease((a-.5)/.4):0));
   P.lunge=7*Math.sin(Math.min(1,a/.7)*Math.PI);P.lean+=.14*Math.sin(a*Math.PI);P.tilt+=.04*Math.sin(a*Math.PI);
