@@ -87,8 +87,8 @@ function buildChar(p){
  if(sl>0)R(1,25+u,4,26+u,C.liqH);else if(sl<0)R(-3,25+u,0,26+u,C.liqH);else R(-3,25+u,4,26+u,C.liqH);
  P(-3,26+u,'#ffffff');P(-3,27+u,'#ffffff');P(2,26+u,'#ffffff');
  R(2,22+u,4,24+u,C.glassD);P(3,23+u,'#ffffff');
- // flat hat, slightly wider than the head
- R(-5,27+u,6,28+u,C.lidD);R(-5,28+u,6,29+u,C.lid);R(-5,29+u,6,30+u,C.lidH);P(-5,28+u,C.lidH);R(4,28+u,6,29+u,C.lidD);
+ // flat hat, wider than the head
+ R(-6,27+u,7,28+u,C.lidD);R(-6,28+u,7,29+u,C.lid);R(-6,29+u,7,30+u,C.lidH);P(-6,28+u,C.lidH);R(5,28+u,7,29+u,C.lidD);
  // near arm holding the staff
  const hx=8+p.handDx,hy=12+u+p.handDy;
  arm(2,16+u,Math.atan2(hx-2,16+u-hy),Math.hypot(hx-2,16+u-hy),C.arm,C.hand);
