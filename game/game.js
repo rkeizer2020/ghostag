@@ -37,7 +37,7 @@ const platforms = [
   [-60, 287, 178, 71],    // left, upper
   [-60, 528, 218, 58],    // left, lower
   [1170, 283, 171, 77],   // right, upper
-  [1100, 515, 241, 72],   // right, lower
+  [1130, 515, 211, 72],   // right, lower (a bit smaller)
 ].map(([x, y, w, h]) => ({ x: x * SX, y: y * SY, w: w * SX, h: h * SY, top: (y + h * SURFACE) * SY, ceil: (y + h * CEIL) * SY }));
 
 const assetUrl = n => `assets/${n}.${n === 'level-complete' ? 'jpg' : 'png'}`;
@@ -396,7 +396,7 @@ function updateRedGuards(dt) {
     const hitsPlayer = b.x + r > pb.x && b.x - r < pb.x + pb.w && b.y + r > pb.y && b.y - r < pb.y + pb.h;
     const hitsWorld =
       b.x - r < WALL_W || b.x + r > WORLD_W - WALL_W || b.y - r < CEILING_H - 6 || b.y + r > GROUND_Y ||
-      platforms.some((p, j) => j !== b.platform &&               // he can shoot out of his own platform
+      !b.thru && platforms.some((p, j) => j !== b.platform &&    // he can shoot out of his own platform
         b.x + r > p.x && b.x - r < p.x + p.w && b.y + r > p.top && b.y - r < p.ceil);
     // (the red guard's bullets make no sound)
     if (hitsPlayer) {
@@ -797,7 +797,7 @@ function hurtBoss(amount) {
 const bossCenter = () => ({ x: boss.x + BOSS_W / 2, y: boss.y + BOSS_H * 0.45 });
 function bossShoot(angle, speed, w, kind) {
   const c = bossCenter();
-  enemyBullets.push({ x: c.x + Math.cos(angle) * 60, y: c.y - 20 + Math.sin(angle) * 60, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, angle, w, h: kind === 'button' ? w : w * 0.45, platform: -1, dmg: BOSS_DMG, kind });
+  enemyBullets.push({ x: c.x + Math.cos(angle) * 60, y: c.y - 20 + Math.sin(angle) * 60, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, angle, w, h: kind === 'button' ? w : w * 0.45, platform: -1, dmg: BOSS_DMG, kind, thru: true });   // (his bullets fly through platforms)
 }
 function bossAttackAllowed(k) { return k !== 2 || (boss.onGround && boss.y + BOSS_H >= GROUND_Y - 3); }   // the stomp needs the main ground
 function startBossAttack(k) {
@@ -822,7 +822,7 @@ function updateBoss(dt) {
     const onMainGround = boss.onGround && boss.y + BOSS_H >= GROUND_Y - 3;
     if (chasing && !boss.stompPending) boss.atkCd -= dt;
     if (!boss.stompPending && chasing && boss.atkCd <= 0) {
-      const ok = [1, 2, 3, 4].filter(k => k !== boss.lastAtk);          // never the same attack twice in a row
+      const ok = [1, 2, 3, 4].filter(k => k !== boss.lastAtk && (k !== 2 || pillars.length === 0));          // never the same attack twice in a row
       const k = ok[Math.floor(Math.random() * ok.length)];
       if (k === 2 && !onMainGround) { boss.stompPending = true; boss.stompWait = 8; }   // the stomp needs the main ground: he goes down first
       else startBossAttack(k);
@@ -912,7 +912,7 @@ function updateBossHazards(dt) {
   for (let i = pillars.length - 1; i >= 0; i--) {
     const p = pillars[i];
     p.t += dt;
-    if (p.t > 2.4) { pillars.splice(i, 1); continue; }
+    if (p.t > PILLAR_WARN + 1.5) { pillars.splice(i, 1); continue; }
     const h = pillarHeight(p);
     if (h > 25 && !p.hit) {
       const hb = playerHitbox();
@@ -937,9 +937,10 @@ function updateBossHazards(dt) {
   for (let i = booms.length - 1; i >= 0; i--) if ((booms[i].t -= dt) <= 0) booms.splice(i, 1);
   shake = Math.max(0, shake - dt);
 }
-// how far a pillar has come out of the ground: warning 0.9 s, up to the ceiling in 0.15 s, 0.9 s up, down in 0.35 s
+const PILLAR_WARN = 3;     // seconds that red see-through pillars show where the real ones will come
+// how far a pillar has come out of the ground: warning 3 s, up to the ceiling in 0.15 s, 0.9 s up, down in 0.35 s
 function pillarHeight(p) {
-  const t = p.t - 0.9;
+  const t = p.t - PILLAR_WARN;
   if (t < 0) return 0;
   if (t < 0.15) return PILLAR_H * (t / 0.15);
   if (t < 1.05) return PILLAR_H;
@@ -949,8 +950,16 @@ function pillarHeight(p) {
 function drawBossHazards() {
   for (const p of pillars) {
     const h = pillarHeight(p);
-    if (p.t < 0.9) {                                  // the warning: cracks and dust where it will come out
-      const k = p.t / 0.9;
+    if (p.t < PILLAR_WARN) {                          // the warning: a red see-through pillar shows where the real one will come up
+      const k = p.t / PILLAR_WARN, flash = k > 0.7 ? Math.sin(p.t * 22) * 0.12 : Math.sin(p.t * 5) * 0.05;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0.1, 0.2 + 0.22 * k + flash);
+      ctx.fillStyle = '#e02a2a';
+      ctx.fillRect(p.x - PILLAR_W / 2, GROUND_Y - PILLAR_H, PILLAR_W, PILLAR_H);
+      ctx.globalAlpha = Math.min(1, 0.45 + 0.4 * k);
+      ctx.strokeStyle = '#ff4a3a'; ctx.lineWidth = 3; ctx.setLineDash([14, 10]);
+      ctx.strokeRect(p.x - PILLAR_W / 2, GROUND_Y - PILLAR_H, PILLAR_W, PILLAR_H);
+      ctx.restore();
       ctx.save();
       ctx.globalAlpha = 0.45 + 0.35 * Math.sin(p.t * 30);
       ctx.fillStyle = '#c0261f';
