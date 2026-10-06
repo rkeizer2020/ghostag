@@ -31,16 +31,17 @@ h2{font-family:var(--display);font-size:12px;font-weight:400;margin:6px 0 0}
 .card span{font-size:12px;color:var(--muted)}
 </style>
 <main>
-<header><h1>Time Blender Demo</h1><p>Walk and jump through the fifteen factory backgrounds. Walk off the left or right edge to move to the next room.</p></header>
+<header><h1>Time Blender Demo</h1><p>Walk, jump and hit through the fifteen factory backgrounds. Walk off the left or right edge to move to the next room.</p></header>
 <div class="bar"><button id="prev" type="button" aria-label="Previous room">◀</button><div class="name" id="name"></div><select id="sel" aria-label="Choose a room"></select><button id="next" type="button" aria-label="Next room">▶</button><button id="snd" type="button" aria-pressed="true">Sound on</button></div>
 <div class="stage"><canvas id="game" width="200" height="112" tabindex="0" aria-label="Game: use arrow keys to move and space to jump"></canvas></div>
-<div class="pad"><div class="dir"><button id="bl" type="button" aria-label="Walk left">◀</button><button id="br" type="button" aria-label="Walk right">▶</button></div><button id="bj" type="button">Jump</button></div>
-<p class="hint">Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to walk, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</p>
+<div class="pad"><div class="dir"><button id="bl" type="button" aria-label="Walk left">◀</button><button id="br" type="button" aria-label="Walk right">▶</button></div><div class="dir"><button id="bh" type="button">Hit</button><button id="bj" type="button">Jump</button></div></div>
+<p class="hint">Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to walk, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>Q</kbd> to hit with the staff, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</p>
 <h2>Animations</h2>
 <section class="previews">
 <div class="card"><canvas id="p-idle" width="56" height="52"></canvas><span>Standing still · 4 frames</span></div>
 <div class="card"><canvas id="p-walk" width="56" height="52"></canvas><span>Walking · 8 frames</span></div>
 <div class="card"><canvas id="p-jump" width="56" height="52"></canvas><span>Jumping · 6 frames</span></div>
+<div class="card"><canvas id="p-hit" width="56" height="52"></canvas><span>Hit with Q · 6 frames</span></div>
 </section>
 </main>
 <script>
@@ -93,7 +94,9 @@ function buildChar(p){
  arm(2,16+u,Math.atan2(hx-2,16+u-hy),Math.hypot(hx-2,16+u-hy),C.arm,C.hand);
  R(0,15+u,5,19+u,C.arm);R(0,18+u,5,19+u,C.armH);R(0,15+u,1,18+u,C.armH);R(4,15+u,5,18+u,C.armD);
  // staff
- const bx=hx+p.tb,by=hy-11,tx=hx-p.tb,ty=hy+20;
+ const ang=(p.stAng!==undefined)?p.stAng:-p.tb*.1,sa=Math.sin(ang),ca=Math.cos(ang);
+ const bx=Math.round(hx-11*sa),by=Math.round(hy-11*ca),tx=Math.round(hx+20*sa),ty=Math.round(hy+20*ca);
+ if(p.slash){for(let a=p.slash[0];a<p.slash[1];a+=.04)for(const Rr of[22,24,26])P(Math.round(hx+Rr*Math.sin(a)),Math.round(hy+Rr*Math.cos(a)),C.gem)}
  ln(bx,by,tx,ty,C.staff,2);ln(bx,by,tx,ty,C.staffH,1);
  const k=(t)=>[Math.round(bx+(tx-bx)*t),Math.round(by+(ty-by)*t)];
  for(const t of[.18,.5,.78]){const [rx,ry]=k(t);R(rx-1,ry,rx+3,ry+1,C.lid)}
@@ -117,7 +120,10 @@ function pose(state,k){
  else if(state=='fall'){p.ub=0;p.nearX=4;p.nearLift=1;p.farX=-4;p.armFarA=2.7;p.slosh=-1;p.handDy=1;p.tb=1}
  else if(state=='land'){p.ub=-2;p.nearX=4;p.farX=-5;p.armFarA=.7;p.handDy=-2}
  return p}
-function drawChar(ctx,x,y,state,k,face){const spr=buildChar(pose(state,k));ctx.save();ctx.translate(Math.round(x),Math.round(y));if(face<0)ctx.scale(-1,1);ctx.drawImage(spr,-OX,-OY);ctx.restore()}
+const ATK=[{s:-.9,dx:-1,dy:3,ub:0,lx:0,sl:null},{s:-1.25,dx:-2,dy:5,ub:1,lx:-1,sl:null},{s:.35,dx:2,dy:3,ub:-1,lx:1,sl:[-1.1,.35]},
+ {s:1.3,dx:4,dy:0,ub:-1,lx:2,sl:[.35,1.35]},{s:1.5,dx:4,dy:-1,ub:-1,lx:2,sl:[1.0,1.5]},{s:.7,dx:2,dy:0,ub:0,lx:1,sl:null}];
+function poseFull(state,k,atk){const p=pose(state,k);if(atk>=0){const a=ATK[atk];p.stAng=a.s;p.handDx=a.dx;p.handDy=a.dy;p.ub+=a.ub;p.nearX+=a.lx;p.slash=a.sl}return p}
+function drawChar(ctx,x,y,state,k,face,atk){const spr=buildChar(poseFull(state,k,atk===undefined?-1:atk));ctx.save();ctx.translate(Math.round(x),Math.round(y));if(face<0)ctx.scale(-1,1);ctx.drawImage(spr,-OX,-OY);ctx.restore()}
 /* ---- backgrounds ---- */
 const imgs=BG.map(b=>{const i=new Image();i.src=b.src;return i});
 const g=document.getElementById('game').getContext('2d');g.imageSmoothingEnabled=false;
@@ -147,17 +153,25 @@ const sndBtn=document.getElementById('snd');
 sndBtn.onclick=()=>{soundOn=!soundOn;sndBtn.textContent=soundOn?'Sound on':'Sound off';sndBtn.setAttribute('aria-pressed',soundOn);unlock();game.focus()};
 
 const key={l:0,r:0,j:0};let jumpHeld=false;
-let lastWk=-1;const me={x:100,y:GROUND,vx:0,vy:0,face:1,ground:true,land:0,walkT:0,idleT:0,jt:0};
+let lastWk=-1;const me={atkT:-1,x:100,y:GROUND,vx:0,vy:0,face:1,ground:true,land:0,walkT:0,idleT:0,jt:0};
 function onKey(e,v){const k=e.key;let h=true;
  if(k=='ArrowLeft'||k=='a'||k=='A')key.l=v;else if(k=='ArrowRight'||k=='d'||k=='D')key.r=v;
  else if(k==' '||k=='ArrowUp'||k=='w'||k=='W')key.j=v;
- else if(v&&k=='[')setRoom(room-1);else if(v&&k==']')setRoom(room+1);else h=false;
+ else if(v&&(k=='q'||k=='Q'))tryAttack();else if(v&&k=='[')setRoom(room-1);else if(v&&k==']')setRoom(room+1);else h=false;
  if(h)e.preventDefault()}
 addEventListener('keydown',e=>onKey(e,1));addEventListener('keyup',e=>onKey(e,0));
 game.addEventListener('pointerdown',()=>game.focus());
+document.getElementById('bh').addEventListener('pointerdown',e=>{e.preventDefault();tryAttack()});
 for(const [id,kk] of[['bl','l'],['br','r'],['bj','j']]){const b=document.getElementById(id);
  b.addEventListener('pointerdown',e=>{e.preventDefault();key[kk]=1});for(const ev of['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,()=>{key[kk]=0})}
+function whoosh(){if(!ac||!soundOn)return;const len=Math.floor(ac.sampleRate*.22),b=ac.createBuffer(1,len,ac.sampleRate),d=b.getChannelData(0);
+ for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2);
+ const s=ac.createBufferSource();s.buffer=b;const bp=ac.createBiquadFilter(),t0=ac.currentTime;bp.type='bandpass';bp.Q.value=.8;
+ bp.frequency.setValueAtTime(700,t0);bp.frequency.exponentialRampToValueAtTime(1800,t0+.16);const g=ac.createGain();g.gain.value=.1;
+ s.connect(bp);bp.connect(g);g.connect(ac.destination);s.start()}
+function tryAttack(){if(me.atkT<0){me.atkT=0;whoosh()}}
 function step(){
+ if(me.atkT>=0){me.atkT++;if(me.atkT>=18)me.atkT=-1}
  const dir=key.r-key.l,tv=dir*.55;me.vx+=(tv-me.vx)*.28;if(Math.abs(me.vx)<.03)me.vx=0;
  if(dir)me.face=dir;
  if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-2.65;me.ground=false;jumpHeld=true;play('jump',{gain:.16})}
@@ -181,10 +195,10 @@ function loop(ts){acc+=Math.min(100,ts-last);last=ts;while(acc>=1000/60){step();
  drawBg(g,room,ts);
  const hgt=GROUND-me.y,sw=Math.max(2,4-Math.round(hgt/8));
  g.fillStyle='rgba(20,10,28,.35)';g.fillRect(Math.round(me.x)-sw,GROUND,sw*2,1);
- const st=stateNow();drawChar(g,me.x,me.y,st,frameOf(st),me.face);
+ const st=stateNow();drawChar(g,me.x,me.y,st,frameOf(st),me.face,me.atkT>=0?Math.floor(me.atkT/3):-1);
  requestAnimationFrame(loop)}
 /* ---- previews ---- */
-const prev={idle:document.getElementById('p-idle').getContext('2d'),walk:document.getElementById('p-walk').getContext('2d'),jump:document.getElementById('p-jump').getContext('2d')};
+const prev={idle:document.getElementById('p-idle').getContext('2d'),walk:document.getElementById('p-walk').getContext('2d'),jump:document.getElementById('p-jump').getContext('2d'),hit:document.getElementById('p-hit').getContext('2d')};
 const jumpSeq=['crouch','up','up','mid','fall','land'];
 function previews(ts){
  for(const k in prev){prev[k].clearRect(0,0,56,52)}
@@ -192,7 +206,8 @@ function previews(ts){
  drawChar(prev.walk,28,48,'walk',Math.floor(ts/200)%8,1);
  const j=Math.floor(ts/260)%jumpSeq.length,yy=[0,7,11,13,6,0][j];
  drawChar(prev.jump,28,48-yy*.7,jumpSeq[j],0,1);
+ const h=Math.floor(ts/100)%9;drawChar(prev.hit,28,48,'idle',0,1,h<6?h:-1);
  requestAnimationFrame(previews)}
 setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimationFrame(previews);
-window.__demo={me,key,setRoom,buildChar,pose,buf,play:(...a)=>play(...a)};
+window.__demo={poseFull,me,key,setRoom,buildChar,pose,buf,play:(...a)=>play(...a)};
 </script>
