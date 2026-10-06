@@ -118,16 +118,16 @@ function poseFor(st,o){const t=o.t,sp=o.speed,ph=o.ph;
   P.hilt.ang=lerp(P.hilt.ang,.75,sw);P.trail+=6*Math.sin(a*Math.PI);P.footN[0]+=4*sw}
  return P}
 /* the slash from the video: a big bright crescent with sharp streaks */
-function slashFx(c,ox,oy,f,k,seed,S){if(k<0||k>1)return;const R=88*S,p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-2.3,th1=-2.3+TAU*.6,N=40;
+function slashFx(c,hx,oy,f,k,seed,S){if(k<0||k>1)return;const R=40*S,ox=hx+f*(R+14*S),p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-TAU*.3,th1=TAU*.3,N=40;
  c.save();c.globalCompositeOperation='lighter';c.shadowColor='#ffd84a';c.shadowBlur=22*S;
  const pt=(u,r)=>{const a=lerp(th0,th0+(th1-th0)*p,u);return [ox+f*Math.cos(a)*r,oy+Math.sin(a)*r]};
- c.beginPath();for(let i=0;i<=N;i++){const u=i/N,th=Math.pow(Math.sin(Math.PI*u),.7)*30*S,q=pt(u,R+th*.5);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}
- for(let i=N;i>=0;i--){const u=i/N,th=Math.pow(Math.sin(Math.PI*u),.7)*30*S,q=pt(u,R-th*.5);c.lineTo(q[0],q[1])}c.closePath();
+ c.beginPath();for(let i=0;i<=N;i++){const u=i/N,th=Math.pow(Math.sin(Math.PI*u),.7)*15*S,q=pt(u,R+th*.5);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}
+ for(let i=N;i>=0;i--){const u=i/N,th=Math.pow(Math.sin(Math.PI*u),.7)*15*S,q=pt(u,R-th*.5);c.lineTo(q[0],q[1])}c.closePath();
  const g=c.createRadialGradient(ox,oy,R*.6,ox,oy,R*1.3);g.addColorStop(0,'rgba(255,255,235,'+fade+')');g.addColorStop(.7,'rgba(255,236,150,'+fade+')');g.addColorStop(1,'rgba(255,200,60,'+fade*.7+')');c.fillStyle=g;c.fill();
  c.shadowBlur=0;let s=seed;const rnd=()=>{s=(s*9301+49297)%233280;return s/233280};
  c.fillStyle='rgba(255,252,225,'+fade+')';for(let i=0;i<9;i++){const u=.35+rnd()*.65,a=lerp(th0,th0+(th1-th0)*p,u),r0=R*(.86+rnd()*.1),r1=R*(1.12+rnd()*.5),w=1.8*S+rnd()*1.6*S,nx=-Math.sin(a)*f,ny=Math.cos(a);
   const x0=ox+f*Math.cos(a)*r0,y0=oy+Math.sin(a)*r0,x1=ox+f*Math.cos(a+.05*f)*r1,y1=oy+Math.sin(a+.05)*r1;c.beginPath();c.moveTo(x0+nx*w,y0+ny*w);c.lineTo(x1,y1);c.lineTo(x0-nx*w,y0-ny*w);c.closePath();c.fill()}
- c.strokeStyle='rgba(255,252,225,'+fade*.9+')';c.lineWidth=2*S;c.beginPath();c.moveTo(ox-f*10*S,oy-24*S);c.lineTo(ox+f*R*2.1*p,oy-24*S);c.stroke();
+ c.strokeStyle='rgba(255,252,225,'+fade*.9+')';c.lineWidth=2*S;c.beginPath();c.moveTo(ox-f*R*.6,oy);c.lineTo(ox+f*R*1.9*p,oy);c.stroke();
  c.restore()}
 
 /* ===== Fifteen smooth 2D factory rooms with layered depth (far, middle, near, foreground) ===== */
@@ -388,7 +388,7 @@ function loop(ts){const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=
  const h=(FLOOR-me.y),sw=clamp(30-h*.06,12,30),sg=g.createRadialGradient(sx,FLOOR+6,2,sx,FLOOR+6,sw);sg.addColorStop(0,'rgba(10,4,16,'+(.5-h*.001)+')');sg.addColorStop(1,'rgba(10,4,16,0)');g.save();g.fillStyle=sg;g.beginPath();g.ellipse(sx,FLOOR+6,sw,sw*.28,0,0,TAU);g.fill();g.restore();
  const atkOn=atkP>.3&&atkP<.8;energy(P,atkOn);drawParts(g,dtms/1000);
  heroDraw(g,sx,me.y,me.face,P,0,sq,SC_);
- for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}slashFx(g,f.x-cam+f.f*18,f.y,f.f,k,f.seed,SC_*1.15)}
+ for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}slashFx(g,f.x-cam,f.y,f.f,k,f.seed,SC_*1.15)}
  drawFront(g,sc,clock,cam,room);
  requestAnimationFrame(loop)}
 /* ---- animation previews ---- */
@@ -403,7 +403,7 @@ function previews(ts){const t=ts/1000;
  const P=poseFor(js=='land'&&j<.1?'idle':js,{ph:0,t,speed:0,atk:-1});
  {const cv=pv.jump,c=cv.getContext('2d'),q=cv.width/300;c.setTransform(q,0,0,q,0,0);c.clearRect(0,0,300,250);c.fillStyle='rgba(10,4,16,.35)';c.beginPath();c.ellipse(150,222,34-jy*.2,9,0,0,TAU);c.fill();heroDraw(c,150,222-(j<.7?jy:0),1,P,0,j>.7&&j<.8?.93:1,1.75)}
  {const u=(t%1.5)/.45,k=u<=1?u:-1;prevDraw('hit',poseFor('idle',{ph:0,t,speed:0,atk:k}),0,1);
-  if(k>=0.3){const c=pv.hit.getContext('2d'),q=pv.hit.width/300;c.setTransform(q,0,0,q,0,0);slashFx(c,150+20,222-44*1.75,1,(k-.3)/.7*.9,7,1.75*.8)}}
+  if(k>=0.3){const c=pv.hit.getContext('2d'),q=pv.hit.width/300;c.setTransform(q,0,0,q,0,0);slashFx(c,150,222-44*1.75,1,(k-.3)/.7*.9,7,1.75*.8)}}
  requestAnimationFrame(previews)}
 setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimationFrame(previews);
 window.__demo={me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
