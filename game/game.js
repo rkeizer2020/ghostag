@@ -181,7 +181,7 @@ function writeSave() {
   store.set(saveKey(), JSON.stringify(save));
   if (session) { clearTimeout(pushTimer); pushTimer = setTimeout(() => Auth.push().catch(() => {}), 1500); }   // also to the server
 }
-let brushImg, shieldImg, bodyImg0005, manIdleImg, manWalk1Img, manWalk2Img, manCardImg;   // the drawings of the two characters
+let brushImg, shieldImg, bodyImg0005, manIdleImg, manWalk1Img, manWalk2Img, manCardImg, manUpImg, manApexImg, manFallImg;   // the drawings of the two characters
 // replace the progress in `save` with another saved game (login / logout)
 function loadSave(raw) {
   let data = {};
@@ -480,12 +480,12 @@ function guardHitbox(g) {
 // You start with 5. A guard touching you costs one; then you blink for a moment
 // and can't be hurt again straight away.
 const INVULN_TIME = 1.5;
-// Subject 394 (level 2 only): follows you, 20% slower than you.
+// Subject 394 (level 2 only): follows you, 35% slower than you.
 // Every hit takes 2 hearts. 8 bullet hits destroy him.
-const GHOST_LEVEL = 2, GHOST_SPEED = 0.8, GHOST_DELAY = 8, GHOST_DAMAGE = 2, GHOST_FADE = 1.5, GHOST_HP = 8, GHOST_DYING = 0.5;
-const ghost = { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0, hp: GHOST_HP, dead: false, dying: 0, flash: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, plan: null, planT: 0 };
+const GHOST_LEVEL = 2, GHOST_SPEED = 0.65, GHOST_DELAY = 8, GHOST_DAMAGE = 2, GHOST_FADE = 1.5, GHOST_HP = 8, GHOST_DYING = 0.5;
+const ghost = { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0, hp: GHOST_HP, dead: false, dying: 0, flash: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, plan: null, planT: 0, land: 0 };
 let ghostImg;
-function resetGhost() { Object.assign(ghost, { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0, hp: GHOST_HP, dead: false, dying: 0, flash: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, plan: null, planT: 0 }); }
+function resetGhost() { Object.assign(ghost, { trail: [], idx: 0, time: 0, play: 0, active: false, age: 0, x: 0, y: 0, moving: 0, hp: GHOST_HP, dead: false, dying: 0, flash: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, plan: null, planT: 0, land: 0 }); }
 function updateGhost(dt) {
   if (levelNo() !== GHOST_LEVEL) return;
   ghost.flash = Math.max(0, ghost.flash - dt);
@@ -506,7 +506,7 @@ function updateGhost(dt) {
 
 // Subject 394 just follows you. He knows which platform leads to which (found by trying the jumps out in
 // his head), walks to the right spot, jumps up, or walks off an edge to come down, and then walks to you.
-// He is 20% slower than you.
+// He is 35% slower than you.
 function simulateMove(x0, feet0, dir, speed, vy0, skip) {   // where does this jump / fall land? (platform index, -1 = the ground)
   let x = x0 - player.w / 2, y = feet0 - player.h, vy = vy0;
   for (let i = 0; i < 110; i++) {
@@ -589,7 +589,7 @@ function ghostChase(dt) {
   if (ghost.kb > 0) { ghost.kb -= dt; ghost.vx = ghost.kbVx; } else ghost.vx = dir * speed;   // (pushed back by a perfect block)
   if (dir) ghost.dir = dir;
   // the same physics as yours
-  const prevBottom = ghost.y + player.h, prevHead = ghost.y, startX = ghost.x;
+  const prevBottom = ghost.y + player.h, prevHead = ghost.y, startX = ghost.x, wasOn = ghost.onGround, fallV = ghost.vy;
   ghost.vy += (ghost.vy < 0 ? GRAVITY_UP : GRAVITY_DOWN) * dt;
   ghost.x += ghost.vx * dt;
   ghost.y += ghost.vy * dt;
@@ -605,6 +605,8 @@ function ghostChase(dt) {
   }
   if (ghost.y + player.h >= GROUND_Y) { ghost.y = GROUND_Y - player.h; ghost.vy = 0; ghost.onGround = true; }
   if (ghost.onGround) ghost.airDir = 0;
+  if (!wasOn && ghost.onGround) ghost.land = Math.min(1, fallV / 700);          // landing squash
+  ghost.land *= Math.exp(-dt * 11);
   ghost.moving = ghost.onGround && Math.abs(ghost.x - startX) > 0.01 ? 1 : 0;
   if (ghost.moving) ghost.play += dt;
 }
@@ -621,6 +623,14 @@ function drawGhost() {
   ctx.translate(g.cx, g.feet + bob);
   if (ghost.dead) ctx.scale(1 + (1 - ghost.dying / GHOST_DYING) * 0.3, ghost.dying / GHOST_DYING * 0.6 + 0.4);
   ctx.rotate(ghost.moving ? Math.sin(ghost.play * 11) * 0.05 : 0);
+  if (!ghost.onGround && !ghost.dead) {   // the jump: leans into it, stretched while rising / falling fast, squashed and wide at the top
+    const sy = 1 + Math.min(1, Math.abs(ghost.vy) / (JUMP_SPEED * 1.1)) * 0.16 - 0.05 * (1 - Math.min(1, Math.abs(ghost.vy) / 220));
+    ctx.rotate((ghost.airDir || ghost.dir || 1) * 0.1);
+    ctx.scale(Math.pow(sy, -0.8), sy);
+  } else if (ghost.land > 0.02 && !ghost.dead) {   // landing squash
+    const sy = 1 - 0.16 * ghost.land;
+    ctx.scale(Math.pow(sy, -0.8), sy);
+  }
   ctx.drawImage(ghostImg, -g.dw / 2, -g.dh, g.dw, g.dh);
   ctx.restore();
 }
@@ -861,7 +871,7 @@ const WALK_FRAME_TIME = 0.3;
 // Standing: base -> head low -> base -> head high -> base ... (always starts on base).
 const IDLE_FRAME_TIME = 0.2;
 // Drawings fade into each other instead of snapping, which makes the animation smoother.
-const FADE_WALK = 0.12, FADE_IDLE = 0.12;
+const FADE_WALK = 0.12, FADE_IDLE = 0.12, FADE_JUMP = 0.05;
 const cam = { x: null, y: null };
 // Smooth, procedural movement of the drawing: lean into the run, a hop on every step,
 // stretch when jumping, squash when landing, and a gentle breathing while standing still.
@@ -1446,7 +1456,7 @@ canvas.addEventListener('pointerdown', e => {
   player.y = GROUND_Y - player.h;
 
   menuBgImg = menuImg; menuBackImg = menuBtnImg;
-  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg, manIdleImg, manWalk1Img, manWalk2Img, manCardImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button', 'man-0300-idle', 'man-0300-walk-1', 'man-0300-walk-2', 'man-0300-card'].map(n => load(assetUrl(n))));
+  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg, manIdleImg, manWalk1Img, manWalk2Img, manCardImg, manUpImg, manApexImg, manFallImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button', 'man-0300-idle', 'man-0300-walk-1', 'man-0300-walk-2', 'man-0300-card', 'man-0300-jump-up', 'man-0300-jump-apex', 'man-0300-jump-fall'].map(n => load(assetUrl(n))));
   for (const u of UPGRADES) upgradeImgs[u.id] = await load(assetUrl('upgrade-' + u.id));
   if (document.fonts) document.fonts.load('24px Rye').catch(() => {});
   // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
@@ -1580,7 +1590,8 @@ canvas.addEventListener('pointerdown', e => {
     vis.tilt += ((player.vx / MOVE_SPEED) * 0.08 * (player.onGround ? 1 : 0.6) - vis.tilt) * (1 - Math.exp(-dt * 14));
     vis.land *= Math.exp(-dt * 11);
     vis.jump *= Math.exp(-dt * 9);
-    const airStretch = player.onGround ? 0 : Math.min(1, Math.abs(player.vy) / (JUMP_SPEED * 1.4)) * 0.1;
+    // in the air: stretched while he rises or falls fast, a little squashed and wide at the top of the jump
+    const airStretch = player.onGround ? 0 : Math.min(1, Math.abs(player.vy) / (JUMP_SPEED * 1.1)) * 0.16 - 0.05 * (1 - Math.min(1, Math.abs(player.vy) / 220));
     const breathe = player.walkTime === 0 && player.onGround ? 0.012 * Math.sin(performance.now() / 1000 * 2 * Math.PI / 2.4) : 0;
     const bodyScaleY = 1 + 0.1 * vis.jump + airStretch - 0.16 * vis.land + breathe;
     const bodyScaleX = Math.pow(bodyScaleY, -0.8);                        // squash and stretch keep the volume
@@ -1608,7 +1619,11 @@ canvas.addEventListener('pointerdown', e => {
     ctx.translate(-pivotX, -pivotY);
     // which drawing: walking swaps walk 1 / walk 2; standing cycles base, low, base, high
     const idleCycle = [idleBaseImg, idleLowImg, idleBaseImg, idleHighImg];
-    if (player.walkTime > 0) setPose(Math.floor(player.walkTime / WALK_FRAME_TIME) % 2 === 0 ? (isBrush ? manWalk1Img : walk1Img) : (isBrush ? manWalk2Img : walk2Img), FADE_WALK);
+    if (!player.onGround) {
+      // the jump: rising, hanging at the top, falling (SUBJECT 0005 uses his stretched / base / legs-apart drawings)
+      const ph = player.vy < -170 ? 0 : player.vy > 170 ? 2 : 1;
+      setPose(isBrush ? [manUpImg, manApexImg, manFallImg][ph] : [idleHighImg, idleBaseImg, walk2Img][ph], FADE_JUMP);
+    } else if (player.walkTime > 0) setPose(Math.floor(player.walkTime / WALK_FRAME_TIME) % 2 === 0 ? (isBrush ? manWalk1Img : walk1Img) : (isBrush ? manWalk2Img : walk2Img), FADE_WALK);
     else setPose(isBrush ? manIdleImg : idleCycle[Math.floor(player.idleTime / IDLE_FRAME_TIME) % 4], FADE_IDLE);
     pose.fade = Math.min(1, pose.fade + dt / pose.fadeTime);
     const blink = invuln > 0 && Math.floor(invuln * 10) % 2 === 0;
