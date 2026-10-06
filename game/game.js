@@ -520,7 +520,7 @@ function updateGhost(dt) {
 // by trying the jumps out in their head), walk to the right spot, jump up or walk off an edge, and then walk to you.
 // body = { w, h, jumpV, pass (can jump up through platforms from below), key }
 const ghostBody = () => ({ w: player.w, h: player.h, jumpV: JUMP_SPEED, pass: false, key: 'ghost' + player.w });
-function simulateMove(body, x0, feet0, dir, speed, vy0, skip) {   // where does this jump / fall land? (platform index, -1 = the ground)
+function simulateMove(body, x0, feet0, dir, speed, vy0, skip, out) {   // where does this jump / fall land? (platform index, -1 = the ground)
   let x = x0 - body.w / 2, y = feet0 - body.h, vy = vy0;
   for (let i = 0; i < 130; i++) {
     const prevBottom = y + body.h, prevHead = y, dt = 0.016;
@@ -531,9 +531,9 @@ function simulateMove(body, x0, feet0, dir, speed, vy0, skip) {   // where does 
     if (!body.pass && vy < 0) for (const p of platforms) if (x + body.w > p.x && x < p.x + p.w && prevHead >= p.ceil && y < p.ceil) { y = p.ceil; vy = 0; }
     if (vy >= 0) for (let k = 0; k < platforms.length; k++) {
       const p = platforms[k];
-      if (k !== skip && x + body.w > p.x && x < p.x + p.w && prevBottom <= p.top && y + body.h >= p.top) return k;
+      if (k !== skip && x + body.w > p.x && x < p.x + p.w && prevBottom <= p.top && y + body.h >= p.top) { if (out) out.x = x + body.w / 2; return k; }
     }
-    if (y + body.h >= GROUND_Y) return -1;
+    if (y + body.h >= GROUND_Y) { if (out) out.x = x + body.w / 2; return -1; }
   }
   return null;
 }
@@ -605,7 +605,7 @@ function stepBody(b, w, h, dt, pass) {
   return { landed: !wasOn && b.onGround, fallV };
 }
 // walk / jump towards a spot on a platform (goalNode, goalX)
-function bodyMove(b, body, goalNode, goalX, speed, dt) {
+function bodyMove(b, body, goalNode, goalX, speed, dt, avoidX) {
   const cx = b.x + body.w / 2, feet = b.y + body.h;
   let target = goalX, jump = 0;
   if (b.onGround) {
@@ -613,7 +613,14 @@ function bodyMove(b, body, goalNode, goalX, speed, dt) {
     const step = nextStep(body, idx, goalNode, speed);
     if (step) {
       target = step.kind === 'walk' ? step.standX + step.dir * 14 : step.standX;      // (walking off an edge: go a bit further out)
-      if (step.kind === 'jump' && Math.abs(cx - step.standX) <= 4) jump = step.dir;
+      if (step.kind === 'jump' && Math.abs(cx - step.standX) <= 4) {
+        jump = step.dir;
+        if (avoidX != null) {                       // he doesn't jump down onto you: wait until the landing spot is clear of you
+          const out = {};
+          simulateMove(body, cx, feet, step.dir, speed, -body.jumpV, idx, out);
+          if (out.x != null && Math.abs(out.x - avoidX) < 150) jump = 0;
+        }
+      }
     }
   }
   let dir = Math.abs(target - cx) > 4 ? Math.sign(target - cx) : 0;
@@ -818,6 +825,13 @@ function updateBoss(dt) {
   boss.seeT = sees ? 2 : Math.max(0, boss.seeT - dt);
   const chasing = boss.seeT > 0;
   boss.unseenT = chasing ? 0 : boss.unseenT + dt;
+  if (boss.state === 'move' && pillars.length > 0) {             // while the pillars of the stomp are there he stands still and does nothing else
+    boss.vx = 0; boss.moving = 0; boss.dir = pcx >= c.x ? 1 : -1;
+    const fr = stepBody(boss, BOSS_W, BOSS_H, dt, true);
+    if (fr.landed) boss.land = Math.min(1, fr.fallV / 700);
+    boss.land *= Math.exp(-dt * 9);
+    return;
+  }
   if (boss.state === 'move') {
     const onMainGround = boss.onGround && boss.y + BOSS_H >= GROUND_Y - 3;
     if (chasing && !boss.stompPending) boss.atkCd -= dt;
@@ -834,7 +848,7 @@ function updateBoss(dt) {
       if (boss.stompPending) r = bodyMove(boss, bossBody, -1, pcx, speed * BOSS_RUN, dt);                    // down to the main ground
       else if (chasing) r = bodyMove(boss, bossBody, nodeAt(pcx, pfeet), pcx, speed * BOSS_RUN, dt);            // he runs at you, 10% slower than you
       else if (boss.unseenT >= 5 && !MINI_PLATFORMS.includes(nodeAt(pcx, pfeet))) {                           // 5 s without seeing you: he goes to the platform you stand on (not the small ones: too small for him)
-        r = bodyMove(boss, bossBody, nodeAt(pcx, pfeet), pcx, speed * BOSS_WALK, dt);
+        r = bodyMove(boss, bossBody, nodeAt(pcx, pfeet), pcx, speed * BOSS_WALK, dt, pcx);
       } else {                                                                                                  // he walks around the map, 35% slower than you
         boss.wanderT -= dt;
         const here = nodeAt(c.x, boss.y + BOSS_H);
@@ -935,8 +949,8 @@ function updateBossHazards(dt) {
   for (let i = booms.length - 1; i >= 0; i--) if ((booms[i].t -= dt) <= 0) booms.splice(i, 1);
   shake = Math.max(0, shake - dt);
 }
-const PILLAR_WARN = 3;     // seconds that red see-through pillars show where the real ones will come
-// how far a pillar has come out of the ground: warning 3 s, up to the ceiling in 0.15 s, 0.9 s up, down in 0.35 s
+const PILLAR_WARN = 2;     // seconds that red see-through pillars show where the real ones will come
+// how far a pillar has come out of the ground: warning 2 s, up to the ceiling in 0.15 s, 0.9 s up, down in 0.35 s
 function pillarHeight(p) {
   const t = p.t - PILLAR_WARN;
   if (t < 0) return 0;
