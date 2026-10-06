@@ -805,10 +805,15 @@ function updateHealth(dt) {
   if (invuln > 0 || hearts <= 0) return;
   const p = playerHitbox();
   // yellow guards hurt when you walk into them (red guards only hurt with their bullets)
-  for (const g of guards) {
-    const hb = guardHitbox(g);
+  for (let i = 0; i < guards.length; i++) {
+    const hb = guardHitbox(guards[i]);
     if (p.x + p.w > hb.x && p.x < hb.x + hb.w && p.y + p.h > hb.y && p.y < hb.y + hb.h) {
-      hurtPlayer();
+      if (charId() === '0300' && shield.t > 0 && shield.age <= PERFECT_WINDOW && shieldFaces(hb.x + hb.w / 2)) {
+        // a perfect block: no damage to you, the guard takes the 1 damage he would have done
+        shield.flash = 0.3;
+        invuln = 0.6;
+        hurtGuard(guards, i, 1);
+      } else hurtPlayer();
       break;
     }
   }
@@ -1301,7 +1306,7 @@ const CHAR_INFO = {
     attacks: [
       'Brush swing: 3 damage to every enemy in front of you, in the direction you look. It cannot reach through platforms. 0.75 s before you can swing again.',
       'Ink trail: walking leaves a zigzag ink trail. Enemies on it take 1 damage (once every 0.5 s each). Every piece of the trail is gone after 1 second.',
-      'Shield: blocks red guard bullets that come from the side you look at. Block in the first 0.2 s after raising it and it is a PERFECT block: the bullet flies back and does its damage to the enemy. Yellow guards cannot be blocked. Subject 394 only stops with a perfect block (he then takes his 2 damage himself).',
+      'Shield: blocks red guard bullets that come from the side you look at. Block in the first 0.2 s after raising it and it is a PERFECT block: the bullet flies back and does its damage to the enemy. Yellow guards and subject 394 walk through a normal block, but a PERFECT block works on them too: you take no damage and they take the damage they would have done (1 for a yellow guard, 2 for subject 394).',
       'Upgrade cards do not work for him yet.',
     ],
   },
