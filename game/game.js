@@ -1034,11 +1034,12 @@ const lcNextBtn = { x: 0, y: 0, w: 0, h: 0 };    // NEXT on the level completed 
 const lcCardsBtn = { x: 0, y: 0, w: 0, h: 0 };   // CARDS on the level completed screen
 const loginBtn = { x: 0, y: 0, w: 0, h: 0 };
 const levelsBtn = { x: 0, y: 0, w: 0, h: 0 };   // LEVELS on the menu screen, under EQUIP
-const lvPlayBtn = { x: 0, y: 0, w: 0, h: 0 };   // PLAY on the level select screen
+const lvPlayBtn = { x: 0, y: 0, w: 0, h: 0 };
+const lvBossBtn = { x: 0, y: 0, w: 0, h: 0 };   // BOSS under level 3: start straight at the boss fight   // PLAY on the level select screen
 const equipBtn = { x: 0, y: 0, w: 0, h: 0 };    // EQUIP (character) on the menu screen, under LOGIN     // LOGIN on the menu screen
 const shopMenuBtn = { x: 0, y: 0, w: 0, h: 0 };  // MENU on the shop screen
 const CARD_W = 300, CARD_H = 440, CARD_GAP = 40, CARD_Y = 128;
-let levelsBtnImg, playImgRef, equipBtnImg, nextBtnImg, cardsBtnImg, loginBtnImg, shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
+let bossBtnImg, levelsBtnImg, playImgRef, equipBtnImg, nextBtnImg, cardsBtnImg, loginBtnImg, shopBtnImg, cardFrameImg, coinImg, menuBgImg, menuBackImg;
 const upgradeImgs = {};
 const TITLE_FONT = 'Rye, Georgia, serif', BODY_FONT = '"Trebuchet MS", system-ui, sans-serif';
 
@@ -1626,7 +1627,7 @@ function drawCards(dt) {
 const LEVEL_INFO = {
   1: 'Paint the whole map green by defeating enemies. Yellow and red guards.',
   2: 'Same map, but subject 394 hunts you down. He follows you and takes 2 hearts.',
-  3: 'A blue guard joins the others. Defeat 35 enemies to call the boss. Nothing gets painted: only the boss counts.',
+  3: 'A blue guard joins the others. Defeat 35 enemies to call the boss. Nothing gets painted: only the boss counts. Or press BOSS to start at the boss fight.',
 };
 const LV_TILE = { w: 300, h: 330, gap: 70, y: 128 };
 function levelsLayout() {
@@ -1666,6 +1667,11 @@ function drawLevels(dt) {
   if (shopMsg.t > 0) { ctx.globalAlpha = Math.min(1, shopMsg.t * 2); drawText(shopMsg.text, W / 2, 486, 22, '#ff7a6a', 'bold ' + BODY_FONT, 'center', '#000'); ctx.globalAlpha = 1; }
   drawText('Press PLAY to start level ' + levelNo(), W / 2, 522, 18, '#cdbfae', 'bold ' + BODY_FONT, 'center');
   drawButton(playImgRef, lvPlayBtn, hoverBtn === 'lvplay');
+  const last = tiles[tiles.length - 1];                       // BOSS: straight to the boss fight of level 3
+  Object.assign(lvBossBtn, { x: last.x + (last.w - lvBossBtn.w) / 2, y: last.y + last.h + 14 });
+  ctx.globalAlpha = BOSS_LEVEL <= bestLevel() ? 1 : 0.4;
+  drawButton(bossBtnImg, lvBossBtn, hoverBtn === 'bossbtn' && BOSS_LEVEL <= bestLevel());
+  ctx.globalAlpha = 1;
   drawButton(menuBackImg, shopMenuBtn, hoverBtn === 'menu');
 }
 
@@ -1759,6 +1765,7 @@ function buttonAt(e) {
   if (inLevels) {
     if (inRect(m, shopMenuBtn)) return 'menu';
     if (inRect(m, lvPlayBtn)) return 'lvplay';
+    if (inRect(m, lvBossBtn)) return 'bossbtn';
     const ts = levelsLayout();
     for (let i = 0; i < ts.length; i++) if (inRect(m, ts[i])) return 'lv' + i;
     return null;
@@ -1815,6 +1822,10 @@ canvas.addEventListener('pointerdown', e => {
     else Object.assign(shopMsg, { text: 'Finish level ' + (n - 1) + ' first', t: 2, good: false });
   }
   if (id === 'lvplay') { inLevels = false; restart(); inMenu = false; hoverBtn = null; }
+  if (id === 'bossbtn') {
+    if (BOSS_LEVEL <= bestLevel()) { save.level = BOSS_LEVEL; writeSave(); inLevels = false; restart(); inMenu = false; startBoss(); hoverBtn = null; }   // straight into the boss fight
+    else Object.assign(shopMsg, { text: 'Reach level ' + BOSS_LEVEL + ' first', t: 2, good: false });
+  }
   if (id && id.startsWith('cc')) viewChar = CHARACTERS[Number(id.slice(2))].id;
   if (id === 'equipchar' && characterUnlocked(viewChar)) { save.character = viewChar; writeSave(); applyCharacter(); }
   if (id && id.startsWith('slot')) toggleEquip(cardsLayout().slots[Number(id.slice(4))].id);
@@ -1837,9 +1848,9 @@ canvas.addEventListener('pointerdown', e => {
 
   menuBgImg = menuImg; menuBackImg = menuBtnImg;
   let bossImgList;
-  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg, manIdleImg, manWalk1Img, manWalk2Img, manCardImg, manUpImg, manApexImg, manFallImg, ...bossImgList] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button', 'man-0300-idle', 'man-0300-walk-1', 'man-0300-walk-2', 'man-0300-card', 'man-0300-jump-up', 'man-0300-jump-apex', 'man-0300-jump-fall', 'boss-idle', 'boss-walk-1', 'boss-walk-2', 'boss-jump', 'boss-attack', 'pillar', 'bomb', 'blue-guard-left', 'blue-guard-right', 'levels-button'].map(n => load(assetUrl(n))));
+  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg, manIdleImg, manWalk1Img, manWalk2Img, manCardImg, manUpImg, manApexImg, manFallImg, ...bossImgList] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button', 'man-0300-idle', 'man-0300-walk-1', 'man-0300-walk-2', 'man-0300-card', 'man-0300-jump-up', 'man-0300-jump-apex', 'man-0300-jump-fall', 'boss-idle', 'boss-walk-1', 'boss-walk-2', 'boss-jump', 'boss-attack', 'pillar', 'bomb', 'blue-guard-left', 'blue-guard-right', 'levels-button', 'boss-button'].map(n => load(assetUrl(n))));
   bossImgs = { idle: bossImgList[0], walk1: bossImgList[1], walk2: bossImgList[2], jump: bossImgList[3], attack: bossImgList[4], pillar: bossImgList[5], bomb: bossImgList[6] };
-  blueGuardL = bossImgList[7]; blueGuardR = bossImgList[8]; levelsBtnImg = bossImgList[9]; playImgRef = playBtnImg;
+  blueGuardL = bossImgList[7]; blueGuardR = bossImgList[8]; levelsBtnImg = bossImgList[9]; bossBtnImg = bossImgList[10]; playImgRef = playBtnImg;
   for (const u of UPGRADES) upgradeImgs[u.id] = await load(assetUrl('upgrade-' + u.id));
   if (document.fonts) document.fonts.load('24px Rye').catch(() => {});
   // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
@@ -1870,6 +1881,7 @@ canvas.addEventListener('pointerdown', e => {
     Object.assign(loginBtn, { x: W - lw - 24, y: 18, w: lw, h: Math.round(lw * loginBtnImg.height / loginBtnImg.width) });
     Object.assign(equipBtn, { x: W - ew - 24, y: loginBtn.y + loginBtn.h + 36, w: ew, h: Math.round(ew * equipBtnImg.height / equipBtnImg.width) });
     Object.assign(levelsBtn, { x: W - lvw - 24, y: equipBtn.y + equipBtn.h + 10, w: lvw, h: Math.round(lvw * levelsBtnImg.height / levelsBtnImg.width) });
+    { const bw = 130; Object.assign(lvBossBtn, { w: bw, h: Math.round(bw * bossBtnImg.height / bossBtnImg.width) }); }
     { const pw = 240; Object.assign(lvPlayBtn, { x: (W - pw) / 2, y: 540, w: pw, h: Math.round(pw * playBtnImg.height / playBtnImg.width) }); }
     Object.assign(shopMenuBtn, { x: W - 250 - 30, y: H - Math.round(250 * menuBtnImg.height / menuBtnImg.width) - 16, w: 250, h: Math.round(250 * menuBtnImg.height / menuBtnImg.width) });
   }
