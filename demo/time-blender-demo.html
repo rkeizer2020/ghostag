@@ -140,10 +140,10 @@ async function initAudio(){if(ac||loading)return;loading=true;
 function unlock(){initAudio();if(ac&&ac.state==='suspended')ac.resume().catch(()=>{})}
 addEventListener('keydown',unlock);addEventListener('pointerdown',unlock);
 function play(name,o2){if(!ac||!soundOn||!buf[name])return;const {gain=1,rate=1,offset=0,dur=0}=o2||{};
- const s=ac.createBufferSource();s.buffer=buf[name];s.playbackRate.value=rate;const g=ac.createGain();g.gain.value=gain;s.connect(g);g.connect(ac.destination);
+ const s=ac.createBufferSource();s.buffer=buf[name];s.playbackRate.value=rate;const g=ac.createGain();g.gain.value=gain;const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2600;lp.Q.value=.4;s.connect(g);g.connect(lp);lp.connect(ac.destination);
  if(dur){const t=ac.currentTime;g.gain.setValueAtTime(gain,t+Math.max(0,dur-.1)/rate);g.gain.linearRampToValueAtTime(0,t+dur/rate);s.start(0,offset,dur)}else s.start(0,offset);return s}
 let lastStep=-1;function playStep(){let i;do{i=Math.floor(Math.random()*STEP_ON.length)}while(i===lastStep);lastStep=i;
- play('walk',{gain:.8,rate:.97+Math.random()*.1,offset:Math.max(0,STEP_ON[i]-.05),dur:.42})}
+ play('walk',{gain:.2+Math.random()*.04,rate:.97+Math.random()*.1,offset:Math.max(0,STEP_ON[i]-.05),dur:.42})}
 const sndBtn=document.getElementById('snd');
 sndBtn.onclick=()=>{soundOn=!soundOn;sndBtn.textContent=soundOn?'Sound on':'Sound off';sndBtn.setAttribute('aria-pressed',soundOn);unlock();game.focus()};
 
@@ -159,16 +159,16 @@ game.addEventListener('pointerdown',()=>game.focus());
 for(const [id,kk] of[['bl','l'],['br','r'],['bj','j']]){const b=document.getElementById(id);
  b.addEventListener('pointerdown',e=>{e.preventDefault();key[kk]=1});for(const ev of['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,()=>{key[kk]=0})}
 function step(){
- const dir=key.r-key.l,tv=dir*.7;me.vx+=(tv-me.vx)*.28;if(Math.abs(me.vx)<.03)me.vx=0;
+ const dir=key.r-key.l,tv=dir*.55;me.vx+=(tv-me.vx)*.28;if(Math.abs(me.vx)<.03)me.vx=0;
  if(dir)me.face=dir;
- if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-2.65;me.ground=false;jumpHeld=true;play('jump',{gain:.7})}
+ if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-2.65;me.ground=false;jumpHeld=true;play('jump',{gain:.16})}
  if(!key.j)jumpHeld=false;
  if(!me.ground&&!key.j&&me.vy<-1.2)me.vy=-1.2;
  me.x+=me.vx;
- if(!me.ground){me.vy+=.2;me.y+=me.vy;if(me.y>=GROUND){me.y=GROUND;if(me.vy>1.0)play('land',{gain:.8});if(me.vy>1.6)me.land=5;me.vy=0;me.ground=true}}
+ if(!me.ground){me.vy+=.2;me.y+=me.vy;if(me.y>=GROUND){me.y=GROUND;if(me.vy>1.0)play('land',{gain:.2});if(me.vy>1.6)me.land=5;me.vy=0;me.ground=true}}
  if(me.land>0)me.land--;
  if(me.x>W-2){setRoom(room+1);me.x=5}else if(me.x<2){setRoom(room-1);me.x=W-5}
- if(me.ground&&Math.abs(me.vx)>.2){me.walkT+=Math.abs(me.vx)*(8/26);const wk=Math.floor(me.walkT);if(wk!==lastWk&&wk%4===2)playStep();lastWk=wk}else if(me.ground&&me.vx==0)me.idleT+=1/22;
+ if(me.ground&&Math.abs(me.vx)>.2){me.walkT+=Math.abs(me.vx)*(8/30);const wk=Math.floor(me.walkT);if(wk!==lastWk&&wk%4===2)playStep();lastWk=wk}else if(me.ground&&me.vx==0)me.idleT+=1/22;
 }
 function stateNow(){
  if(!me.ground)return me.vy<-1.5?'up':(me.vy>1.5?'fall':'mid');
