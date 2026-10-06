@@ -31,15 +31,15 @@ h2{font-family:var(--display);font-size:12px;font-weight:400;margin:6px 0 0}
 .card span{font-size:12px;color:var(--muted)}
 </style>
 <main>
-<header><h1>Time Blender Demo</h1><p>Walk, jump and swing a golden sword through fifteen factory rooms. The camera follows you; walk off either end to reach the next room.</p></header>
+<header><h1>Time Blender Demo</h1><p>Run, jump and swing a golden sword through fifteen factory rooms. The camera follows you; run off either end to reach the next room.</p></header>
 <div class="bar"><button id="prev" type="button" aria-label="Previous room">◀</button><div class="name" id="name"></div><select id="sel" aria-label="Choose a room"></select><button id="next" type="button" aria-label="Next room">▶</button><button id="snd" type="button" aria-pressed="true">Sound on</button></div>
 <div class="stage"><canvas id="game" tabindex="0" aria-label="Game: use arrow keys to move, space to jump and Q to hit"></canvas></div>
 <div class="pad"><div class="dir"><button id="bl" type="button" aria-label="Walk left">◀</button><button id="br" type="button" aria-label="Walk right">▶</button></div><div class="dir"><button id="bh" type="button">Hit</button><button id="bj" type="button">Jump</button></div></div>
-<p class="hint">Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to walk, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>Q</kbd> to swing the sword, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</p>
+<p class="hint">Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to run, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>Q</kbd> to swing the sword, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</p>
 <h2>Animations</h2>
 <section class="previews">
 <div class="card"><canvas id="p-idle"></canvas><span>Standing still</span></div>
-<div class="card"><canvas id="p-walk"></canvas><span>Walking</span></div>
+<div class="card"><canvas id="p-walk"></canvas><span>Running</span></div>
 <div class="card"><canvas id="p-jump"></canvas><span>Jumping</span></div>
 <div class="card"><canvas id="p-hit"></canvas><span>Sword swing (Q)</span></div>
 </section>
@@ -67,8 +67,9 @@ function hiltPos(P){const a=P.hilt.ang;return [-5+Math.cos(a)*11,31+Math.sin(a)*
 function drawHero(c,P){
  const OL=2.6;c.save();c.rotate(-P.lean);
  const hx=-1,hy=15;
- const leg=(f,far)=>{const k=ik(hx+(far?-1:2),hy,f[0],f[1]+3,7,8,1);limb(c,[[hx+(far?-1:2),hy],[k[0],k[1]],[k[2],k[3]]],far?4.6:5.2,far?'#24142b':HC.leg,OL*.8);
-  c.beginPath();c.ellipse(f[0]+2.5,f[1]+1.8,5,2.8,0,0,TAU);fillOut(c,HC.boot,OL*.8)};
+ const leg=(f,far)=>{const h0=hx+(far?-1:2),k=ik(h0,hy,f[0],f[1]+3,7,8,1);limb(c,[[h0,hy],[k[0],k[1]],[k[2],k[3]]],far?5.2:5.8,far?'#33203f':'#4d3160',OL*.8);
+  c.beginPath();c.ellipse(f[0]+2.5,f[1]+1.8,5,2.8,0,0,TAU);fillOut(c,HC.boot,OL*.8);
+  c.beginPath();c.ellipse(k[2]+.3,k[3]+.6,4.2,2.4,0,0,TAU);c.strokeStyle=OUT;c.lineWidth=5.2;c.stroke();c.strokeStyle=far?'#9a6a36':'#d4a05a';c.lineWidth=2.8;c.stroke()};
  leg(P.footF,true);
  /* the hilt of the golden sword; the blade stays on the far side behind the body */
  {const [gx,gy,a]=hiltPos(P),dx=Math.cos(a),dy=Math.sin(a),px=-dy,py=dx;c.save();c.shadowColor=HC.glow;c.shadowBlur=10;
@@ -77,15 +78,12 @@ function drawHero(c,P){
   c.strokeStyle=HC.gold[1];c.lineWidth=5;c.beginPath();c.moveTo(gx-px*6,gy-py*6);c.lineTo(gx+px*6,gy+py*6);c.stroke();
   c.strokeStyle='#8a5a2a';c.lineWidth=4;c.beginPath();c.moveTo(gx,gy);c.lineTo(gx+dx*8,gy+dy*8);c.stroke();
   c.beginPath();c.arc(gx+dx*10.5,gy+dy*10.5,3.6,0,TAU);fillOut(c,HC.gold[1],1.8);c.restore()}
- /* pointed cloak: covers the whole visible side of the body */
- {const tx=-14-P.trail,ty=5+P.lift,sw=P.sway;
-  c.beginPath();c.moveTo(10,43);c.bezierCurveTo(18,35,16,22,5,14);
-  c.lineTo(0,12);c.lineTo(1.5,5.5+P.lift*.4);c.lineTo(-3.5,10);c.lineTo(-5.5,3.5+P.lift*.7);c.lineTo(-9.5,9+P.lift*.3);c.lineTo(tx+sw,ty);
-  c.bezierCurveTo(tx+6,ty+14,-17,28,-10,43);c.closePath();
-  c.fillStyle=lgrad(c,0,42,0,3,HC.cape);c.fill();c.save();c.clip();
-  c.strokeStyle=HC.capeD;c.lineWidth=2.4;c.globalAlpha=.55;for(let k=-3;k<8;k++){c.beginPath();c.moveTo(14-k*5.2,46);c.lineTo(-18-k*5.2+tx*.18,0);c.stroke()}
-  c.globalAlpha=.4;c.strokeStyle='#fff3cf';c.lineWidth=2;c.beginPath();c.moveTo(9,41);c.bezierCurveTo(13,33,11,23,4,14);c.stroke();c.restore();
-  c.strokeStyle=OUT;c.lineWidth=OL+.6;c.lineJoin='round';c.stroke()}
+ /* long pointed cloak: smooth, no stripes; covers the whole visible side down to the ground */
+ {const tx=-17-P.trail,ty=2+P.lift,sw=P.sway;
+  c.beginPath();c.moveTo(10,43);c.bezierCurveTo(18,35,17,18,7,6);
+  c.lineTo(1,8);c.lineTo(-1,1+P.lift*.3);c.lineTo(-6,6);c.lineTo(-8,0.5+P.lift*.5);c.lineTo(-13,5);c.lineTo(-16-P.trail*.35,.5+P.lift*.8);c.lineTo(tx+sw,ty);
+  c.bezierCurveTo(tx+12,ty+14,-19,26,-10,43);c.closePath();
+  c.fillStyle=lgrad(c,0,43,0,0,HC.cape);c.fill();c.strokeStyle=OUT;c.lineWidth=OL+.6;c.lineJoin='round';c.stroke()}
  leg(P.footN,false);
  /* head: a big glass bulb leaning forward, topped with the flat hat */
  c.save();c.translate(1,40);c.rotate(-P.tilt);c.translate(-1,-40+P.bob);
@@ -106,8 +104,8 @@ function drawHero(c,P){
 function poseFor(st,o){const t=o.t,sp=o.speed,ph=o.ph;
  const P={lean:.02,tilt:.03,bob:Math.sin(t*1.9)*1,footN:[5,0],footF:[-3,0],trail:2+Math.sin(t*1.4)*1.3,lift:0,sway:Math.sin(t*2.2)*1,slosh:Math.sin(t*2)*.4,squash:1,lunge:0,t,
   hilt:{ang:2.55+Math.sin(t*1.7)*.05}};
- if(st=='walk'){const A=7*Math.min(1,sp+.2),s=Math.sin(ph),k=Math.cos(ph);P.footN=[5+A*s,Math.max(0,k)*4.5];P.footF=[-3-A*s,Math.max(0,-k)*4.5];
-  P.lean=.04+.1*sp;P.tilt=.03+.03*sp;P.bob=Math.sin(ph*2)*1.1;P.trail=5+7*sp;P.sway=Math.sin(ph)*1.6;P.slosh=Math.cos(ph)*.7;P.hilt.ang=2.55+Math.sin(ph*2)*.08}
+ if(st=='walk'){const A=11*Math.min(1,sp+.1),s=Math.sin(ph),k=Math.cos(ph);P.footN=[4+A*s,Math.max(0,k)*8*sp+Math.max(0,k)*1.5];P.footF=[-4-A*s,Math.max(0,-k)*8*sp+Math.max(0,-k)*1.5];
+  P.lean=.04+.14*sp;P.tilt=.03+.04*sp;P.bob=Math.sin(ph*2)*1.4*sp;P.trail=6+18*sp;P.sway=Math.sin(ph*2)*2.2*sp;P.slosh=Math.cos(ph)*.9;P.hilt.ang=2.55+Math.sin(ph*2)*.1*sp;P.lift=3*sp}
  else if(st=='up'){P.footN=[8,11];P.footF=[-6,9];P.lean=.05;P.tilt=0;P.bob=0;P.trail=4;P.lift=9;P.hilt.ang=2.2;P.slosh=1}
  else if(st=='mid'){P.footN=[7,9];P.footF=[-5,8];P.lean=.06;P.tilt=.02;P.bob=0;P.trail=5;P.lift=7;P.hilt.ang=2.3}
  else if(st=='fall'){P.footN=[8,5];P.footF=[-6,2];P.lean=.08;P.tilt=.05;P.bob=0;P.trail=3;P.lift=12;P.sway=Math.sin(t*14)*1.6;P.hilt.ang=2.7;P.slosh=-1}
@@ -352,7 +350,7 @@ addEventListener('keydown',e=>onKey(e,1));addEventListener('keyup',e=>onKey(e,0)
 game.addEventListener('pointerdown',()=>game.focus());
 document.getElementById('bh').addEventListener('pointerdown',e=>{e.preventDefault();tryAttack()});
 for(const [id,kk] of[['bl','l'],['br','r'],['bj','j']]){const b=document.getElementById(id);b.addEventListener('pointerdown',e=>{e.preventDefault();key[kk]=1});for(const ev of['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,()=>{key[kk]=0})}
-const MAXV=2.2,CYCLE=92;
+const MAXV=4.4,CYCLE=100;
 function step(){clock+=1/60;
  const dir=key.r-key.l;me.vx+=(dir*MAXV-me.vx)*.2;if(Math.abs(me.vx)<.05)me.vx=0;if(dir)me.face=dir;
  if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-11.5;me.ground=false;jumpHeld=true;play('jump',{gain:.16})}
@@ -397,7 +395,7 @@ function prevDraw(k,P,lean,sq){const cv=pv[k],c=cv.getContext('2d'),q=cv.width/3
  c.fillStyle='rgba(10,4,16,.35)';c.beginPath();c.ellipse(150,222,34,9,0,0,TAU);c.fill();heroDraw(c,150,222,1,P,lean,sq,1.75)}
 function previews(ts){const t=ts/1000;
  prevDraw('idle',poseFor('idle',{ph:0,t,speed:0,atk:-1}),0,1);
- prevDraw('walk',poseFor('walk',{ph:t*TAU/.7,t,speed:1,atk:-1}),.1,1);
+ prevDraw('walk',poseFor('walk',{ph:t*TAU/.42,t,speed:1,atk:-1}),.1,1);
  const j=(t%1.8)/1.8,jy=Math.sin(Math.min(1,j/.7)*Math.PI)*70,js=j<.1?'land':(j<.3?'up':(j<.5?'mid':(j<.7?'fall':'land')));
  const P=poseFor(js=='land'&&j<.1?'idle':js,{ph:0,t,speed:0,atk:-1});
  {const cv=pv.jump,c=cv.getContext('2d'),q=cv.width/300;c.setTransform(q,0,0,q,0,0);c.clearRect(0,0,300,250);c.fillStyle='rgba(10,4,16,.35)';c.beginPath();c.ellipse(150,222,34-jy*.2,9,0,0,TAU);c.fill();heroDraw(c,150,222-(j<.7?jy:0),1,P,0,j>.7&&j<.8?.93:1,1.75)}
