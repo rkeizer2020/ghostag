@@ -354,7 +354,7 @@ for(const [id,kk] of[['bl','l'],['br','r'],['bj','j']]){const b=document.getElem
 const MAXV=4.4,CYCLE=100;
 function step(){clock+=1/60;
  const dir=key.r-key.l;me.vx+=(dir*MAXV-me.vx)*.2;if(Math.abs(me.vx)<.05)me.vx=0;if(dir)me.face=dir;
- if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-11.5;me.ground=false;jumpHeld=true;play('jump',{gain:.055})}
+ if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-11.5;me.ground=false;jumpHeld=true}
  if(!key.j)jumpHeld=false;if(!me.ground&&!key.j&&me.vy<-5)me.vy=-5;
  me.x+=me.vx;
  if(!me.ground){me.vy+=.72;me.y+=me.vy;if(me.y>=FLOOR){me.y=FLOOR;if(me.vy>5)play('land',{gain:.07});if(me.vy>9)me.land=8;me.vy=0;me.ground=true}}
