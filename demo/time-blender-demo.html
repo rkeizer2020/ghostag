@@ -31,12 +31,12 @@ h2{font-family:var(--display);font-size:12px;font-weight:400;margin:6px 0 0}
 .card span{font-size:12px;color:var(--muted)}
 </style>
 <main>
-<header><h1>Time Blender Demo</h1><p>Run, jump and swing a golden sword through fifteen factory rooms. The camera follows you; run off either end to reach the next room.</p></header>
+<header><h1>Time Blender Demo</h1><p>Run, jump and swing a golden sword through fifteen factory rooms. Every room has new platforms, lowered floor and three kinds of factory robots. The camera follows you; run off either end to reach the next room.</p></header>
 <div class="bar"><button id="prev" type="button" aria-label="Previous room">◀</button><div class="name" id="name"></div><select id="sel" aria-label="Choose a room"></select><button id="next" type="button" aria-label="Next room">▶</button><button id="snd" type="button" aria-pressed="true">Sound on</button></div>
 <div class="stage"><canvas id="game" tabindex="0" aria-label="Game: use arrow keys to move, space to jump and Q to hit"></canvas></div>
 <div class="pad"><div class="dir"><button id="bl" type="button" aria-label="Walk left">◀</button><button id="br" type="button" aria-label="Walk right">▶</button></div><div class="dir"><button id="bh" type="button">Hit</button><button id="bj" type="button">Jump</button></div></div>
 <div class="pad"><div class="dir"><button id="bhurt" type="button">Take damage</button><button id="bheal" type="button">Heal</button></div></div>
-<p class="hint">Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to run, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>Q</kbd> to swing the sword, <kbd>H</kbd> to take damage, <kbd>J</kbd> to heal, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</p>
+<p class="hint">Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to run, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>Q</kbd> to swing the sword, <kbd>S</kbd> or <kbd>↓</kbd> to drop through a platform, <kbd>H</kbd> to take damage, <kbd>J</kbd> to heal, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</p>
 <h2>Animations</h2>
 <section class="previews">
 <div class="card"><canvas id="p-idle"></canvas><span>Standing still</span></div>
@@ -301,7 +301,7 @@ function drawScene(c,sc,t,cam){
  tile(c,cam*.8,()=>{if(sc.mid&&sc.mid.length)drawChain(c,sc.mid,t);for(const x of sc.lamps||[])lampAt(c,x,sc.ceil?36:0,t)});
  tile(c,cam*.8,()=>{if(sc.ceil=='girder')girder(c);else if(sc.ceil=='pipes')ceilPipes(c)});
  if(sc.glow){const g=c.createRadialGradient(sc.glow[0],sc.glow[1],10,sc.glow[0],sc.glow[1],380);g.addColorStop(0,sc.glow[2]);g.addColorStop(1,'rgba(255,140,60,0)');c.fillStyle=g;c.fillRect(0,0,WW,HH)}
- tile(c,cam,()=>{floorDraw(c,sc.floor)});
+ drawFloorWorld(c,sc,cam);
  tile(c,cam,()=>{if(sc.near&&sc.near.length)drawChain(c,sc.near,t);steam(c,t,sc.vents||[])});
  if(sc.tint){c.fillStyle=sc.tint;c.fillRect(0,0,WW,HH)}}
 function drawFront(c,sc,t,cam,i){drawFg(c,t,i,cam);const g=c.createRadialGradient(WW/2,HH*.55,HH*.3,WW/2,HH*.55,WW*.75);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(10,4,16,.55)');c.fillStyle=g;c.fillRect(0,0,WW,HH)}
@@ -337,16 +337,16 @@ function whoosh(){if(!ac||!soundOn)return;const len=Math.floor(ac.sampleRate*.22
 const sel=document.getElementById('sel'),nameEl=document.getElementById('name');
 SC.forEach((s,i)=>{const op=document.createElement('option');op.value=i;op.textContent=(i+1)+'. '+s.name;sel.appendChild(op)});
 let room=0,cam=0;
-function setRoom(i){room=(i+SC.length)%SC.length;prepScene(SC[room],Q);sel.value=room;nameEl.innerHTML='<b>Room '+(room+1)+' / '+SC.length+'</b> &nbsp; '+SC[room].name}
+function setRoom(i){room=(i+SC.length)%SC.length;prepScene(SC[room],Q);genRoom(me.x);me.y=Math.min(me.y,FLOOR);sel.value=room;nameEl.innerHTML='<b>Room '+(room+1)+' / '+SC.length+'</b> &nbsp; '+SC[room].name}
 sel.onchange=()=>{setRoom(+sel.value);game.focus()};
 document.getElementById('prev').onclick=()=>setRoom(room-1);document.getElementById('next').onclick=()=>setRoom(room+1);
-const key={l:0,r:0,j:0};let jumpHeld=false;
-const me={x:960,y:FLOOR,vx:0,vy:0,face:1,ground:true,land:0,ph:0,atk:-1,lastStep:0,speed:0};
+const key={l:0,r:0,j:0,d:0};let jumpHeld=false;
+const me={x:960,y:FLOOR,vx:0,vy:0,face:1,ground:true,land:0,ph:0,atk:-1,lastStep:0,speed:0,inv:0,kb:0,dead:false,deadT:0,atkId:0,ign:null,ignT:0};
 const parts=[],trail=[];let clock=0;
-function tryAttack(){if(me.atk<0){me.atk=0;whoosh()}}
+function tryAttack(){if(me.atk<0&&!me.dead){me.atk=0;me.atkId++;whoosh()}}
 function onKey(e,v){const k=e.key;let h=true;
  if(k=='ArrowLeft'||k=='a'||k=='A')key.l=v;else if(k=='ArrowRight'||k=='d'||k=='D')key.r=v;
- else if(k==' '||k=='ArrowUp'||k=='w'||k=='W')key.j=v;else if(v&&(k=='q'||k=='Q'))tryAttack();else if(v&&(k=='h'||k=='H'))hurt();else if(v&&(k=='j'||k=='J'))heal();
+ else if(k==' '||k=='ArrowUp'||k=='w'||k=='W')key.j=v;else if(k=='ArrowDown'||k=='s'||k=='S')key.d=v;else if(v&&(k=='q'||k=='Q'))tryAttack();else if(v&&(k=='h'||k=='H'))hurt();else if(v&&(k=='j'||k=='J'))heal();
  else if(v&&k=='[')setRoom(room-1);else if(v&&k==']')setRoom(room+1);else h=false;if(h)e.preventDefault()}
 addEventListener('keydown',e=>onKey(e,1));addEventListener('keyup',e=>onKey(e,0));
 game.addEventListener('pointerdown',()=>game.focus());
@@ -354,16 +354,27 @@ document.getElementById('bh').addEventListener('pointerdown',e=>{e.preventDefaul
 for(const [id,kk] of[['bl','l'],['br','r'],['bj','j']]){const b=document.getElementById(id);b.addEventListener('pointerdown',e=>{e.preventDefault();key[kk]=1});for(const ev of['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,()=>{key[kk]=0})}
 const MAXV=4.4,CYCLE=100;
 function step(){clock+=1/60;
- const dir=key.r-key.l;me.vx+=(dir*MAXV-me.vx)*.2;if(Math.abs(me.vx)<.05)me.vx=0;if(dir)me.face=dir;
- if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-11.5;me.ground=false;jumpHeld=true}
- if(!key.j)jumpHeld=false;if(!me.ground&&!key.j&&me.vy<-5)me.vy=-5;
- me.x+=me.vx;
- if(!me.ground){me.vy+=.72;me.y+=me.vy;if(me.y>=FLOOR){me.y=FLOOR;if(me.vy>5)play('land',{gain:.07});if(me.vy>9)me.land=8;me.vy=0;me.ground=true}}
+ if(me.dead){me.deadT--;if(me.deadT<=0)respawn();updateEnemies();return}
+ if(me.inv>0)me.inv--;
+ const dir=key.r-key.l;
+ if(me.kb>0){me.kb--;me.vx*=.93}else{me.vx+=(dir*MAXV-me.vx)*.2;if(Math.abs(me.vx)<.05)me.vx=0;if(dir)me.face=dir}
+ if(me.ignT>0){me.ignT--;if(me.ignT===0)me.ign=null}
+ if(me.kb<=0&&key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-11.5;me.ground=false;jumpHeld=true}
+ if(!key.j)jumpHeld=false;if(!me.ground&&!key.j&&me.vy<-5&&me.kb<=0)me.vy=-5;
+ if(me.ground&&key.d&&me.kb<=0){const pl=PLAT.find(p=>Math.abs(p.y-me.y)<2&&me.x>=p.x0-5&&me.x<=p.x1+5);if(pl){me.ign=pl;me.ignT=16;me.ground=false;me.vy=1}}
+ let nx=me.x+me.vx;if(me.vx){const gn=groundAt(nx+Math.sign(me.vx)*6);if(gn<me.y-8){nx=me.x;if(me.kb<=0)me.vx=0}}me.x=nx;
+ if(me.ground){const sy=supportY(me.x,me.y-3,me.ign);if(sy>me.y+1.5)me.ground=false;else me.y=sy}
+ if(!me.ground){me.vy+=.72;const py=me.y;me.y+=me.vy;if(me.vy>=0){const sy=supportY(me.x,py,me.ign);if(me.y>=sy){me.y=sy;if(me.vy>1.0)play('land',{gain:.07});if(me.vy>9)me.land=8;me.vy=0;me.ground=true}}}
  if(me.land>0)me.land--;
  if(me.atk>=0){me.atk++;if(me.atk===8)fxs.push({x:me.x,y:me.y-44*SC_,f:me.face,t0:clock,seed:(Math.random()*9999)|0});if(me.atk>=26)me.atk=-1}
  me.speed=Math.min(1,Math.abs(me.vx)/MAXV);
  if(me.ground&&Math.abs(me.vx)>.3){me.ph+=Math.abs(me.vx)/CYCLE*TAU;const si=Math.floor((me.ph+Math.PI/2)/Math.PI);if(si!==me.lastStep){me.lastStep=si;playStep()}}
- if(me.x>WORLD-8){setRoom(room+1);me.x=40;cam=0}else if(me.x<8){setRoom(room-1);me.x=WORLD-40;cam=WORLD-WW}
+ /* combat: the slash hurts enemies, enemies hurt you */
+ if(me.atk>=8&&me.atk<=20){for(const e of ENM){if(e.dead||e.hitId===me.atkId)continue;const ec=enemyCenter(e),sx=me.x+me.face*62,sy=me.y-36;
+  if(Math.hypot(ec[0]-sx,ec[1]-sy)<=51+e.r*.9&&(ec[0]-me.x)*me.face>-14){e.hitId=me.atkId;damageEnemy(e,1)}}}
+ updateEnemies();
+ if(me.inv<=0)for(const e of ENM){if(e.dead)continue;const ec=enemyCenter(e);if(Math.hypot(ec[0]-me.x,ec[1]-(me.y-30))<16+e.r*.85){playerHit(e,ec);break}}
+ if(me.x>WORLD-8){me.x=40;setRoom(room+1);cam=0}else if(me.x<8){me.x=WORLD-40;setRoom(room-1);cam=WORLD-WW}
  const tc=clamp(me.x-WW/2,0,WORLD-WW);cam+=(tc-cam)*.12}
 function stateNow(){if(!me.ground)return me.vy<-3?'up':(me.vy>3?'fall':'mid');if(me.land>0)return 'land';return Math.abs(me.vx)>.3?'walk':'idle'}
 function toScreen(P,lx,ly){return [me.x-cam+me.face*SC_*(lx+(P.lunge||0)),me.y-SC_*ly]}
@@ -402,17 +413,102 @@ function drawHud(c,t){const x0=26,y0=22,N=HP.max,W=N*56+34,Hh=70;
  for(let i=0;i<N;i++){const s=HP.slots[i],cx=x0+45+i*56,cy=y0+Hh/2,sh=s.shake*Math.sin(t*60)*3;
   c.beginPath();c.arc(cx,cy,23,0,TAU);c.fillStyle='#2b1d33';c.fill();c.strokeStyle=i<HP.hp?CL.copL:'#5a3a62';c.lineWidth=2.5;c.stroke();
   headIcon(c,cx+sh,cy,17,s,t)}}
+/* ---- world: lowered ground, platforms and enemies are generated fresh every time a room is entered ---- */
+const rnd=(a,b)=>a+Math.random()*(b-a);
+let TER=[{x0:0,x1:WORLD,y:FLOOR}],PLAT=[],ENM=[];const debris=[];
+function groundAt(x){for(const s of TER)if(x>=s.x0&&x<s.x1)return s.y;return FLOOR}
+function supportY(x,y,ign){let best=groundAt(x);for(const p of PLAT){if(p===ign)continue;if(x>=p.x0-5&&x<=p.x1+5&&p.y>=y-2&&p.y<best)best=p.y}return best}
+function mkEnemy(type,x,y,lo,hi){const e={type,x,y,vx:0,vy:0,face:Math.random()<.5?-1:1,flash:0,hitId:-1,kb:0,dead:false,t:Math.random()*6,lo,hi,cool:0,air:false,hop:rnd(.5,1.4),rot:0};
+ if(type=='saw'){e.r=22;e.hp=e.max=2}else if(type=='spring'){e.r=21;e.hp=e.max=3}else{e.r=20;e.hp=e.max=2;e.ax=x;e.ay=y}return e}
+function enemyCenter(e){return e.type=='drone'?[e.x,e.y]:(e.type=='saw'?[e.x,e.y-e.r]:[e.x,e.y-(e.air?40:30)])}
+function genRoom(safeX){
+ TER=[];const pits=[];const nPit=Math.floor(rnd(0,3.2));let tries=0;
+ while(pits.length<nPit&&tries++<40){const w=rnd(210,340),x=rnd(320,WORLD-320-w),d=Math.random()<.5?32:48;if(Math.abs(x+w/2-safeX)<w/2+280)continue;if(pits.some(p=>x<p.x1+200&&x+w>p.x0-200))continue;pits.push({x0:x,x1:x+w,y:FLOOR+d})}
+ pits.sort((a,b)=>a.x0-b.x0);let cx=0;for(const p of pits){if(p.x0>cx)TER.push({x0:cx,x1:p.x0,y:FLOOR});TER.push(p);cx=p.x1}if(cx<WORLD)TER.push({x0:cx,x1:WORLD,y:FLOOR});
+ PLAT=[];const tiers=[72,138,200];
+ const place=(tier,near)=>{for(let k=0;k<80;k++){const w=rnd(130,210);let x=near&&near.length?near[Math.floor(Math.random()*near.length)].cx+rnd(-190,190)-w/2:rnd(140,WORLD-140-w);x=clamp(x,100,WORLD-100-w);const y=FLOOR-tiers[tier];
+  if(PLAT.some(p=>Math.abs(p.y-y)<60&&x<p.x1+70&&x+w>p.x0-70))continue;const pl={x0:x,x1:x+w,y,cx:x+w/2};PLAT.push(pl);return pl}return null};
+ const t0=[],t1=[],t2=[];for(let i=0,n=2+Math.floor(rnd(0,2.9));i<n;i++){const p=place(0,null);if(p)t0.push(p)}
+ for(let i=0,n=1+Math.floor(rnd(0,2.2));i<n&&t0.length;i++){const p=place(1,t0);if(p)t1.push(p)}
+ for(let i=0,n=Math.floor(rnd(0,2.2));i<n&&t1.length;i++){const p=place(2,t1);if(p)t2.push(p)}
+ ENM=[];debris.length=0;
+ const far=x=>Math.abs(x-safeX)>360;
+ const groundSpot=(minW)=>{for(let k=0;k<50;k++){const s=TER[Math.floor(Math.random()*TER.length)];if(s.x1-s.x0<minW)continue;const x=rnd(s.x0+60,s.x1-60);if(far(x))return {x,y:s.y,lo:s.x0+30,hi:s.x1-30}}return null};
+ const platSpot=()=>{const c=PLAT.filter(p=>far(p.cx)&&p.x1-p.x0>=140);if(!c.length)return null;const p=c[Math.floor(Math.random()*c.length)];return {x:rnd(p.x0+40,p.x1-40),y:p.y,lo:p.x0+24,hi:p.x1-24}};
+ const nSaw=1+(Math.random()<.5?1:0),nSpr=1+(Math.random()<.5?1:0),nDr=1+(Math.random()<.5?1:0);
+ for(let i=0;i<nSaw;i++){const s=(Math.random()<.45?platSpot():null)||groundSpot(260);if(s)ENM.push(mkEnemy('saw',s.x,s.y,s.lo,s.hi))}
+ for(let i=0;i<nSpr;i++){const s=groundSpot(300);if(s)ENM.push(mkEnemy('spring',s.x,s.y,s.lo,s.hi))}
+ for(let i=0;i<nDr;i++){for(let k=0;k<20;k++){const x=rnd(300,WORLD-300);if(far(x)){ENM.push(mkEnemy('drone',x,FLOOR-rnd(150,250),0,0));break}}}}
+function burst(x,y,n){for(let i=0;i<n;i++){const a=Math.random()*TAU,s=2+Math.random()*5;debris.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-3,rot:Math.random()*TAU,vr:(Math.random()-.5)*.5,life:0,max:.9+Math.random()*.5,col:Math.random()<.5?CL.copL:CL.slL,s:3+Math.random()*4})}
+ for(let i=0;i<14;i++){const a=Math.random()*TAU,s=1+Math.random()*3;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0,max:.4+Math.random()*.5,r:2+Math.random()*2.6})}}
+function damageEnemy(e,d){e.hp-=d;e.flash=.15;e.kb=10;e.vx=me.face*5;burst(e.x,enemyCenter(e)[1],e.hp<=0?16:5);if(e.hp<=0)e.dead=true}
+function playerHit(e,ec){hurt();me.inv=80;me.kb=14;me.vx=(me.x>=ec[0]?1:-1)*6.5;me.vy=-6.5;me.ground=false;e.cool=70;if(e.type=='drone')e.vy=-3;if(HP.hp<=0){me.dead=true;me.deadT=110;me.vx=0}}
+function respawn(){HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0});me.dead=false;me.inv=90;me.vx=0;me.vy=0;me.x=300;me.y=FLOOR;me.ground=true;me.atk=-1;me.kb=0;cam=0;genRoom(300)}
+function updateEnemies(){for(let i=ENM.length-1;i>=0;i--){const e=ENM[i];if(e.dead){ENM.splice(i,1);continue}
+ e.flash=Math.max(0,e.flash-1/60);e.t+=1/60;if(e.cool>0)e.cool--;
+ if(e.kb>0){e.kb--;e.vx*=.8;if(e.type=='drone'){e.x+=e.vx}else{e.x=clamp(e.x+e.vx,e.lo,e.hi)}continue}
+ if(e.type=='saw'){e.x+=e.face*1.15;if(e.x<e.lo){e.x=e.lo;e.face=1}else if(e.x>e.hi){e.x=e.hi;e.face=-1}e.rot+=e.face*1.15/e.r}
+ else if(e.type=='spring'){if(e.air){e.vy+=.6;e.y+=e.vy;e.x+=e.vx;if(groundAt(e.x+e.face*8)<e.y-10){e.vx*=-.3;e.x-=e.face*4}const gy=groundAt(e.x);if(e.y>=gy&&e.vy>=0){e.y=gy;e.air=false;e.vx=0;e.hop=rnd(.9,1.6)}}
+  else{e.hop-=1/60;const dx=me.x-e.x;if(Math.abs(dx)>20)e.face=dx>0?1:-1;if(e.hop<=0){if(Math.abs(dx)<520&&!me.dead){e.air=true;e.vy=-9.5;e.vx=e.face*2.6}else e.hop=.6}}}
+ else{const dx=me.x-e.x,dy=me.y-34-e.y,d=Math.hypot(dx,dy)||1;
+  if(d<360&&e.cool<=0&&!me.dead){e.face=dx>0?1:-1;e.vx+=(dx/d*1.8-e.vx)*.05;e.vy+=(dy/d*1.8-e.vy)*.05}
+  else{const tx=e.ax+Math.sin(e.t*.8)*120,ty=e.ay+Math.sin(e.t*1.7)*16;e.vx+=((tx-e.x)*.02-e.vx)*.06;e.vy+=((ty-e.y)*.02-e.vy)*.06;if(Math.abs(e.vx)>.3)e.face=e.vx>0?1:-1}
+  e.x+=e.vx;e.y+=e.vy;e.y=Math.min(e.y,FLOOR-30);e.rot+=.6}}}
+function drawFloorWorld(c,sc,cam){
+ for(const s of TER){const sx0=s.x0-cam,sx1=s.x1-cam;if(sx1<-30||sx0>WW+30)continue;const d=s.y-FLOOR;
+  c.save();c.beginPath();c.rect(sx0,FLOOR+d-14,sx1-sx0,HH);c.clip();
+  for(let o=Math.floor(s.x0/WW)*WW;o<s.x1;o+=WW){c.save();c.translate(o-cam,d);floorDraw(c,sc.floor);c.restore()}
+  if(d>0){c.fillStyle='rgba(10,4,16,.35)';c.fillRect(sx0,FLOOR+d-14,22,14);c.fillRect(sx1-22,FLOOR+d-14,22,14)}c.restore();
+  if(d>0){c.strokeStyle=CL.out;c.lineWidth=3;c.beginPath();c.moveTo(sx0,FLOOR-2);c.lineTo(sx0,FLOOR+d-2);c.moveTo(sx1,FLOOR-2);c.lineTo(sx1,FLOOR+d-2);c.stroke()}}}
+function drawPlat(c,p,cam){const x=p.x0-cam,w=p.x1-p.x0,y=p.y;if(x>WW+20||x+w<-20)return;
+ c.strokeStyle=CL.copD;c.lineWidth=3.5;c.beginPath();for(let k=0;k<w;k+=26){c.moveTo(x+k,y+14);c.lineTo(x+Math.min(k+13,w),y+34);c.lineTo(x+Math.min(k+26,w),y+14)}c.stroke();
+ const sg=c.createLinearGradient(0,y+16,0,y+60);sg.addColorStop(0,'rgba(10,4,16,.3)');sg.addColorStop(1,'rgba(10,4,16,0)');c.fillStyle=sg;c.fillRect(x+6,y+16,w-12,44);
+ rrect(c,x,y,w,18,5);c.fillStyle=lgrad(c,0,y,0,y+18,[CL.slL,CL.sl,CL.slD]);c.fill();c.strokeStyle=CL.out;c.lineWidth=3;c.stroke();
+ c.fillStyle=CL.copL;c.fillRect(x+4,y,w-8,4);c.fillStyle=CL.copH;c.fillRect(x+4,y,w-8,1.5);
+ for(const rx of[x+10,x+w-10]){c.fillStyle=CL.copD;c.beginPath();c.arc(rx,y+11,3,0,TAU);c.fill();c.strokeStyle=CL.out;c.lineWidth=1;c.stroke()}
+ for(let k=26;k<w-14;k+=36){c.fillStyle='rgba(42,24,48,.45)';c.fillRect(x+k,y+7,16,3)}}
+function eyeGlow(c,x,y,r){c.save();c.shadowColor='#ff5a3c';c.shadowBlur=14;c.beginPath();c.arc(x,y,r,0,TAU);c.fillStyle='#ff6a4a';c.fill();c.restore();c.beginPath();c.arc(x,y,r,0,TAU);c.strokeStyle=OUT;c.lineWidth=2;c.stroke();c.fillStyle='#fff3cf';c.beginPath();c.arc(x-r*.3,y-r*.3,r*.3,0,TAU);c.fill()}
+function drawEnemy(c,e,cam,t){const sx=e.x-cam;if(sx<-80||sx>WW+80)return;c.save();
+ if(e.type=='saw'){const cy=e.y-e.r;gearAt(c,sx,cy,18,9,e.rot,GS.slate,4);
+  c.beginPath();c.arc(sx,cy,9,0,TAU);fillOut(c,'#f4ecd0',2.5);const dx=clamp((me.x-e.x)/60,-1,1)*3.2;eyeGlow(c,sx+dx,cy+1,4.6);
+  c.strokeStyle=OUT;c.lineWidth=3;c.lineCap='round';c.beginPath();c.moveTo(sx-8,cy-9);c.lineTo(sx+7,cy-6);c.stroke();
+  c.fillStyle='rgba(10,4,16,.3)';c.beginPath();c.ellipse(sx,e.y+3,20,5,0,0,TAU);c.fill()}
+ else if(e.type=='spring'){const L=e.air?28:(e.hop<.3?10:19),by=e.y-L-15;
+  c.fillStyle='rgba(10,4,16,.3)';c.beginPath();c.ellipse(sx,e.y+3,16,4,0,0,TAU);c.fill();
+  c.lineJoin='round';c.strokeStyle=OUT;c.lineWidth=7;c.beginPath();c.moveTo(sx,e.y-4);for(let k=0;k<5;k++)c.lineTo(sx+(k%2?-9:9),e.y-4-(L-4)*(k+1)/5);c.stroke();
+  c.strokeStyle=CL.slL;c.lineWidth=3.4;c.stroke();
+  rrect(c,sx-13,e.y-6,26,7,3);fillOut(c,CL.copD,2.4);
+  rrect(c,sx-17,by-15,34,30,9);fillOut(c,lgrad(c,0,by-15,0,by+15,[CL.copH,CL.copL,CL.copD]),3);
+  c.fillStyle='rgba(42,24,48,.5)';c.fillRect(sx-17,by+7,34,2.5);for(const rx of[-10,10]){c.fillStyle=CL.copD;c.beginPath();c.arc(sx+rx,by+11,1.8,0,TAU);c.fill()}
+  c.strokeStyle=OUT;c.lineWidth=2.6;c.beginPath();c.moveTo(sx-e.face*3,by-15);c.lineTo(sx-e.face*6,by-26);c.stroke();c.save();c.shadowColor='#ffd84a';c.shadowBlur=10;c.beginPath();c.arc(sx-e.face*6,by-27,3.4,0,TAU);c.fillStyle='#ffe27a';c.fill();c.restore();
+  rrect(c,sx+e.face*3-8,by-8,16,11,5);fillOut(c,'#1c1226',2);eyeGlow(c,sx+e.face*7,by-2,3.2)}
+ else{const sy=e.y+Math.sin(t*3+e.t)*2;
+  c.fillStyle='rgba(180,200,225,.35)';c.beginPath();c.ellipse(sx,sy-19,30,4.2,0,0,TAU);c.fill();
+  c.strokeStyle=OUT;c.lineWidth=3;c.beginPath();c.moveTo(sx-9,sy+12);c.lineTo(sx-12,sy+20);c.moveTo(sx+9,sy+12);c.lineTo(sx+12,sy+20);c.stroke();
+  c.beginPath();c.ellipse(sx,sy,23,15,0,0,TAU);fillOut(c,lgrad(c,0,sy-15,0,sy+15,[CL.slL,CL.sl,CL.slD]),3);
+  c.fillStyle=CL.copL;c.fillRect(sx-22,sy-2,44,5);c.strokeStyle=OUT;c.lineWidth=1.5;c.strokeRect(sx-22,sy-2,44,5);
+  gearAt(c,sx,sy-19,8,6,e.rot,GS.copper,3);eyeGlow(c,sx+e.face*10,sy+3,5.4)}
+ if(e.flash>0){c.globalCompositeOperation='lighter';c.fillStyle='rgba(255,255,255,'+Math.min(1,e.flash/.15)*.8+')';const ec=enemyCenter(e);c.beginPath();c.arc(ec[0]-cam,ec[1],e.r,0,TAU);c.fill()}
+ c.restore();
+ if(e.hp<e.max){const ec=enemyCenter(e);for(let k=0;k<e.max;k++){c.beginPath();c.arc(sx-(e.max-1)*5+k*10,ec[1]-e.r-12,3.4,0,TAU);c.fillStyle=k<e.hp?'#ff6a4a':'#3a2342';c.fill();c.strokeStyle=OUT;c.lineWidth=1.5;c.stroke()}}}
+function drawDebris(c,dt){for(let i=debris.length-1;i>=0;i--){const d=debris[i];d.life+=dt;if(d.life>d.max){debris.splice(i,1);continue}d.vy+=.5;d.x+=d.vx;d.y+=d.vy;d.rot+=d.vr;const gy=groundAt(d.x);if(d.y>gy-2){d.y=gy-2;d.vy*=-.35;d.vx*=.7}
+ c.save();c.translate(d.x-cam,d.y);c.rotate(d.rot);c.globalAlpha=1-Math.pow(d.life/d.max,3);c.fillStyle=d.col;c.fillRect(-d.s/2,-d.s/2,d.s,d.s);c.strokeStyle=OUT;c.lineWidth=1.4;c.strokeRect(-d.s/2,-d.s/2,d.s,d.s);c.restore()}}
+
 let last=0,acc=0;
 function loop(ts){const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=1000/60){step();acc-=1000/60}
  g.setTransform(Q,0,0,Q,0,0);const sc=SC[room];
  drawScene(g,sc,clock,cam);
+ for(const p of PLAT)drawPlat(g,p,cam);
+ for(const e of ENM)drawEnemy(g,e,cam,clock);
  const st=stateNow(),atkP=me.atk>=0?me.atk/26:-1,P=poseFor(st,{ph:me.ph,t:clock,speed:me.speed,atk:atkP});
  const sx=me.x-cam,sq=P.squash;
- const h=(FLOOR-me.y),sw=clamp(30-h*.06,12,30),sg=g.createRadialGradient(sx,FLOOR+6,2,sx,FLOOR+6,sw);sg.addColorStop(0,'rgba(10,4,16,'+(.5-h*.001)+')');sg.addColorStop(1,'rgba(10,4,16,0)');g.save();g.fillStyle=sg;g.beginPath();g.ellipse(sx,FLOOR+6,sw,sw*.28,0,0,TAU);g.fill();g.restore();
+ const gy=supportY(me.x,me.y-3,null)+6,h=Math.max(0,gy-6-me.y),sw=clamp(30-h*.06,12,30),sg=g.createRadialGradient(sx,gy,2,sx,gy,sw);sg.addColorStop(0,'rgba(10,4,16,'+Math.max(.1,.5-h*.002)+')');sg.addColorStop(1,'rgba(10,4,16,0)');g.save();g.fillStyle=sg;g.beginPath();g.ellipse(sx,gy,sw,sw*.28,0,0,TAU);g.fill();g.restore();
  const atkOn=atkP>.3&&atkP<.8;energy(P,atkOn);drawParts(g,dtms/1000);
- heroDraw(g,sx,me.y,me.face,P,0,sq,SC_);
- for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}slashFx(g,me.x-cam+(me.vx||0)*0,me.y-44*SC_,f.f,k,f.seed,SC_*1.15)}
+ g.save();if(me.inv>0&&((me.inv/5)|0)%2)g.globalAlpha=.35;if(me.dead)g.globalAlpha=.5;heroDraw(g,sx,me.y,me.face,P,0,sq,SC_);g.restore();
+ drawDebris(g,dtms/1000);
+ for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}slashFx(g,me.x-cam,me.y-44*SC_,f.f,k,f.seed,SC_*1.15)}
  drawFront(g,sc,clock,cam,room);hudUpdate(dtms/1000);drawHud(g,clock);
+ if(me.dead){g.fillStyle='rgba(10,4,16,.55)';g.fillRect(0,0,WW,HH);g.fillStyle='#fff3cf';g.textAlign='center';g.font='bold 30px "Press Start 2P","Courier New",monospace';g.fillText('Knocked out',WW/2,HH/2-6);g.font='16px "Space Mono","Courier New",monospace';g.fillStyle='#f0a868';g.fillText('Refilling your head...',WW/2,HH/2+28);g.textAlign='left'}
  requestAnimationFrame(loop)}
 /* ---- animation previews ---- */
 const pv={idle:document.getElementById('p-idle'),walk:document.getElementById('p-walk'),jump:document.getElementById('p-jump'),hit:document.getElementById('p-hit')};
@@ -430,6 +526,6 @@ function previews(ts){const t=ts/1000;
  requestAnimationFrame(previews)}
 setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimationFrame(previews);
 document.getElementById('bhurt').onclick=()=>{hurt();game.focus()};document.getElementById('bheal').onclick=()=>{heal();game.focus()};
-window.__demo={HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
+window.__demo={ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
 
 </script>
