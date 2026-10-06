@@ -198,8 +198,8 @@ function loadSave(raw) {
 const OWNER_ACCOUNTS = ['merlinos24maker'];
 const isOwner = () => !!user && OWNER_ACCOUNTS.includes(user.toLowerCase());
 // the playable characters: 0005 is always there; the others are unlocked for the owner account for now
-const CHARACTERS = [{ id: '0005', name: 'SUBJECT 0005' }, { id: '0300', name: 'SUBJECT 0300' }];
-const characterUnlocked = id => id === '0005' || isOwner();
+const CHARACTERS = [{ id: '0005', name: 'SUBJECT 0005', unlockLevel: 1 }, { id: '0300', name: 'SUBJECT 0300', unlockLevel: 2 }];
+const characterUnlocked = id => isOwner() || levelNo() >= ((CHARACTERS.find(c => c.id === id) || {}).unlockLevel || 1);   // reaching level 2 unlocks 0300
 const unlockedCharacters = () => CHARACTERS.filter(c => characterUnlocked(c.id));
 function charId() { return characterUnlocked(save.character) ? save.character : '0005'; }
 const charImg = () => (charId() === '0300' ? manIdleImg : bodyImg0005);
@@ -215,7 +215,7 @@ try { session = JSON.parse(store.get(SESSION_KEY) || 'null'); } catch (e) { sess
 user = session ? session.name : null;
 loadSave(store.get(saveKey()));
 // the level you are on: completing a level moves you up, dying keeps you where you are (there is no way back)
-const levelNo = () => save.level || 1;
+function levelNo() { return save.level || 1; }   // (a function so it can be used while the save is being loaded)
 const owns = id => save.owned.includes(id);
 const has = id => charId() === '0005' && save.equipped.includes(id);   // only equipped cards do anything (not for SUBJECT 0300 yet)
 
@@ -1332,7 +1332,11 @@ function drawChars() {
     ctx.globalAlpha = 1;
     drawText('SUBJECT', r.x + r.w / 2, r.y + 252, 18, '#fff', TITLE_FONT, 'center', '#000');
     drawText(r.id, r.x + r.w / 2, r.y + 284, 30, '#ffd21f', TITLE_FONT, 'center', '#000');
-    if (!unlocked) drawText('LOCKED', r.x + r.w / 2, r.y + 120, 28, '#ff7a6a', TITLE_FONT, 'center', '#000');
+    if (!unlocked) {
+      const c = CHARACTERS.find(c => c.id === r.id);
+      drawText('UNLOCK BY', r.x + r.w / 2, r.y + 112, 24, '#ff7a6a', TITLE_FONT, 'center', '#000');
+      drawText('LEVEL ' + c.unlockLevel, r.x + r.w / 2, r.y + 144, 28, '#ff7a6a', TITLE_FONT, 'center', '#000');
+    }
     if (equipped) drawText('EQUIPPED', r.x + r.w / 2, r.y + 312, 15, '#8dff7a', 'bold ' + BODY_FONT, 'center', '#000');
     ctx.restore();
   });
@@ -1355,7 +1359,7 @@ function drawChars() {
   ctx.strokeStyle = '#000'; ctx.lineWidth = 5;
   ctx.beginPath(); ctx.roundRect(er.x, er.y, er.w, er.h, 14); ctx.fill(); ctx.stroke();
   ctx.restore();
-  drawText(eq ? 'EQUIPPED' : un ? 'EQUIP' : 'LOCKED', er.x + er.w / 2, er.y + 40, 26, eq ? '#fff' : '#2e1008', TITLE_FONT, 'center');
+  drawText(eq ? 'EQUIPPED' : un ? 'EQUIP' : 'UNLOCK BY LEVEL ' + c.unlockLevel, er.x + er.w / 2, er.y + 40, un ? 26 : 22, eq ? '#fff' : '#2e1008', TITLE_FONT, 'center');
   drawButton(menuBackImg, shopMenuBtn, hoverBtn === 'menu');
 }
 const chars = { equipRect: null };
@@ -1696,6 +1700,8 @@ canvas.addEventListener('pointerdown', e => {
 
     if (levelComplete) {
       ctx.drawImage(levelCompleteImg, 0, 0, W, H);
+      const fresh = CHARACTERS.find(c => c.unlockLevel === levelNo());   // reaching this level just unlocked a character
+      if (fresh && fresh.unlockLevel > 1) drawText('NEW CHARACTER UNLOCKED: ' + fresh.name, W / 2, 222, 26, '#ffd21f', TITLE_FONT, 'center', '#000');
       drawButton(menuBtnImg, lcMenuBtn, hoverBtn === 'menu');
       drawButton(shopBtnImg, lcShopBtn, hoverBtn === 'shop');
       drawButton(cardsBtnImg, lcCardsBtn, hoverBtn === 'cards');
