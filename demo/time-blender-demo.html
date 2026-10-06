@@ -53,58 +53,65 @@ const CW=56,CH=52,OX=28,OY=48;
 const oc=document.createElement('canvas');oc.width=CW;oc.height=CH;const o=oc.getContext('2d');
 const sil=document.createElement('canvas');sil.width=CW;sil.height=CH;const s2=sil.getContext('2d');
 const fin=document.createElement('canvas');fin.width=CW;fin.height=CH;const f=fin.getContext('2d');
+C.staff='#6e3426';C.staffH='#9a5236';C.gem='#fff0b0';C.gemD='#f0c860';
 function R(x0,y0,x1,y1,c){o.fillStyle=c;o.fillRect(OX+x0,OY-y1,x1-x0,y1-y0)}
 function P(x,y,c){R(x,y,x+1,y+1,c)}
 function ln(x0,y0,x1,y1,c,w){let dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1,e=dx-dy;
  for(;;){R(x0,y0,x0+w,y0+w,c);if(x0==x1&&y0==y1)break;const e2=2*e;if(e2>-dy){e-=dy;x0+=sx}if(e2<dx){e+=dx;y0+=sy}}}
 function leg(lx,lift,far){const p=far?C.pantsD:C.pants,b=far?C.bootD:C.boot;
- R(lx-3,3+lift,lx+3,12,p);
- if(!far){R(lx-3,3+lift,lx-2,12,C.pantsH);R(lx+2,3+lift,lx+3,12,C.pantsD);R(lx-1,6+lift,lx+2,9+lift,C.armD);R(lx-1,6+lift,lx+2,7+lift,C.buckle);R(lx-1,8+lift,lx+2,9+lift,C.lidD)}
- R(lx-3,0+lift,lx+4,3+lift,b);R(lx+4,0+lift,lx+5,2+lift,b);if(!far)R(lx-3,2+lift,lx+4,3+lift,C.boot)}
+ R(lx-2,2+lift,lx+2,9,p);
+ if(!far){R(lx-2,2+lift,lx-1,9,C.pantsH);R(lx+1,2+lift,lx+2,9,C.pantsD);R(lx-1,5+lift,lx+1,7+lift,C.buckle);P(lx-1,5+lift,C.lidD)}
+ R(lx-2,0+lift,lx+3,2+lift,b);R(lx+3,0+lift,lx+4,1+lift,b)}
+function arm(sx,sy,ang,L,col,hand){const tx=sx+Math.round(L*Math.sin(ang)),ty=sy-Math.round(L*Math.cos(ang));
+ ln(sx,sy,tx,ty,col,2);R(tx-1,ty-1,tx+2,ty+2,hand);return [tx,ty]}
 function buildChar(p){
  o.clearRect(0,0,CW,CH);const u=p.ub;
+ // far arm (behind the body)
+ arm(-4,15+u,p.armFarA,6,C.armD,C.hand);R(-5,14+u,-2,17+u,C.armD);
  leg(p.farX,p.farLift,true);
  // baggy hips
- R(-7,11,7,18,C.pants);R(-8,12,8,16,C.pants);R(-8,12,-7,16,C.pantsH);R(7,12,8,16,C.pantsD);R(-7,11,-6,18,C.pantsH);R(6,11,7,18,C.pantsD);
- R(-7,17,7,18,C.armD);R(2,17,5,18,C.buckle);
+ R(-5,8,5,13,C.pants);R(-6,9,6,12,C.pants);R(-6,9,-5,12,C.pantsH);R(5,9,6,12,C.pantsD);R(-5,12,5,13,C.armD);P(2,12,C.buckle);P(3,12,C.buckle);
  leg(p.nearX,p.nearLift,false);
- // torso, olive shirt, suspender
- R(-4,18+u,5,23+u,C.shirt);R(-4,18+u,-3,23+u,C.shirtD);R(0,18+u,2,23+u,C.pants);R(4,18+u,5,23+u,C.shirtD);
- // arm: copper shoulder plate + forearm + fist
- const sx=1,sy=21+u,L=8;const tx=sx+Math.round(L*Math.sin(p.armA)),ty=sy-Math.round(L*Math.cos(p.armA));
- ln(sx,sy,tx,ty,C.armD,3);ln(sx,sy,tx,ty-0,C.arm,2);
- R(tx-2,ty-2,tx+3,ty+3,C.hand);R(tx-2,ty+1,tx+3,ty+3,C.armD);
- R(-3,20+u,5,25+u,C.arm);R(-3,24+u,5,25+u,C.armH);R(-3,20+u,-2,24+u,C.armH);R(4,20+u,5,24+u,C.armD);P(0,22+u,C.armD);P(1,22+u,C.armD);
- // collar cowl
- R(-4,24+u,6,26+u,C.collar);R(-5,26+u,7,29+u,C.collar);R(-5,26+u,7,27+u,C.collarD);R(-4,24+u,6,25+u,C.collarD);
- P(-5,28+u,C.collarH);P(-4,28+u,C.collarH);P(-4,27+u,C.collarH);R(2,26+u,4,27+u,C.collarD);
- // glass bulb, 9 rows
- const rows=[4,5,6,6,6,6,6,5,4];
- rows.forEach((hw,i)=>{const y=28+u+i;R(-hw,y,hw+1,y+1,C.glass);P(-hw,y,C.glassD);P(hw,y,C.glassD)});
- R(-3,28+u,4,29+u,C.liqD);R(-4,29+u,5,30+u,C.liqD);R(-5,30+u,6,32+u,C.liq);
- const sl=p.slosh;R(-5,32+u,6,33+u,C.liq);
- if(sl>0)R(1,33+u,6,34+u,C.liqH);else if(sl<0)R(-5,33+u,0,34+u,C.liqH);else R(-5,33+u,6,34+u,C.liqH);
- R(-2,30+u,0,31+u,C.liqH);
- R(-5,34+u,-1,36+u,'#ffffff');R(-4,35+u,-2,36+u,C.glassD) // tape patch
- P(4,34+u,'#ffffff');P(4,35+u,'#ffffff');P(5,33+u,'#ffffff');
- // wide copper lid
- R(-8,36+u,9,37+u,C.lidD);R(-10,37+u,11,39+u,C.lid);R(-10,39+u,11,40+u,C.lidH);P(-10,38+u,C.lidH);R(7,37+u,11,38+u,C.lidD);
+ // torso
+ R(-3,13+u,4,17+u,C.shirt);R(-3,13+u,-2,17+u,C.shirtD);R(0,13+u,2,17+u,C.pants);R(3,13+u,4,17+u,C.shirtD);
+ // collar
+ R(-3,17+u,5,19+u,C.collar);R(-4,19+u,6,21+u,C.collar);R(-4,19+u,6,20+u,C.collarD);P(-4,20+u,C.collarH);P(-3,20+u,C.collarH);
+ // glass head (no cap)
+ const rows=[3,4,4,4,4,3,2];
+ rows.forEach((hw,i)=>{const y=21+u+i;R(-hw,y,hw+1,y+1,C.glass);P(-hw,y,C.glassD);P(hw,y,C.glassD)});
+ R(-2,21+u,3,22+u,C.liqD);R(-3,22+u,4,24+u,C.liq);
+ const sl=p.slosh;R(-3,24+u,4,25+u,C.liq);
+ if(sl>0)R(1,25+u,4,26+u,C.liqH);else if(sl<0)R(-3,25+u,0,26+u,C.liqH);else R(-3,25+u,4,26+u,C.liqH);
+ P(-3,26+u,'#ffffff');P(-3,27+u,'#ffffff');P(2,26+u,'#ffffff');
+ R(2,22+u,4,24+u,C.glassD);P(3,23+u,'#ffffff');
+ // near arm holding the staff
+ const hx=8+p.handDx,hy=12+u+p.handDy;
+ arm(2,16+u,Math.atan2(hx-2,16+u-hy),Math.hypot(hx-2,16+u-hy),C.arm,C.hand);
+ R(0,15+u,5,19+u,C.arm);R(0,18+u,5,19+u,C.armH);R(0,15+u,1,18+u,C.armH);R(4,15+u,5,18+u,C.armD);
+ // staff
+ const bx=hx+p.tb,by=hy-11,tx=hx-p.tb,ty=hy+20;
+ ln(bx,by,tx,ty,C.staff,2);ln(bx,by,tx,ty,C.staffH,1);
+ const k=(t)=>[Math.round(bx+(tx-bx)*t),Math.round(by+(ty-by)*t)];
+ for(const t of[.18,.5,.78]){const [rx,ry]=k(t);R(rx-1,ry,rx+3,ry+1,C.lid)}
+ R(tx-1,ty,tx+3,ty+2,C.lid);R(tx-1,ty+1,tx+3,ty+2,C.lidD);
+ R(tx-2,ty+3,tx+4,ty+4,C.gem);R(tx-1,ty+4,tx+3,ty+5,C.gem);R(tx,ty+5,tx+2,ty+6,C.gemD);
  // outline
  s2.clearRect(0,0,CW,CH);s2.globalCompositeOperation='source-over';s2.drawImage(oc,0,0);s2.globalCompositeOperation='source-in';s2.fillStyle=C.out;s2.fillRect(0,0,CW,CH);
  f.clearRect(0,0,CW,CH);for(const [dx,dy] of[[1,0],[-1,0],[0,1],[0,-1]])f.drawImage(sil,dx,dy);f.drawImage(oc,0,0);
  return fin}
-const base={ub:0,nearX:2,nearLift:0,farX:-3,farLift:0,armA:.1,slosh:0};
+const base={ub:0,nearX:1,nearLift:0,farX:-2,farLift:0,armFarA:.1,handDx:0,handDy:0,tb:0,slosh:0};
 function pose(state,k){
  const p=Object.assign({},base);
- if(state=='idle'){p.ub=[0,0,-1,-1][k%4];p.armA=[.08,.08,.14,.14][k%4];p.slosh=k%4<2?-1:1}
- else if(state=='walk'){const a=k/8*2*Math.PI,sw=Math.round(3*Math.sin(a));p.nearX=2+sw;p.farX=-3-sw;
+ if(state=='idle'){p.ub=[0,0,-1,-1][k%4];p.armFarA=[.08,.08,.16,.16][k%4];p.slosh=k%4<2?-1:1;p.handDy=p.ub}
+ else if(state=='walk'){const a=k/8*2*Math.PI,sw=Math.round(2*Math.sin(a));p.nearX=1+sw;p.farX=-2-sw;
   p.nearLift=Math.max(0,Math.round(2*Math.cos(a)));p.farLift=Math.max(0,Math.round(-2*Math.cos(a)));
-  p.ub=Math.abs(Math.sin(a))>.7?-1:0;p.armA=-.75*Math.sin(a);p.slosh=Math.cos(a)>0?1:-1}
- else if(state=='crouch'){p.ub=-2;p.nearX=4;p.farX=-5;p.armA=.5;p.slosh=0}
- else if(state=='up'){p.ub=1;p.nearX=4;p.nearLift=3;p.farX=-4;p.farLift=2;p.armA=2.3;p.slosh=1}
- else if(state=='mid'){p.ub=0;p.nearX=2;p.nearLift=2;p.farX=-3;p.farLift=2;p.armA=1.6;p.slosh=0}
- else if(state=='fall'){p.ub=0;p.nearX=5;p.nearLift=1;p.farX=-5;p.farLift=0;p.armA=2.7;p.slosh=-1}
- else if(state=='land'){p.ub=-2;p.nearX=5;p.farX=-6;p.armA=.7;p.slosh=0}
+  p.ub=Math.abs(Math.sin(a))>.7?-1:0;p.armFarA=-.8*Math.sin(a);p.slosh=Math.cos(a)>0?1:-1;
+  p.handDx=Math.round(Math.sin(a+Math.PI)*1.2);p.handDy=p.ub;p.tb=Math.round(Math.sin(a)*1.2)}
+ else if(state=='crouch'){p.ub=-2;p.nearX=3;p.farX=-4;p.armFarA=.5;p.handDy=-2}
+ else if(state=='up'){p.ub=1;p.nearX=3;p.nearLift=3;p.farX=-3;p.farLift=2;p.armFarA=2.3;p.slosh=1;p.handDy=3;p.handDx=1;p.tb=-2}
+ else if(state=='mid'){p.ub=0;p.nearX=2;p.nearLift=2;p.farX=-3;p.farLift=2;p.armFarA=1.6;p.handDy=2;p.tb=-1}
+ else if(state=='fall'){p.ub=0;p.nearX=4;p.nearLift=1;p.farX=-4;p.armFarA=2.7;p.slosh=-1;p.handDy=1;p.tb=1}
+ else if(state=='land'){p.ub=-2;p.nearX=4;p.farX=-5;p.armFarA=.7;p.handDy=-2}
  return p}
 function drawChar(ctx,x,y,state,k,face){const spr=buildChar(pose(state,k));ctx.save();ctx.translate(Math.round(x),Math.round(y));if(face<0)ctx.scale(-1,1);ctx.drawImage(spr,-OX,-OY);ctx.restore()}
 /* ---- backgrounds ---- */
@@ -131,7 +138,7 @@ for(const [id,kk] of[['bl','l'],['br','r'],['bj','j']]){const b=document.getElem
 function step(){
  const dir=key.r-key.l,tv=dir*1.15;me.vx+=(tv-me.vx)*.28;if(Math.abs(me.vx)<.03)me.vx=0;
  if(dir)me.face=dir;
- if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-3.4;me.ground=false;jumpHeld=true}
+ if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-3.1;me.ground=false;jumpHeld=true}
  if(!key.j)jumpHeld=false;
  if(!me.ground&&!key.j&&me.vy<-1.2)me.vy=-1.2;
  me.x+=me.vx;
@@ -150,7 +157,7 @@ function drawBg(c,idx,ts){const b=BG[idx],im=imgs[idx];if(!im.complete||!im.natu
 let last=0,acc=0;
 function loop(ts){acc+=Math.min(100,ts-last);last=ts;while(acc>=1000/60){step();acc-=1000/60}
  drawBg(g,room,ts);
- const hgt=GROUND-me.y,sw=Math.max(3,7-Math.round(hgt/6));
+ const hgt=GROUND-me.y,sw=Math.max(2,6-Math.round(hgt/6));
  g.fillStyle='rgba(20,10,28,.35)';g.fillRect(Math.round(me.x)-sw,GROUND,sw*2,1);
  const st=stateNow();drawChar(g,me.x,me.y,st,frameOf(st),me.face);
  requestAnimationFrame(loop)}
@@ -161,7 +168,7 @@ function previews(ts){
  for(const k in prev){prev[k].clearRect(0,0,56,52)}
  drawChar(prev.idle,28,48,'idle',Math.floor(ts/400)%4,1);
  drawChar(prev.walk,28,48,'walk',Math.floor(ts/110)%8,1);
- const j=Math.floor(ts/260)%jumpSeq.length,yy=[0,10,16,19,9,0][j];
+ const j=Math.floor(ts/260)%jumpSeq.length,yy=[0,9,14,16,8,0][j];
  drawChar(prev.jump,28,48-yy*.7,jumpSeq[j],0,1);
  requestAnimationFrame(previews)}
 setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimationFrame(previews);
