@@ -181,6 +181,7 @@ function writeSave() {
   store.set(saveKey(), JSON.stringify(save));
   if (session) { clearTimeout(pushTimer); pushTimer = setTimeout(() => Auth.push().catch(() => {}), 1500); }   // also to the server
 }
+let blueGuardL, blueGuardR;
 let brushImg, shieldImg, bodyImg0005, manIdleImg, manWalk1Img, manWalk2Img, manCardImg, manUpImg, manApexImg, manFallImg;   // the drawings of the two characters
 // replace the progress in `save` with another saved game (login / logout)
 function loadSave(raw) {
@@ -293,6 +294,7 @@ function stainAt(id, x) {
 
 // An enemy was defeated while standing at x on surface `id`.
 function paintStain(id, x, color) {
+  if (levelNo() === BOSS_LEVEL) return;      // level 3: killing enemies paints nothing
   const s = PAINT_SURFACES[id];
   if (!s) return;
   const part = Math.max(0, Math.min(s.n - 1, Math.floor((x - s.minX) / ((s.maxX - s.minX) / s.n))));
@@ -314,11 +316,12 @@ const STAIN_SLOW = 0.7, STAIN_SLOW_TIME = 1;
 const guards = [];
 const guardSprites = { left: null, right: null };
 
-function spawnGuard(x, surfaceY, minX, maxX, dir, surface) {
+function spawnGuard(x, surfaceY, minX, maxX, dir, surface, blue = false) {
   const img = guardSprites.right;
   const h = GUARD_H, w = Math.round(img.width * h / img.height);
-  guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: GUARD_HP, flash: 0, surface, slow: 0, inStain: stainAt(surface, x + w / 2) });
+  guards.push({ x, y: surfaceY - h, w, h, dir, minX, maxX, hp: blue ? BLUE_HP : GUARD_HP, flash: 0, surface, slow: 0, inStain: stainAt(surface, x + w / 2), blue });
 }
+const BLUE_HP = 8, BLUE_SPEED = 1.25;   // the blue guard (level 3): a faster, tougher yellow guard
 
 // --- Enemies: the red guard ------------------------------------------------------
 // Stands on the small platforms and ONLY there, at most one per small platform
@@ -394,8 +397,8 @@ function updateRedGuards(dt) {
       if (charId() === '0300' && shield.t > 0 && shieldFaces(b.x - b.vx)) {
         // blocked. In the first 0.2 s after raising the shield it is a PERFECT block: the bullet is thrown back
         shield.flash = 0.3;
-        if (shield.age <= PERFECT_WINDOW) reflected.push({ x: b.x, y: b.y, vx: -b.vx * 1.3, vy: -b.vy * 1.3, angle: b.angle + Math.PI, w: b.w, h: b.h, dmg: 1 });
-      } else hurtPlayer();
+        if (shield.age <= PERFECT_WINDOW) reflected.push({ x: b.x, y: b.y, vx: -b.vx * 1.3, vy: -b.vy * 1.3, angle: b.angle + Math.PI, w: b.w, h: b.h, dmg: b.dmg || 1, kind: b.kind });
+      } else hurtPlayer(b.dmg || 1);
       enemyBullets.splice(i, 1);
     } else if (hitsWorld) {
       enemyBullets.splice(i, 1);
@@ -410,6 +413,7 @@ const SPAWN_GAP = 220; // an enemy never spawns closer than this (px) to the pla
 const enemyTypes = [
   { name: 'guard', every: 7.5, timer: 0, spawn: spawnGuard },
   { name: 'redGuard', every: 20, timer: 0, trySpawn: trySpawnRedGuard },   // small platforms only
+  { name: 'blueGuard', every: 9, timer: 0, onlyLevel: 3, spawn: (x, y, minX, maxX, dir, surface) => spawnGuard(x, y, minX, maxX, dir, surface, true) },   // level 3
   // new enemies are added here and spawn the same way
 ];
 
@@ -433,7 +437,9 @@ function spawnSurfaces() {
 }
 
 function updateSpawner(dt) {
+  if (levelNo() === BOSS_LEVEL && lvl3.bossStarted) return;     // no new enemies during the boss fight
   for (const type of enemyTypes) {
+    if (type.onlyLevel && type.onlyLevel !== levelNo()) continue;
     type.timer -= dt;
     if (type.timer > 0) continue;
     if (type.trySpawn) {                       // enemies with their own spawn rules
@@ -461,7 +467,7 @@ function updateGuards(dt) {
     const st = stainAt(g.surface, g.x + g.w / 2);
     if (st && st !== g.inStain) g.slow += STAIN_SLOW_TIME;
     g.inStain = st;
-    const speed = GUARD_SPEED * (g.slow > 0 ? STAIN_SLOW : 1) * (g.hitSlow > 0 ? 0.8 : 1);
+    const speed = GUARD_SPEED * (g.blue ? BLUE_SPEED : 1) * (g.slow > 0 ? STAIN_SLOW : 1) * (g.hitSlow > 0 ? 0.8 : 1);
     g.slow = Math.max(0, g.slow - dt);
     g.hitSlow = Math.max(0, (g.hitSlow || 0) - dt);
     g.x += g.dir * speed * dt;
@@ -504,46 +510,48 @@ function updateGhost(dt) {
   ghostChase(dt);
 }
 
-// Subject 394 just follows you. He knows which platform leads to which (found by trying the jumps out in
-// his head), walks to the right spot, jumps up, or walks off an edge to come down, and then walks to you.
-// He is 35% slower than you.
-function simulateMove(x0, feet0, dir, speed, vy0, skip) {   // where does this jump / fall land? (platform index, -1 = the ground)
-  let x = x0 - player.w / 2, y = feet0 - player.h, vy = vy0;
-  for (let i = 0; i < 110; i++) {
-    const prevBottom = y + player.h, prevHead = y, dt = 0.016;
+// Subject 394 and the boss are "bodies" that follow you. They know which platform leads to which (found
+// by trying the jumps out in their head), walk to the right spot, jump up or walk off an edge, and then walk to you.
+// body = { w, h, jumpV, pass (can jump up through platforms from below), key }
+const ghostBody = () => ({ w: player.w, h: player.h, jumpV: JUMP_SPEED, pass: false, key: 'ghost' + player.w });
+function simulateMove(body, x0, feet0, dir, speed, vy0, skip) {   // where does this jump / fall land? (platform index, -1 = the ground)
+  let x = x0 - body.w / 2, y = feet0 - body.h, vy = vy0;
+  for (let i = 0; i < 130; i++) {
+    const prevBottom = y + body.h, prevHead = y, dt = 0.016;
     vy += (vy < 0 ? GRAVITY_UP : GRAVITY_DOWN) * dt;
-    x = Math.max(WALL_W, Math.min(WORLD_W - WALL_W - player.w, x + dir * speed * dt));
+    x = Math.max(WALL_W, Math.min(WORLD_W - WALL_W - body.w, x + dir * speed * dt));
     y += vy * dt;
     if (y < CEILING_H - 6) { y = CEILING_H - 6; if (vy < 0) vy = 0; }
-    if (vy < 0) for (const p of platforms) if (x + player.w > p.x && x < p.x + p.w && prevHead >= p.ceil && y < p.ceil) { y = p.ceil; vy = 0; }
+    if (!body.pass && vy < 0) for (const p of platforms) if (x + body.w > p.x && x < p.x + p.w && prevHead >= p.ceil && y < p.ceil) { y = p.ceil; vy = 0; }
     if (vy >= 0) for (let k = 0; k < platforms.length; k++) {
       const p = platforms[k];
-      if (k !== skip && x + player.w > p.x && x < p.x + p.w && prevBottom <= p.top && y + player.h >= p.top) return k;
+      if (k !== skip && x + body.w > p.x && x < p.x + p.w && prevBottom <= p.top && y + body.h >= p.top) return k;
     }
-    if (y + player.h >= GROUND_Y) return -1;
+    if (y + body.h >= GROUND_Y) return -1;
   }
   return null;
 }
-let ghostGraph = null, ghostGraphSpeed = 0;
-function buildGhostGraph(speed) {   // node -1 = the ground, 0.. = the platforms; an edge = a jump or a walk off an edge
-  const minX = WALL_W + 20, maxX = WORLD_W - WALL_W - 20, g = new Map();
+const graphCache = new Map();
+function buildGraph(body, speed) {   // node -1 = the ground, 0.. = the platforms; an edge = a jump or a walk off an edge
+  const minX = WALL_W + body.w / 2 - 4, maxX = WORLD_W - WALL_W - body.w / 2 + 4, g = new Map();
   for (let A = -1; A < platforms.length; A++) {
     const edges = [], pa = A >= 0 ? platforms[A] : null;
     const feet = pa ? pa.top : GROUND_Y;
     const L = pa ? Math.max(minX, pa.x + 10) : minX, R = pa ? Math.min(maxX, pa.x + pa.w - 10) : maxX;
     const seen = new Set();
     for (let sx = L; sx <= R; sx += 6) for (const dir of [-1, 1]) {
-      const B = simulateMove(sx, feet, dir, speed, -JUMP_SPEED, A);
+      const B = simulateMove(body, sx, feet, dir, speed, -body.jumpV, A);
       if (B === null || B === A || (B >= 0 ? platforms[B].top : GROUND_Y) > feet - 15) continue;   // jumps only go up
       // robust: a few pixels earlier or later has to land on the same platform
-      if (simulateMove(sx - 6, feet, dir, speed, -JUMP_SPEED, A) !== B || simulateMove(sx + 6, feet, dir, speed, -JUMP_SPEED, A) !== B) continue;
+      if (simulateMove(body, sx - 6, feet, dir, speed, -body.jumpV, A) !== B || simulateMove(body, sx + 6, feet, dir, speed, -body.jumpV, A) !== B) continue;
       const key = B + ':' + dir;
       if (!seen.has(key)) { seen.add(key); edges.push({ to: B, standX: sx, dir, kind: 'jump' }); }
     }
     if (pa) for (const side of [-1, 1]) {   // walking off an edge
       const edge = side < 0 ? pa.x : pa.x + pa.w;
       if (side < 0 ? pa.x <= minX : pa.x + pa.w >= maxX) continue;
-      const standX = edge + side * 40, B = simulateMove(standX, feet, side, speed, 0, A);
+      const standX = edge + side * (body.w / 2 + 20), B = simulateMove(body, standX, feet, side, speed, 0, A);
+      if (standX < minX || standX > maxX) continue;          // he can't get that far out (the wall)
       if (B !== null && B !== A) edges.push({ to: B, standX, dir: side, kind: 'walk' });
     }
     g.set(A, edges);
@@ -551,13 +559,15 @@ function buildGhostGraph(speed) {   // node -1 = the ground, 0.. = the platforms
   return g;
 }
 // the first step of the shortest way from node `from` to node `to`
-function ghostNextStep(from, to, speed) {
-  if (!ghostGraph || ghostGraphSpeed !== speed) { ghostGraph = buildGhostGraph(speed); ghostGraphSpeed = speed; }
+function nextStep(body, from, to, speed) {
+  const key = body.key + ':' + Math.round(speed);
+  if (!graphCache.has(key)) graphCache.set(key, buildGraph(body, speed));
+  const graph = graphCache.get(key);
   const prev = new Map([[from, null]]), queue = [from];
   while (queue.length) {
     const n = queue.shift();
     if (n === to) break;
-    for (const e of ghostGraph.get(n) || []) if (!prev.has(e.to)) { prev.set(e.to, { from: n, edge: e }); queue.push(e.to); }
+    for (const e of graph.get(n) || []) if (!prev.has(e.to)) { prev.set(e.to, { from: n, edge: e }); queue.push(e.to); }
   }
   if (!prev.has(to) || to === from) return null;
   let cur = to, step = null;
@@ -570,44 +580,52 @@ function nodeAt(cx, feet) {
   platforms.forEach((p, i) => { if (cx > p.x - 6 && cx < p.x + p.w + 6 && p.top >= feet - 10 && p.top < bestTop) { best = i; bestTop = p.top; } });
   return best;
 }
-function ghostChase(dt) {
-  const gcx = ghost.x + player.w / 2, pcx = player.x + player.w / 2;
-  const gfeet = ghost.y + player.h, pfeet = player.y + player.h;
-  const speed = moveSpeed() * GHOST_SPEED;
-  let target = pcx, jump = 0;
-  if (ghost.onGround) {
-    const idx = platforms.findIndex(p => Math.abs(gfeet - p.top) < 3 && ghost.x + player.w > p.x && ghost.x < p.x + p.w);   // -1: the ground
-    const step = ghostNextStep(idx, nodeAt(pcx, pfeet), speed);
+// one step of the same physics as the player's (pass: platforms can be jumped up through from below)
+function stepBody(b, w, h, dt, pass) {
+  const prevBottom = b.y + h, prevHead = b.y, wasOn = b.onGround, fallV = b.vy;
+  b.vy += (b.vy < 0 ? GRAVITY_UP : GRAVITY_DOWN) * dt;
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+  b.onGround = false;
+  b.x = Math.max(WALL_W, Math.min(WORLD_W - WALL_W - w, b.x));
+  if (b.y < CEILING_H - 6) { b.y = CEILING_H - 6; if (b.vy < 0) b.vy = 0; }
+  if (!pass && b.vy < 0) for (const p of platforms) {
+    if (b.x + w > p.x && b.x < p.x + p.w && prevHead >= p.ceil && b.y < p.ceil) { b.y = p.ceil; b.vy = 0; }
+  }
+  if (b.vy >= 0) for (const p of platforms) {
+    if (b.x + w > p.x && b.x < p.x + p.w && prevBottom <= p.top && b.y + h >= p.top) { b.y = p.top - h; b.vy = 0; b.onGround = true; }
+  }
+  if (b.y + h >= GROUND_Y) { b.y = GROUND_Y - h; b.vy = 0; b.onGround = true; }
+  return { landed: !wasOn && b.onGround, fallV };
+}
+// walk / jump towards a spot on a platform (goalNode, goalX)
+function bodyMove(b, body, goalNode, goalX, speed, dt) {
+  const cx = b.x + body.w / 2, feet = b.y + body.h;
+  let target = goalX, jump = 0;
+  if (b.onGround) {
+    const idx = platforms.findIndex(p => Math.abs(feet - p.top) < 3 && b.x + body.w > p.x && b.x < p.x + p.w);   // -1: the ground
+    const step = nextStep(body, idx, goalNode, speed);
     if (step) {
       target = step.standX;
-      if (step.kind === 'jump' && Math.abs(gcx - step.standX) <= 4) jump = step.dir;
+      if (step.kind === 'jump' && Math.abs(cx - step.standX) <= 4) jump = step.dir;
     }
   }
-  let dir = Math.abs(target - gcx) > 4 ? Math.sign(target - gcx) : 0;
-  if (jump && ghost.onGround) { ghost.vy = -JUMP_SPEED; ghost.onGround = false; ghost.airDir = jump; }
-  if (!ghost.onGround) dir = ghost.airDir || ghost.dir || 1;                // in the air he keeps going the way he was going
-  if (ghost.kb > 0) { ghost.kb -= dt; ghost.vx = ghost.kbVx; } else ghost.vx = dir * speed;   // (pushed back by a perfect block)
-  if (dir) ghost.dir = dir;
-  // the same physics as yours
-  const prevBottom = ghost.y + player.h, prevHead = ghost.y, startX = ghost.x, wasOn = ghost.onGround, fallV = ghost.vy;
-  ghost.vy += (ghost.vy < 0 ? GRAVITY_UP : GRAVITY_DOWN) * dt;
-  ghost.x += ghost.vx * dt;
-  ghost.y += ghost.vy * dt;
-  ghost.onGround = false;
-  ghost.x = Math.max(WALL_W, Math.min(WORLD_W - WALL_W - player.w, ghost.x));
-  if (ghost.y < CEILING_H - 6) { ghost.y = CEILING_H - 6; if (ghost.vy < 0) ghost.vy = 0; }
-  if (ghost.vy < 0) for (const p of platforms) {
-    if (ghost.x + player.w > p.x && ghost.x < p.x + p.w && prevHead >= p.ceil && ghost.y < p.ceil) { ghost.y = p.ceil; ghost.vy = 0; }
-  }
-  if (ghost.vy >= 0) for (const p of platforms) {
-    const bottom = ghost.y + player.h;
-    if (ghost.x + player.w > p.x && ghost.x < p.x + p.w && prevBottom <= p.top && bottom >= p.top) { ghost.y = p.top - player.h; ghost.vy = 0; ghost.onGround = true; }
-  }
-  if (ghost.y + player.h >= GROUND_Y) { ghost.y = GROUND_Y - player.h; ghost.vy = 0; ghost.onGround = true; }
-  if (ghost.onGround) ghost.airDir = 0;
-  if (!wasOn && ghost.onGround) ghost.land = Math.min(1, fallV / 700);          // landing squash
+  let dir = Math.abs(target - cx) > 4 ? Math.sign(target - cx) : 0;
+  if (jump && b.onGround) { b.vy = -body.jumpV; b.onGround = false; b.airDir = jump; }
+  if (!b.onGround) dir = b.airDir || b.dir || 1;                          // in the air he keeps going the way he was going
+  if (b.kb > 0) { b.kb -= dt; b.vx = b.kbVx; } else b.vx = dir * speed;   // (pushed back by a perfect block)
+  if (dir) b.dir = dir;
+  const startX = b.x;
+  const r = stepBody(b, body.w, body.h, dt, body.pass);
+  if (b.onGround) b.airDir = 0;
+  b.moving = b.onGround && Math.abs(b.x - startX) > 0.01 ? 1 : 0;
+  return r;
+}
+function ghostChase(dt) {
+  const pcx = player.x + player.w / 2, pfeet = player.y + player.h;
+  const r = bodyMove(ghost, ghostBody(), nodeAt(pcx, pfeet), pcx, moveSpeed() * GHOST_SPEED, dt);
+  if (r.landed) ghost.land = Math.min(1, r.fallV / 700);          // landing squash
   ghost.land *= Math.exp(-dt * 11);
-  ghost.moving = ghost.onGround && Math.abs(ghost.x - startX) > 0.01 ? 1 : 0;
   if (ghost.moving) ghost.play += dt;
 }
 function ghostBox() {
@@ -663,6 +681,7 @@ function swingHit() {
   const reaches = hb => overlap(zone, hb) && !sightBlocked(cx, cy, hb.x + hb.w / 2, hb.y + hb.h / 2);
   for (const list of [guards, redGuards]) for (let j = list.length - 1; j >= 0; j--) if (reaches(guardHitbox(list[j]))) hurtGuard(list, j, SWING_DAMAGE);
   if (ghostHittable() && reaches(ghostBox())) hurtGhost(SWING_DAMAGE);
+  if (bossHittable() && reaches(bossBox())) hurtBoss(SWING_DAMAGE);
 }
 function raiseShield() {
   if (shield.t > 0 || shield.cd > 0 || hearts <= 0) return;
@@ -686,6 +705,7 @@ function updateBrushMoves(dt) {
     let used = false;
     for (const list of [redGuards, guards]) for (let j = list.length - 1; j >= 0 && !used; j--) if (overlap(rb, guardHitbox(list[j]))) { hurtGuard(list, j, r.dmg); used = true; }
     if (!used && ghostHittable() && overlap(rb, ghostBox())) { hurtGhost(r.dmg); used = true; }
+    if (!used && bossHittable() && overlap(rb, bossBox())) { hurtBoss(r.dmg); used = true; }
     if (used || r.x < WALL_W || r.x > WORLD_W - WALL_W || r.y < CEILING_H - 6 || r.y > GROUND_Y || platforms.some(p => r.x > p.x && r.x < p.x + p.w && r.y > p.top && r.y < p.ceil)) reflected.splice(i, 1);
   }
   // ink trail: a zigzag behind him while he walks; every piece is gone after 1 second
@@ -706,10 +726,276 @@ function updateBrushMoves(dt) {
       const hb = guardHitbox(g);
       if (ink.some(k => overlap({ x: k.x - 10, y: k.y - 12, w: 20, h: 20 }, hb))) { g.inkCd = INK_HIT_EVERY; hurtGuard(list, j, INK_DAMAGE); }
     }
+    if (bossHittable() && !(boss.inkCd > 0)) {
+      const bb = bossBox();
+      if (ink.some(k => overlap({ x: k.x - 10, y: k.y - 12, w: 20, h: 20 }, bb))) { boss.inkCd = INK_HIT_EVERY; hurtBoss(INK_DAMAGE); }
+    }
     if (ghostHittable() && !(ghost.inkCd > 0)) {
       const gb = ghostBox();
       if (ink.some(k => overlap({ x: k.x - 10, y: k.y - 12, w: 20, h: 20 }, gb))) { ghost.inkCd = INK_HIT_EVERY; hurtGhost(INK_DAMAGE); }
     }
+  }
+}
+
+// --- Level 3: 50 kills call the boss ------------------------------------------------
+// The boss is a fat white man in a black suit with a red tie. He walks around the map, and when he
+// sees you (in range, and not through a platform) he runs at you, faster than you. 125 hits take him down.
+// Every attack of his takes 1.5 hearts. No time limit, and nothing gets painted in this level.
+const BOSS_LEVEL = 3, BOSS_KILLS = 50;
+const BOSS_W = 120, BOSS_H = 180, BOSS_HP = 125, BOSS_DMG = 1.5;
+const BOSS_JUMP_V = Math.sqrt(2 * GRAVITY_UP * 275);         // jumps up through platforms from below
+const BOSS_SIGHT = 640, BOSS_WALK = 0.65, BOSS_RUN = 1.1;      // sight range (px); 35% slower than you / 10% faster than you
+const lvl3 = { kills: 0, bossStarted: false };
+const boss = { active: false, dead: false, dying: 0, x: 0, y: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, hp: BOSS_HP, flash: 0, seeT: 0, state: 'move', st: 0, atk: 0, fired: false, atkCd: 3, wanderNode: -1, wanderX: 0, wanderT: 0, moving: 0, land: 0, announce: 0, anim: 0, gunAng: 0, inkCd: 0, wasOn: true };
+const bossBody = { w: BOSS_W, h: BOSS_H, jumpV: BOSS_JUMP_V, pass: true, key: 'boss' };
+const pillars = [], bombs = [], booms = [];
+let shake = 0;
+let bossImgs = null;                                            // set when the drawings are loaded
+function resetBossFight() {
+  lvl3.kills = 0; lvl3.bossStarted = false;
+  Object.assign(boss, { active: false, dead: false, dying: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, hp: BOSS_HP, flash: 0, seeT: 0, state: 'move', st: 0, atk: 0, fired: false, atkCd: 3, wanderT: 0, moving: 0, land: 0, announce: 0, anim: 0, inkCd: 0 });
+  pillars.length = 0; bombs.length = 0; booms.length = 0; shake = 0;
+}
+function registerKill() {
+  if (levelNo() !== BOSS_LEVEL || lvl3.bossStarted) return;
+  if (++lvl3.kills >= BOSS_KILLS) startBoss();
+}
+function startBoss() {
+  lvl3.bossStarted = true;
+  guards.length = 0; redGuards.length = 0; enemyBullets.length = 0;       // the arena is cleared
+  Object.assign(boss, { active: true, dead: false, hp: BOSS_HP, announce: 2.6, atkCd: 3, state: 'move', seeT: 0, wanderT: 0 });
+  boss.x = (player.x < WORLD_W / 2 ? WORLD_W - WALL_W - BOSS_W - 60 : WALL_W + 60);
+  boss.y = GROUND_Y - BOSS_H; boss.vx = boss.vy = 0; boss.onGround = true;
+}
+const bossHittable = () => boss.active && !boss.dead;
+function bossBox() { return { x: boss.x + BOSS_W * 0.1, y: boss.y + BOSS_H * 0.06, w: BOSS_W * 0.8, h: BOSS_H * 0.92 }; }
+function hurtBoss(amount) {
+  if (!bossHittable()) return;
+  boss.flash = 0.12;
+  boss.hp -= amount;
+  if (boss.hp <= 0) {
+    boss.dead = true; boss.dying = 1.4; boss.vx = 0;
+    save.coins += 25; writeSave();                                       // a bounty for the boss
+    pillars.length = 0; bombs.length = 0; enemyBullets.length = 0;
+  }
+}
+const bossCenter = () => ({ x: boss.x + BOSS_W / 2, y: boss.y + BOSS_H * 0.45 });
+function bossShoot(angle, speed, w, kind) {
+  const c = bossCenter();
+  enemyBullets.push({ x: c.x + Math.cos(angle) * 60, y: c.y - 20 + Math.sin(angle) * 60, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, angle, w, h: kind === 'button' ? w : w * 0.45, platform: -1, dmg: BOSS_DMG, kind });
+}
+function bossAttackAllowed(k) { return k !== 2 || (boss.onGround && boss.y + BOSS_H >= GROUND_Y - 3); }   // the stomp needs the main ground
+function startBossAttack() {
+  const ok = [1, 2, 3, 4].filter(bossAttackAllowed);
+  boss.atk = ok[Math.floor(Math.random() * ok.length)];
+  Object.assign(boss, { state: 'attack', st: 0, fired: false, landed: false, vx: 0, kb: 0 });
+}
+function updateBoss(dt) {
+  if (!boss.active) return;
+  boss.flash = Math.max(0, boss.flash - dt);
+  boss.announce = Math.max(0, boss.announce - dt);
+  boss.inkCd = Math.max(0, boss.inkCd - dt);
+  boss.anim += dt;
+  if (boss.dead) { boss.dying = Math.max(0, boss.dying - dt); return; }
+  const c = bossCenter(), pcx = player.x + player.w / 2, pcy = player.y + player.h * 0.5, pfeet = player.y + player.h;
+  const speed = moveSpeed();
+  // can he see you? (in range, and no platform in the way)
+  const sees = hearts > 0 && Math.hypot(pcx - c.x, pcy - c.y) < BOSS_SIGHT && !sightBlocked(c.x, c.y, pcx, pcy);
+  boss.seeT = sees ? 2 : Math.max(0, boss.seeT - dt);
+  const chasing = boss.seeT > 0;
+  if (boss.state === 'move') {
+    if (chasing && (boss.atkCd -= dt) <= 0) startBossAttack();
+    else {
+      let r;
+      if (chasing) r = bodyMove(boss, bossBody, nodeAt(pcx, pfeet), pcx, speed * BOSS_RUN, dt);            // he runs at you, 10% faster than you
+      else {                                                                                                    // he walks around the map, 35% slower than you
+        boss.wanderT -= dt;
+        const here = nodeAt(c.x, boss.y + BOSS_H);
+        if (boss.wanderT <= 0 || (here === boss.wanderNode && Math.abs(c.x - boss.wanderX) < 24)) {
+          boss.wanderNode = Math.floor(Math.random() * (platforms.length + 1)) - 1;
+          const pl = boss.wanderNode >= 0 ? platforms[boss.wanderNode] : null;
+          const lo = Math.max(WALL_W + BOSS_W / 2, pl ? pl.x + BOSS_W / 2 + 10 : 0), hi = Math.min(WORLD_W - WALL_W - BOSS_W / 2, pl ? pl.x + pl.w - BOSS_W / 2 - 10 : 1e9);
+          boss.wanderX = hi > lo ? lo + Math.random() * (hi - lo) : (lo + hi) / 2;
+          boss.wanderT = 5 + Math.random() * 4;
+        }
+        r = bodyMove(boss, bossBody, boss.wanderNode, boss.wanderX, speed * BOSS_WALK, dt);
+      }
+      if (r.landed) boss.land = Math.min(1, r.fallV / 700);
+    }
+  } else {
+    // --- an attack ---
+    boss.st += dt;
+    boss.dir = pcx >= c.x ? 1 : -1;
+    boss.vx = 0;
+    const px = c.x, py = c.y - 20;
+    if (boss.atk === 1) {                    // 1: the gun that follows you fires 5 bullets in a fan
+      boss.gunAng = Math.atan2(pcy - py, pcx - px);
+      if (!boss.fired && boss.st >= 0.6) { boss.fired = true; for (const off of [-0.9, -0.45, 0, 0.45, 0.9]) bossShoot(boss.gunAng + off, 270, 30, 'bullet'); }
+      if (boss.st >= 1.2) bossEndAttack();
+    } else if (boss.atk === 2) {             // 2: a hard jump on the main ground, pillars come out of the ground
+      if (!boss.fired && boss.st >= 0.3) { boss.fired = true; boss.vy = -Math.sqrt(2 * GRAVITY_UP * 130); boss.onGround = false; }
+      if (boss.fired && boss.onGround && boss.st > 0.45) {
+        if (!boss.landed) {
+          boss.landed = true; shake = 0.4; boss.land = 1;
+          const xs = [];
+          const nearP = pcx + (Math.random() - 0.5) * 160;                  // a couple of them land close to you
+          for (let i = 0; i < 60 && xs.length < 7; i++) {
+            let x = i < 2 ? nearP + (i ? 90 : -90) : WALL_W + 50 + Math.random() * (WORLD_W - 2 * WALL_W - 100);
+            x = Math.max(WALL_W + 40, Math.min(WORLD_W - WALL_W - 40, x));
+            if (xs.every(o => Math.abs(o - x) > 80)) xs.push(x);
+          }
+          for (const x of xs) pillars.push({ x, t: 0, hit: false });
+        }
+        if (boss.st > 1.5) bossEndAttack();
+      }
+    } else if (boss.atk === 3) {             // 3: bombs that hang in the air and explode 3 seconds after they were thrown
+      if (!boss.fired && boss.st >= 0.5) {
+        boss.fired = true;
+        for (let i = 0; i < 4; i++) {
+          let tx = pcx, ty = pcy;
+          for (let tries = 0; tries < 25; tries++) {
+            tx = Math.max(WALL_W + 60, Math.min(WORLD_W - WALL_W - 60, pcx + (Math.random() - 0.5) * 760));
+            ty = CEILING_H + 90 + Math.random() * (GROUND_Y - CEILING_H - 220);
+            if (!platforms.some(p => tx > p.x - 50 && tx < p.x + p.w + 50 && ty > p.top - 50 && ty < p.ceil + 50) && bombs.every(b => Math.hypot(b.tx - tx, b.ty - ty) > 130)) break;
+          }
+          bombs.push({ x: c.x, y: py, sx: c.x, sy: py, tx, ty, t: 0 });
+        }
+      }
+      if (boss.st >= 1.2) bossEndAttack();
+    } else {                                 // 4: the cufflinks fly out of his shirt, 10 of them, slowly spreading
+      if (!boss.fired && boss.st >= 0.55) {
+        boss.fired = true;
+        for (let i = 0; i < 10; i++) {
+          const a = -0.62 + 1.24 * i / 9, ang = boss.dir > 0 ? a : Math.PI - a;
+          bossShoot(ang, 175, 17, 'button');
+        }
+      }
+      if (boss.st >= 1.25) bossEndAttack();
+    }
+    const r = stepBody(boss, BOSS_W, BOSS_H, dt, true);
+    if (r.landed) boss.land = Math.min(1, r.fallV / 700);
+  }
+  boss.land *= Math.exp(-dt * 9);
+}
+function bossEndAttack() { boss.state = 'move'; boss.landed = false; boss.atkCd = 2 + Math.random() * 1.4; }
+function updateBossHazards(dt) {
+  // pillars: a warning on the ground first, then they shoot up, stay a moment and sink back
+  for (let i = pillars.length - 1; i >= 0; i--) {
+    const p = pillars[i];
+    p.t += dt;
+    if (p.t > 2.0) { pillars.splice(i, 1); continue; }
+    const h = pillarHeight(p);
+    if (h > 25 && !p.hit) {
+      const hb = playerHitbox();
+      if (hb.x + hb.w > p.x - 36 && hb.x < p.x + 36 && hb.y + hb.h > GROUND_Y - h) { p.hit = true; hurtPlayer(BOSS_DMG); }
+    }
+  }
+  // bombs: fly to their spot, hang there, explode 3 seconds after they were thrown
+  for (let i = bombs.length - 1; i >= 0; i--) {
+    const b = bombs[i];
+    b.t += dt;
+    const f = Math.min(1, b.t / 0.6), e = 1 - (1 - f) * (1 - f);
+    b.x = b.sx + (b.tx - b.sx) * e; b.y = b.sy + (b.ty - b.sy) * e - Math.sin(f * Math.PI) * 60;
+    if (f >= 1) b.y = b.ty + Math.sin(b.t * 3 + i) * 4;               // it hangs and bobs a little
+    if (b.t >= 3) {
+      bombs.splice(i, 1);
+      booms.push({ x: b.x, y: b.y, t: 0.4, r: 115 });
+      shake = Math.max(shake, 0.2);
+      const hb = playerHitbox();
+      if (hearts > 0 && Math.hypot(hb.x + hb.w / 2 - b.x, hb.y + hb.h / 2 - b.y) < 115 + 8) hurtPlayer(BOSS_DMG);
+    }
+  }
+  for (let i = booms.length - 1; i >= 0; i--) if ((booms[i].t -= dt) <= 0) booms.splice(i, 1);
+  shake = Math.max(0, shake - dt);
+}
+// how far a pillar has come out of the ground: warning 0.9 s, up in 0.12 s, 0.7 s up, down in 0.3 s
+function pillarHeight(p) {
+  const t = p.t - 0.9;
+  if (t < 0) return 0;
+  if (t < 0.12) return 240 * (t / 0.12);
+  if (t < 0.82) return 240;
+  if (t < 1.12) return 240 * (1 - (t - 0.82) / 0.3);
+  return 0;
+}
+function drawBossHazards() {
+  for (const p of pillars) {
+    const h = pillarHeight(p);
+    if (p.t < 0.9) {                                  // the warning: cracks and dust where it will come out
+      const k = p.t / 0.9;
+      ctx.save();
+      ctx.globalAlpha = 0.45 + 0.35 * Math.sin(p.t * 30);
+      ctx.fillStyle = '#c0261f';
+      ctx.beginPath(); ctx.ellipse(p.x, GROUND_Y - 2, 34 + k * 10, 9, 0, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1; ctx.strokeStyle = '#0e0806'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(p.x - 30, GROUND_Y); ctx.lineTo(p.x - 12, GROUND_Y - 9); ctx.lineTo(p.x + 2, GROUND_Y + 1); ctx.lineTo(p.x + 16, GROUND_Y - 10); ctx.lineTo(p.x + 32, GROUND_Y); ctx.stroke();
+      ctx.fillStyle = 'rgba(190,190,200,0.7)';
+      for (let j = 0; j < 4; j++) { ctx.beginPath(); ctx.arc(p.x - 24 + j * 16, GROUND_Y - 6 - Math.abs(Math.sin(p.t * 20 + j)) * 10 * k, 4 + j % 2 * 2, 0, 6.2832); ctx.fill(); }
+      ctx.restore();
+    } else if (h > 0) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(p.x - 60, GROUND_Y - 300, 120, 306); ctx.clip();          // it comes up out of the ground
+      ctx.drawImage(bossImgs.pillar, p.x - 40, GROUND_Y - h, 80, 240);
+      ctx.restore();
+    }
+  }
+}
+function drawButtonShot(w) {   // a gold cufflink button
+  ctx.fillStyle = '#ecb828'; ctx.strokeStyle = '#0e0806'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, 0, w / 2, 0, 6.2832); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff6b0'; ctx.beginPath(); ctx.arc(-w * 0.15, -w * 0.15, w * 0.14, 0, 6.2832); ctx.fill();
+}
+function drawBossAir() {
+  for (const b of bombs) {                              // the bombs: they swell and flash red as the 3 seconds run out
+    const left = Math.max(0, 3 - b.t), pulse = 1 + (left < 1.2 ? 0.12 * Math.sin(b.t * 28) : 0.04 * Math.sin(b.t * 6));
+    const w = 58 * pulse, h = bossImgs.bomb.height * w / bossImgs.bomb.width;
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.drawImage(bossImgs.bomb, -w / 2, -h / 2, w, h);
+    if (left < 1.2 && Math.sin(b.t * 28) > 0) { ctx.globalAlpha = 0.45; ctx.fillStyle = '#ff2a1f'; ctx.beginPath(); ctx.arc(0, 6, w * 0.45, 0, 6.2832); ctx.fill(); }
+    ctx.globalAlpha = 0.18; ctx.fillStyle = '#ff5a2a'; ctx.beginPath(); ctx.arc(0, 0, 115 * Math.min(1, 0.3 + b.t / 3), 0, 6.2832); ctx.fill();   // roughly how far it reaches
+    ctx.restore();
+  }
+  for (const e of booms) {                              // the explosions
+    const k = 1 - e.t / 0.4;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - k);
+    ctx.fillStyle = '#ffd21f'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (0.35 + 0.65 * k), 0, 6.2832); ctx.fill();
+    ctx.fillStyle = '#e2820a'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (0.25 + 0.55 * k), 0, 6.2832); ctx.fill();
+    ctx.fillStyle = '#c0261f'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (0.12 + 0.35 * k), 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = '#0e0806'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (0.35 + 0.65 * k), 0, 6.2832); ctx.stroke();
+    ctx.restore();
+  }
+}
+function drawBoss() {
+  if (!boss.active || (boss.dead && boss.dying <= 0)) return;
+  const attackPose = boss.state === 'attack' && boss.atk !== 2 && boss.st < 0.9;
+  let img = bossImgs.idle;
+  if (!boss.onGround || (boss.state === 'attack' && boss.atk === 2)) img = bossImgs.jump;
+  else if (attackPose) img = bossImgs.attack;
+  else if (boss.moving) img = Math.floor(boss.anim / 0.26) % 2 ? bossImgs.walk2 : bossImgs.walk1;
+  const h = BOSS_H * 1.0, w = h * img.width / img.height;
+  const sy = 1 - 0.14 * boss.land + (boss.onGround ? 0 : Math.min(1, Math.abs(boss.vy) / 700) * 0.08), sx = Math.pow(sy, -0.8) * (boss.atk === 4 && boss.state === 'attack' && boss.st < 0.55 ? 1 + 0.12 * Math.sin(boss.st * 18) : 1);
+  const hop = boss.moving ? -Math.abs(Math.sin(boss.anim * 12)) * 4 : 0;
+  ctx.save();
+  ctx.translate(boss.x + BOSS_W / 2, boss.y + BOSS_H + hop);
+  if (boss.dead) { const k = boss.dying / 1.4; ctx.globalAlpha = k; ctx.scale(1 + (1 - k) * 0.25, 0.4 + 0.6 * k); }
+  else if (boss.flash > 0) ctx.globalAlpha = 0.6;
+  ctx.rotate(boss.moving ? Math.sin(boss.anim * 12) * 0.03 : 0);
+  ctx.scale(sx, sy);
+  ctx.drawImage(img, -w / 2, -h, w, h);
+  ctx.restore();
+  // the gun that always follows you (like the red guard's): drawn while he sees you or shoots
+  if (!boss.dead && (boss.seeT > 0 || boss.atk === 1 && boss.state === 'attack')) {
+    const c = bossCenter(), py = c.y - 20;
+    const pcx = player.x + player.w / 2, pcy = player.y + player.h * 0.5;
+    const ang = boss.state === 'attack' && boss.atk === 1 ? boss.gunAng : Math.atan2(pcy - py, pcx - c.x);
+    const gl = 78, gh = gl * redSprites.gun.height / redSprites.gun.width;
+    ctx.save();
+    ctx.translate(c.x + Math.cos(ang) * 70, py + Math.sin(ang) * 70);
+    ctx.rotate(ang);
+    if (Math.cos(ang) < 0) ctx.scale(1, -1);
+    ctx.drawImage(redSprites.gun, -gl / 2, -gh / 2, gl, gh);
+    ctx.restore();
   }
 }
 
@@ -788,6 +1074,7 @@ function restart() {
   enemyBullets.length = 0;
   resetPaint();
   resetGhost();
+  resetBossFight();
   Object.assign(swing, { t: 0, cd: 0 }); Object.assign(shield, { t: 0, age: 0, cd: 0, flash: 0 });
   ink.length = 0; reflected.length = 0; lastInk = null;
   for (const type of enemyTypes) type.timer = 0;
@@ -916,6 +1203,7 @@ function hurtGuard(list, j, amount) {
   if (g.hp <= 0) {
     list.splice(j, 1);
     giveCoins();
+    registerKill();
     // he leaves a paint stain where he stood (yellow guard: yellow, red guard: red)
     if (list === guards) paintStain(g.surface, g.x + g.w / 2, 'yellow');
     else paintStain(g.platform, g.x + g.w / 2, 'red');
@@ -940,6 +1228,10 @@ function updateBullets(dt) {
         hit = true;
         hurtGhost(damage());
       }
+    }
+    if (!hit && bossHittable()) {                                  // the boss: 125 hits
+      const bb = bossBox();
+      if (b.x + b.w / 2 > bb.x && b.x - b.w / 2 < bb.x + bb.w && b.y + b.h / 2 > bb.y && b.y - b.h / 2 < bb.y + bb.h) { hit = true; hurtBoss(damage()); }
     }
     for (const list of [guards, redGuards]) {
       for (let j = list.length - 1; j >= 0 && !hit; j--) {
@@ -971,6 +1263,7 @@ function update(dt) {
   updateGuards(dt);
   updateRedGuards(dt);
   updateGhost(dt);
+  if (levelNo() === BOSS_LEVEL) { updateBoss(dt); updateBossHazards(dt); }
   if (charId() === '0300') updateBrushMoves(dt);
   updateHealth(dt);
   if (has(1) && hearts > 0 && (regenTimer += dt) >= 60) { regenTimer = 0; healHeart(); }
@@ -1456,7 +1749,10 @@ canvas.addEventListener('pointerdown', e => {
   player.y = GROUND_Y - player.h;
 
   menuBgImg = menuImg; menuBackImg = menuBtnImg;
-  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg, manIdleImg, manWalk1Img, manWalk2Img, manCardImg, manUpImg, manApexImg, manFallImg] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button', 'man-0300-idle', 'man-0300-walk-1', 'man-0300-walk-2', 'man-0300-card', 'man-0300-jump-up', 'man-0300-jump-apex', 'man-0300-jump-fall'].map(n => load(assetUrl(n))));
+  let bossImgList;
+  [shopBtnImg, cardFrameImg, coinImg, cardsBtnImg, loginBtnImg, nextBtnImg, ghostImg, brushImg, shieldImg, equipBtnImg, manIdleImg, manWalk1Img, manWalk2Img, manCardImg, manUpImg, manApexImg, manFallImg, ...bossImgList] = await Promise.all(['shop-button', 'card-frame', 'coin', 'cards-button', 'login-button', 'next-button', 'subject-394', 'brush-0300', 'shield-0300', 'equip-button', 'man-0300-idle', 'man-0300-walk-1', 'man-0300-walk-2', 'man-0300-card', 'man-0300-jump-up', 'man-0300-jump-apex', 'man-0300-jump-fall', 'boss-idle', 'boss-walk-1', 'boss-walk-2', 'boss-jump', 'boss-attack', 'pillar', 'bomb', 'blue-guard-left', 'blue-guard-right'].map(n => load(assetUrl(n))));
+  bossImgs = { idle: bossImgList[0], walk1: bossImgList[1], walk2: bossImgList[2], jump: bossImgList[3], attack: bossImgList[4], pillar: bossImgList[5], bomb: bossImgList[6] };
+  blueGuardL = bossImgList[7]; blueGuardR = bossImgList[8];
   for (const u of UPGRADES) upgradeImgs[u.id] = await load(assetUrl('upgrade-' + u.id));
   if (document.fonts) document.fonts.load('24px Rye').catch(() => {});
   // game over: PLAY AGAIN exactly in the middle of the screen, MENU just above it
@@ -1533,8 +1829,9 @@ canvas.addEventListener('pointerdown', e => {
     }
     if (!gameOver && !levelComplete) {
       update(dt);
-      // every surface painted: level completed (after a moment, and not if you just died)
-      if (hearts > 0 && Object.keys(PAINT_SURFACES).every(isPainted)) {
+      // every surface painted: level completed (after a moment, and not if you just died). Level 3: the boss is down.
+      const done = levelNo() === BOSS_LEVEL ? (boss.active && boss.dead && boss.dying <= 0) : Object.keys(PAINT_SURFACES).every(isPainted);
+      if (hearts > 0 && done) {
         completeTimer += dt;
         if (completeTimer > 1.2) { levelComplete = true; save.level = levelNo() + 1; writeSave(); }   // on to the next level
       }
@@ -1551,7 +1848,8 @@ canvas.addEventListener('pointerdown', e => {
 
     ctx.save();
     ctx.scale(ZOOM, ZOOM);
-    ctx.translate(-camX, -camY);
+    const sk = shake > 0 ? Math.min(1, shake * 3) * 7 : 0;      // the camera shakes when the boss lands
+    ctx.translate(-camX + (Math.random() - 0.5) * sk, -camY + (Math.random() - 0.5) * sk);
     ctx.drawImage(bg, 0, 0, TILE_W, TILE_H);
     platforms.forEach((p, i) => ctx.drawImage(isPainted(i) ? platGreenImg : platSprite, p.x, p.y, p.w, p.h));
     // Walls and ground: a white fill plus drawings that run past the map edges,
@@ -1571,7 +1869,7 @@ canvas.addEventListener('pointerdown', e => {
     for (const g of guards) {
       // a hit makes him blink
       if (g.flash > 0 && Math.floor(g.flash * 40) % 2 === 0) continue;
-      ctx.drawImage(g.dir > 0 ? guardR : guardL, g.x, g.y, g.w, g.h);
+      ctx.drawImage(g.blue ? (g.dir > 0 ? blueGuardR : blueGuardL) : (g.dir > 0 ? guardR : guardL), g.x, g.y, g.w, g.h);
     }
     for (const g of redGuards) {
       if (g.flash > 0 && Math.floor(g.flash * 40) % 2 === 0) continue;
@@ -1595,7 +1893,9 @@ canvas.addEventListener('pointerdown', e => {
     const breathe = player.walkTime === 0 && player.onGround ? 0.012 * Math.sin(performance.now() / 1000 * 2 * Math.PI / 2.4) : 0;
     const bodyScaleY = 1 + 0.1 * vis.jump + airStretch - 0.16 * vis.land + breathe;
     const bodyScaleX = Math.pow(bodyScaleY, -0.8);                        // squash and stretch keep the volume
+    drawBossHazards();
     drawGhost();
+    drawBoss();
     const isBrush = charId() === '0300';
     if (ink.length) {   // the ink trail (each piece fades out and is gone after 1 s)
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -1687,16 +1987,17 @@ canvas.addEventListener('pointerdown', e => {
     for (const r of reflected) {   // bullets thrown back by a perfect block
       ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.angle);
       ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 14;
-      ctx.drawImage(redBulletImg, -r.w / 2, -r.h / 2, r.w, r.h);
+      if (r.kind === 'button') drawButtonShot(r.w); else ctx.drawImage(redBulletImg, -r.w / 2, -r.h / 2, r.w, r.h);
       ctx.restore();
     }
     for (const b of enemyBullets) {
       ctx.save();
       ctx.translate(b.x, b.y);
       ctx.rotate(b.angle);
-      ctx.drawImage(redBulletImg, -b.w / 2, -b.h / 2, b.w, b.h);
+      if (b.kind === 'button') drawButtonShot(b.w); else ctx.drawImage(redBulletImg, -b.w / 2, -b.h / 2, b.w, b.h);
       ctx.restore();
     }
+    drawBossAir();
     for (const b of bullets) ctx.drawImage(b.img, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
 
     // Walls go on top, so a gun at the edge tucks behind the wall.
@@ -1710,10 +2011,25 @@ canvas.addEventListener('pointerdown', e => {
     // Hearts: small, top-left corner (screen space). Lost hearts stay as faint ghosts.
     const hh = 38, hw = Math.round(heartImg.width * hh / heartImg.height);
     for (let i = 0; i < maxHearts(); i++) {
-      ctx.globalAlpha = i < hearts ? 1 : 0.18;
-      ctx.drawImage(heartImg, 20 + i * (hw + 8), 18, hw, hh);
+      const hx = 20 + i * (hw + 8);
+      if (hearts >= i + 1) { ctx.drawImage(heartImg, hx, 18, hw, hh); continue; }
+      ctx.globalAlpha = 0.18; ctx.drawImage(heartImg, hx, 18, hw, hh); ctx.globalAlpha = 1;
+      if (hearts >= i + 0.5) {                       // half a heart (the boss does 1.5)
+        ctx.save(); ctx.beginPath(); ctx.rect(hx, 18, hw / 2, hh); ctx.clip(); ctx.drawImage(heartImg, hx, 18, hw, hh); ctx.restore();
+      }
     }
     ctx.globalAlpha = 1;
+    if (levelNo() === BOSS_LEVEL && !levelComplete) {
+      if (!lvl3.bossStarted) drawText(`KILLS ${lvl3.kills} / ${BOSS_KILLS}`, W / 2, 76, 22, '#ffd21f', 'bold ' + BODY_FONT, 'center', '#000');
+      else if (boss.active) {                         // the boss's health bar
+        const bw = 520, bx = (W - bw) / 2, by = 58, f = Math.max(0, boss.hp) / BOSS_HP;
+        ctx.fillStyle = '#0e0806'; ctx.fillRect(bx - 4, by - 4, bw + 8, 26);
+        ctx.fillStyle = '#5a1511'; ctx.fillRect(bx, by, bw, 18);
+        ctx.fillStyle = '#d83a2e'; ctx.fillRect(bx, by, bw * f, 18);
+        drawText('THE BOSS', W / 2, by + 44, 18, '#fff', TITLE_FONT, 'center', '#000');
+      }
+      if (boss.announce > 0) { ctx.globalAlpha = Math.min(1, boss.announce); drawText('THE BOSS APPEARS!', W / 2, 330, 54, '#ff4a3a', TITLE_FONT, 'center', '#000'); ctx.globalAlpha = 1; }
+    }
     drawText('LEVEL ' + (levelComplete ? levelNo() - 1 : levelNo()), W / 2, 44, 26, '#fff', TITLE_FONT, 'center', '#000');
     ctx.drawImage(coinImg, 20, 64, 30, 30);
     drawText(String(save.coins), 58, 88, 26, '#ffd21f', 'bold ' + BODY_FONT, 'left', '#000');
