@@ -617,12 +617,15 @@ function menuKey(e){const k=e.key;let h=true;
   if(k==='ArrowUp'||k==='w'||k==='W'){const v=(cur+n-1)%n;optMode?optSel=v:menuSel=v}
   else if(k==='ArrowDown'||k==='s'||k==='S'){const v=(cur+1)%n;optMode?optSel=v:menuSel=v}
   else if(k==='Enter'||k===' ')menuAct(cur);
+  else if(k==='z'||k==='Z'){const i=MOUSE.in?menuHit(MOUSE.x,MOUSE.y):-1;if(i>=0){optMode?optSel=i:menuSel=i}menuAct(i>=0?i:cur)}
   else if(k==='Escape'&&optMode)optMode=false;else h=false}
  if(h)e.preventDefault()}
 function menuPoint(e){const r=game.getBoundingClientRect();return [(e.clientX-r.left)/r.width*WW,(e.clientY-r.top)/r.height*HH]}
 function menuHit(x,y){if(x<300||x>660)return -1;for(let i=0;i<2;i++){const cy=MENU_Y+i*54;if(Math.abs(y-cy)<26)return i}return -1}
 const MENU_Y=352;
-game.addEventListener('pointermove',e=>{if(SCENE!=='menu'||startFade>=0)return;const [x,y]=menuPoint(e),i=menuHit(x,y);if(i>=0){optMode?optSel=i:menuSel=i}});
+const MOUSE={x:-1,y:-1,in:false};
+game.addEventListener('pointerleave',()=>{MOUSE.in=false});
+game.addEventListener('pointermove',e=>{const [mx,my]=menuPoint(e);MOUSE.x=mx;MOUSE.y=my;MOUSE.in=true;if(SCENE!=='menu'||startFade>=0)return;const [x,y]=[mx,my],i=menuHit(x,y);if(i>=0){optMode?optSel=i:menuSel=i}});
 game.addEventListener('click',e=>{if(SCENE==='logo'){if(flowT>.4)introSkip=flowT;return}if(SCENE!=='menu'||startFade>=0)return;const [x,y]=menuPoint(e),i=menuHit(x,y);if(i>=0){optMode?optSel=i:menuSel=i;menuAct(i)}});
 function ornament(c,cx,y,s){c.save();c.translate(cx,y);c.scale(s,s);c.lineCap='round';c.shadowColor='rgba(255,226,160,.9)';c.shadowBlur=14;c.strokeStyle='rgba(255,246,226,.95)';c.lineWidth=2.6;
  for(const f of[1,-1]){c.save();c.scale(f,1);c.beginPath();c.moveTo(14,0);c.bezierCurveTo(40,-3,62,-18,96,-16);c.bezierCurveTo(128,-14,138,6,118,10);c.bezierCurveTo(104,13,100,-2,112,-4);
