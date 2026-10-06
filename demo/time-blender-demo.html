@@ -113,9 +113,7 @@ function poseFor(st,o){const t=o.t,sp=o.speed,ph=o.ph;
  else if(st=='mid'){P.sp=.5;P.footN=[7,9];P.footF=[-5,8];P.lean=.06;P.tilt=.02;P.bob=0;P.trail=5;P.lift=7;P.hilt.ang=2.3}
  else if(st=='fall'){P.sp=.7;P.footN=[8,5];P.footF=[-6,2];P.lean=.08;P.tilt=.05;P.bob=0;P.trail=3;P.lift=12;P.sway=Math.sin(t*14)*1.6;P.hilt.ang=2.7;P.slosh=-1}
  else if(st=='land'){P.footN=[9,0];P.footF=[-7,0];P.lean=.1;P.tilt=.04;P.bob=-2;P.trail=1;P.squash=.9}
- if(o.atk>=0){const a=o.atk,sw=a<.2?0:(a<.5?ease((a-.2)/.3):(a<.9?1-ease((a-.5)/.4):0));
-  P.lunge=7*Math.sin(Math.min(1,a/.7)*Math.PI);P.lean+=.14*Math.sin(a*Math.PI);P.tilt+=.04*Math.sin(a*Math.PI);
-  P.hilt.ang=lerp(P.hilt.ang,.75,sw);P.trail+=6*Math.sin(a*Math.PI);P.footN[0]+=4*sw}
+ /* the swing adds only the slash effect: the body keeps doing whatever it was doing */
  return P}
 /* the slash from the video: a big bright crescent with sharp streaks */
 function slashFx(c,hx,oy,f,k,seed,S){if(k<0||k>1)return;const R=40*S,ox=hx+f*(R+14*S),p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-TAU*.3,th1=TAU*.3,N=40;
@@ -358,7 +356,7 @@ function step(){clock+=1/60;
  const dir=key.r-key.l;me.vx+=(dir*MAXV-me.vx)*.2;if(Math.abs(me.vx)<.05)me.vx=0;if(dir)me.face=dir;
  if(key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-11.5;me.ground=false;jumpHeld=true;play('jump',{gain:.16})}
  if(!key.j)jumpHeld=false;if(!me.ground&&!key.j&&me.vy<-5)me.vy=-5;
- me.x+=me.vx*(me.atk>=0&&me.ground?.6:1);
+ me.x+=me.vx;
  if(!me.ground){me.vy+=.72;me.y+=me.vy;if(me.y>=FLOOR){me.y=FLOOR;if(me.vy>5)play('land',{gain:.2});if(me.vy>9)me.land=8;me.vy=0;me.ground=true}}
  if(me.land>0)me.land--;
  if(me.atk>=0){me.atk++;if(me.atk===8)fxs.push({x:me.x,y:me.y-44*SC_,f:me.face,t0:clock,seed:(Math.random()*9999)|0});if(me.atk>=26)me.atk=-1}
