@@ -539,7 +539,7 @@ function simulateMove(body, x0, feet0, dir, speed, vy0, skip) {   // where does 
 }
 const graphCache = new Map();
 function buildGraph(body, speed) {   // node -1 = the ground, 0.. = the platforms; an edge = a jump or a walk off an edge
-  const minX = WALL_W + body.w / 2 - 4, maxX = WORLD_W - WALL_W - body.w / 2 + 4, g = new Map();
+  const minX = WALL_W + body.w / 2, maxX = WORLD_W - WALL_W - body.w / 2, g = new Map();   // the spots his centre can reach
   for (let A = -1; A < platforms.length; A++) {
     const edges = [], pa = A >= 0 ? platforms[A] : null;
     const feet = pa ? pa.top : GROUND_Y;
@@ -556,7 +556,7 @@ function buildGraph(body, speed) {   // node -1 = the ground, 0.. = the platform
     if (pa) for (const side of [-1, 1]) {   // walking off an edge
       const edge = side < 0 ? pa.x : pa.x + pa.w;
       if (side < 0 ? pa.x <= minX : pa.x + pa.w >= maxX) continue;
-      const standX = edge + side * (body.w / 2 + 20), B = simulateMove(body, standX, feet, side, speed, 0, A);
+      const standX = edge + side * (body.w / 2 + 3), B = simulateMove(body, standX, feet, side, speed, 0, A);
       if (standX < minX || standX > maxX) continue;          // he can't get that far out (the wall)
       if (B !== null && B !== A) edges.push({ to: B, standX, dir: side, kind: 'walk' });
     }
@@ -612,7 +612,7 @@ function bodyMove(b, body, goalNode, goalX, speed, dt) {
     const idx = platforms.findIndex(p => Math.abs(feet - p.top) < 3 && b.x + body.w > p.x && b.x < p.x + p.w);   // -1: the ground
     const step = nextStep(body, idx, goalNode, speed);
     if (step) {
-      target = step.standX;
+      target = step.kind === 'walk' ? step.standX + step.dir * 14 : step.standX;      // (walking off an edge: go a bit further out)
       if (step.kind === 'jump' && Math.abs(cx - step.standX) <= 4) jump = step.dir;
     }
   }
@@ -748,18 +748,19 @@ function updateBrushMoves(dt) {
 // sees you (in range, and not through a platform) he runs at you, faster than you. 125 hits take him down.
 // Every attack of his, and touching him, takes 1.5 hearts. No time limit, and nothing gets painted in this level.
 const BOSS_LEVEL = 3, BOSS_KILLS = 35;
-const BOSS_W = 120, BOSS_H = 180, BOSS_HP = 125, BOSS_DMG = 1.5;
+const BOSS_W = 116, BOSS_H = 180, BOSS_HP = 125, BOSS_DMG = 1.5;
 const BOSS_JUMP_V = Math.sqrt(2 * GRAVITY_UP * 275);         // jumps up through platforms from below
 const BOSS_SIGHT = 640, BOSS_WALK = 0.65, BOSS_RUN = 1.1;      // sight range (px); 35% slower than you / 10% faster than you
 const lvl3 = { kills: 0, bossStarted: false };
-const boss = { active: false, dead: false, dying: 0, x: 0, y: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, hp: BOSS_HP, flash: 0, seeT: 0, state: 'move', st: 0, atk: 0, fired: false, atkCd: 3, wanderNode: -1, wanderX: 0, wanderT: 0, moving: 0, land: 0, announce: 0, anim: 0, gunAng: 0, inkCd: 0, wasOn: true };
+const boss = { active: false, dead: false, dying: 0, x: 0, y: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, hp: BOSS_HP, flash: 0, seeT: 0, state: 'move', st: 0, atk: 0, fired: false, atkCd: 3, wanderNode: -1, wanderX: 0, wanderT: 0, moving: 0, land: 0, announce: 0, anim: 0, gunAng: 0, inkCd: 0, wasOn: true, unseenT: 0, lastAtk: 0, stompPending: false, stompWait: 0 };
+const PILLAR_W = 64, PILLAR_H = GROUND_Y - CEILING_H + 12;      // pillars fill the space from the main ground up to the ceiling
 const bossBody = { w: BOSS_W, h: BOSS_H, jumpV: BOSS_JUMP_V, pass: true, key: 'boss' };
 const pillars = [], bombs = [], booms = [];
 let shake = 0;
 let bossImgs = null;                                            // set when the drawings are loaded
 function resetBossFight() {
   lvl3.kills = 0; lvl3.bossStarted = false;
-  Object.assign(boss, { active: false, dead: false, dying: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, hp: BOSS_HP, flash: 0, seeT: 0, state: 'move', st: 0, atk: 0, fired: false, atkCd: 3, wanderT: 0, moving: 0, land: 0, announce: 0, anim: 0, inkCd: 0 });
+  Object.assign(boss, { active: false, dead: false, dying: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, hp: BOSS_HP, flash: 0, seeT: 0, state: 'move', st: 0, atk: 0, fired: false, atkCd: 3, wanderT: 0, moving: 0, land: 0, announce: 0, anim: 0, inkCd: 0, unseenT: 0, lastAtk: 0, stompPending: false, stompWait: 0 });
   pillars.length = 0; bombs.length = 0; booms.length = 0; shake = 0;
 }
 function registerKill() {
@@ -791,9 +792,8 @@ function bossShoot(angle, speed, w, kind) {
   enemyBullets.push({ x: c.x + Math.cos(angle) * 60, y: c.y - 20 + Math.sin(angle) * 60, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, angle, w, h: kind === 'button' ? w : w * 0.45, platform: -1, dmg: BOSS_DMG, kind });
 }
 function bossAttackAllowed(k) { return k !== 2 || (boss.onGround && boss.y + BOSS_H >= GROUND_Y - 3); }   // the stomp needs the main ground
-function startBossAttack() {
-  const ok = [1, 2, 3, 4].filter(bossAttackAllowed);
-  boss.atk = ok[Math.floor(Math.random() * ok.length)];
+function startBossAttack(k) {
+  boss.atk = k; boss.lastAtk = k;
   Object.assign(boss, { state: 'attack', st: 0, fired: false, landed: false, vx: 0, kb: 0 });
 }
 function updateBoss(dt) {
@@ -809,12 +809,25 @@ function updateBoss(dt) {
   const sees = hearts > 0 && Math.hypot(pcx - c.x, pcy - c.y) < BOSS_SIGHT && !sightBlocked(c.x, c.y, pcx, pcy);
   boss.seeT = sees ? 2 : Math.max(0, boss.seeT - dt);
   const chasing = boss.seeT > 0;
+  boss.unseenT = chasing ? 0 : boss.unseenT + dt;
   if (boss.state === 'move') {
-    if (chasing && (boss.atkCd -= dt) <= 0) startBossAttack();
+    const onMainGround = boss.onGround && boss.y + BOSS_H >= GROUND_Y - 3;
+    if (chasing && !boss.stompPending) boss.atkCd -= dt;
+    if (!boss.stompPending && chasing && boss.atkCd <= 0) {
+      const ok = [1, 2, 3, 4].filter(k => k !== boss.lastAtk);          // never the same attack twice in a row
+      const k = ok[Math.floor(Math.random() * ok.length)];
+      if (k === 2 && !onMainGround) { boss.stompPending = true; boss.stompWait = 8; }   // the stomp needs the main ground: he goes down first
+      else startBossAttack(k);
+    }
+    if (boss.stompPending && onMainGround) { boss.stompPending = false; startBossAttack(2); }
+    else if (boss.stompPending && (boss.stompWait -= dt) <= 0) { boss.stompPending = false; boss.atkCd = 0.4; }
     else {
       let r;
-      if (chasing) r = bodyMove(boss, bossBody, nodeAt(pcx, pfeet), pcx, speed * BOSS_RUN, dt);            // he runs at you, 10% faster than you
-      else {                                                                                                    // he walks around the map, 35% slower than you
+      if (boss.stompPending) r = bodyMove(boss, bossBody, -1, pcx, speed * BOSS_RUN, dt);                    // down to the main ground
+      else if (chasing) r = bodyMove(boss, bossBody, nodeAt(pcx, pfeet), pcx, speed * BOSS_RUN, dt);            // he runs at you, 10% faster than you
+      else if (boss.unseenT >= 5 && !MINI_PLATFORMS.includes(nodeAt(pcx, pfeet))) {                           // 5 s without seeing you: he goes to the platform you stand on (not the small ones: too small for him)
+        r = bodyMove(boss, bossBody, nodeAt(pcx, pfeet), pcx, speed * BOSS_WALK, dt);
+      } else {                                                                                                  // he walks around the map, 35% slower than you
         boss.wanderT -= dt;
         const here = nodeAt(c.x, boss.y + BOSS_H);
         if (boss.wanderT <= 0 || (here === boss.wanderNode && Math.abs(c.x - boss.wanderX) < 24)) {
@@ -843,12 +856,14 @@ function updateBoss(dt) {
       if (boss.fired && boss.onGround && boss.st > 0.45) {
         if (!boss.landed) {
           boss.landed = true; shake = 0.4; boss.land = 1;
+          // a row of pillars from the main ground to the ceiling, random gaps between them, each just wide enough to stand in
           const xs = [];
-          const nearP = pcx + (Math.random() - 0.5) * 160;                  // a couple of them land close to you
-          for (let i = 0; i < 60 && xs.length < 7; i++) {
-            let x = i < 2 ? nearP + (i ? 90 : -90) : WALL_W + 50 + Math.random() * (WORLD_W - 2 * WALL_W - 100);
-            x = Math.max(WALL_W + 40, Math.min(WORLD_W - WALL_W - 40, x));
-            if (xs.every(o => Math.abs(o - x) > 80)) xs.push(x);
+          let cursor = WALL_W + Math.random() * 40;
+          for (;;) {
+            cursor += player.w + 10 + Math.random() * 95;                     // the gap: 52 px at least (you are 42 wide)
+            if (cursor + PILLAR_W > WORLD_W - WALL_W - 8) break;
+            xs.push(cursor + PILLAR_W / 2);
+            cursor += PILLAR_W;
           }
           for (const x of xs) pillars.push({ x, t: 0, hit: false });
         }
@@ -885,15 +900,15 @@ function updateBoss(dt) {
 }
 function bossEndAttack() { boss.state = 'move'; boss.landed = false; boss.atkCd = 2 + Math.random() * 1.4; }
 function updateBossHazards(dt) {
-  // pillars: a warning on the ground first, then they shoot up, stay a moment and sink back
+  // pillars: a warning on the ground first, then they shoot up to the ceiling, stay a moment and sink back
   for (let i = pillars.length - 1; i >= 0; i--) {
     const p = pillars[i];
     p.t += dt;
-    if (p.t > 2.0) { pillars.splice(i, 1); continue; }
+    if (p.t > 2.4) { pillars.splice(i, 1); continue; }
     const h = pillarHeight(p);
     if (h > 25 && !p.hit) {
       const hb = playerHitbox();
-      if (hb.x + hb.w > p.x - 36 && hb.x < p.x + 36 && hb.y + hb.h > GROUND_Y - h) { p.hit = true; hurtPlayer(BOSS_DMG); }
+      if (hb.x + hb.w > p.x - PILLAR_W / 2 && hb.x < p.x + PILLAR_W / 2 && hb.y + hb.h > GROUND_Y - h) { p.hit = true; hurtPlayer(BOSS_DMG); }
     }
   }
   // bombs: fly to their spot, hang there, explode 3 seconds after they were thrown
@@ -914,13 +929,13 @@ function updateBossHazards(dt) {
   for (let i = booms.length - 1; i >= 0; i--) if ((booms[i].t -= dt) <= 0) booms.splice(i, 1);
   shake = Math.max(0, shake - dt);
 }
-// how far a pillar has come out of the ground: warning 0.9 s, up in 0.12 s, 0.7 s up, down in 0.3 s
+// how far a pillar has come out of the ground: warning 0.9 s, up to the ceiling in 0.15 s, 0.9 s up, down in 0.35 s
 function pillarHeight(p) {
   const t = p.t - 0.9;
   if (t < 0) return 0;
-  if (t < 0.12) return 240 * (t / 0.12);
-  if (t < 0.82) return 240;
-  if (t < 1.12) return 240 * (1 - (t - 0.82) / 0.3);
+  if (t < 0.15) return PILLAR_H * (t / 0.15);
+  if (t < 1.05) return PILLAR_H;
+  if (t < 1.4) return PILLAR_H * (1 - (t - 1.05) / 0.35);
   return 0;
 }
 function drawBossHazards() {
@@ -931,7 +946,7 @@ function drawBossHazards() {
       ctx.save();
       ctx.globalAlpha = 0.45 + 0.35 * Math.sin(p.t * 30);
       ctx.fillStyle = '#c0261f';
-      ctx.beginPath(); ctx.ellipse(p.x, GROUND_Y - 2, 34 + k * 10, 9, 0, 0, 6.2832); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(p.x, GROUND_Y - 2, PILLAR_W / 2 + 4 + k * 6, 9, 0, 0, 6.2832); ctx.fill();
       ctx.globalAlpha = 1; ctx.strokeStyle = '#0e0806'; ctx.lineWidth = 5; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(p.x - 30, GROUND_Y); ctx.lineTo(p.x - 12, GROUND_Y - 9); ctx.lineTo(p.x + 2, GROUND_Y + 1); ctx.lineTo(p.x + 16, GROUND_Y - 10); ctx.lineTo(p.x + 32, GROUND_Y); ctx.stroke();
       ctx.fillStyle = 'rgba(190,190,200,0.7)';
@@ -939,8 +954,8 @@ function drawBossHazards() {
       ctx.restore();
     } else if (h > 0) {
       ctx.save();
-      ctx.beginPath(); ctx.rect(p.x - 60, GROUND_Y - 300, 120, 306); ctx.clip();          // it comes up out of the ground
-      ctx.drawImage(bossImgs.pillar, p.x - 40, GROUND_Y - h, 80, 240);
+      ctx.beginPath(); ctx.rect(p.x - 60, GROUND_Y - PILLAR_H - 20, 120, PILLAR_H + 26); ctx.clip();          // it comes up out of the ground
+      ctx.drawImage(bossImgs.pillar, p.x - PILLAR_W / 2 - 6, GROUND_Y - h, PILLAR_W + 12, PILLAR_H);
       ctx.restore();
     }
   }
