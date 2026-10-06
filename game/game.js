@@ -891,13 +891,11 @@ function updateBoss(dt) {
         }
       }
       if (boss.st >= 1.2) bossEndAttack();
-    } else {                                 // 4: the cufflinks fly out of his shirt, 10 of them, slowly spreading
+    } else {                                 // 4: the cufflinks fly out of his shirt in a full ring around him, 15 of them, slowly spreading
       if (!boss.fired && boss.st >= 0.55) {
         boss.fired = true;
-        for (let i = 0; i < 10; i++) {
-          const a = -0.62 + 1.24 * i / 9, ang = boss.dir > 0 ? a : Math.PI - a;
-          bossShoot(ang, 175, 17, 'button');
-        }
+        const off = Math.random() * Math.PI * 2;                      // the ring is turned a random amount every time
+        for (let i = 0; i < 15; i++) bossShoot(off + i * Math.PI * 2 / 15, 175, 17, 'button');
       }
       if (boss.st >= 1.25) bossEndAttack();
     }
