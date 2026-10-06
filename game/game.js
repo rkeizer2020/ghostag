@@ -671,9 +671,17 @@ let lastInk = null, inkZig = 1;
 const overlap = (a, b) => a.x + a.w > b.x && a.x < b.x + b.w && a.y + a.h > b.y && a.y < b.y + b.h;
 // a platform's body is in the way (the brush can't reach through platforms)
 function sightBlocked(x1, y1, x2, y2) {
-  for (let i = 1; i <= 14; i++) {
-    const x = x1 + (x2 - x1) * i / 14, y = y1 + (y2 - y1) * i / 14;
-    if (platforms.some(p => x > p.x && x < p.x + p.w && y > p.top + 2 && y < p.ceil - 2)) return true;
+  // does the line from (x1,y1) to (x2,y2) cross the body of a platform? (exact check, so a thin platform can't be missed)
+  const dx = x2 - x1, dy = y2 - y1;
+  for (const p of platforms) {
+    let t0 = 0, t1 = 1;
+    for (const [d, lo, hi, o] of [[dx, p.x, p.x + p.w, x1], [dy, p.top, p.ceil, y1]]) {
+      if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) { t0 = 2; break; } continue; }
+      let a = (lo - o) / d, b2 = (hi - o) / d;
+      if (a > b2) [a, b2] = [b2, a];
+      t0 = Math.max(t0, a); t1 = Math.min(t1, b2);
+    }
+    if (t0 <= t1) return true;
   }
   return false;
 }
@@ -745,12 +753,12 @@ function updateBrushMoves(dt) {
 
 // --- Level 3: 35 kills call the boss ------------------------------------------------
 // The boss is a fat white man in a black suit with a red tie. He walks around the map, and when he
-// sees you (in range, and not through a platform) he runs at you, faster than you. 125 hits take him down.
+// sees you (in range, and not through a platform) he runs at you, 10% slower than you. 125 hits take him down.
 // Every attack of his, and touching him, takes 1.5 hearts. No time limit, and nothing gets painted in this level.
 const BOSS_LEVEL = 3, BOSS_KILLS = 35;
 const BOSS_W = 116, BOSS_H = 180, BOSS_HP = 125, BOSS_DMG = 1.5;
 const BOSS_JUMP_V = Math.sqrt(2 * GRAVITY_UP * 275);         // jumps up through platforms from below
-const BOSS_SIGHT = 640, BOSS_WALK = 0.65, BOSS_RUN = 1.1;      // sight range (px); 35% slower than you / 10% faster than you
+const BOSS_SIGHT = 640, BOSS_WALK = 0.65, BOSS_RUN = 0.9;      // sight range (px); walking around: 35% slower than you, running at you: 10% slower than you
 const lvl3 = { kills: 0, bossStarted: false };
 const boss = { active: false, dead: false, dying: 0, x: 0, y: 0, vx: 0, vy: 0, onGround: true, dir: 1, airDir: 0, kb: 0, kbVx: 0, hp: BOSS_HP, flash: 0, seeT: 0, state: 'move', st: 0, atk: 0, fired: false, atkCd: 3, wanderNode: -1, wanderX: 0, wanderT: 0, moving: 0, land: 0, announce: 0, anim: 0, gunAng: 0, inkCd: 0, wasOn: true, unseenT: 0, lastAtk: 0, stompPending: false, stompWait: 0 };
 const PILLAR_W = 64, PILLAR_H = GROUND_Y - CEILING_H + 12;      // pillars fill the space from the main ground up to the ceiling
@@ -824,7 +832,7 @@ function updateBoss(dt) {
     else {
       let r;
       if (boss.stompPending) r = bodyMove(boss, bossBody, -1, pcx, speed * BOSS_RUN, dt);                    // down to the main ground
-      else if (chasing) r = bodyMove(boss, bossBody, nodeAt(pcx, pfeet), pcx, speed * BOSS_RUN, dt);            // he runs at you, 10% faster than you
+      else if (chasing) r = bodyMove(boss, bossBody, nodeAt(pcx, pfeet), pcx, speed * BOSS_RUN, dt);            // he runs at you, 10% slower than you
       else if (boss.unseenT >= 5 && !MINI_PLATFORMS.includes(nodeAt(pcx, pfeet))) {                           // 5 s without seeing you: he goes to the platform you stand on (not the small ones: too small for him)
         r = bodyMove(boss, bossBody, nodeAt(pcx, pfeet), pcx, speed * BOSS_WALK, dt);
       } else {                                                                                                  // he walks around the map, 35% slower than you
