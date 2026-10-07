@@ -275,10 +275,22 @@ function harnessMask(c,hc){const OL=2.6,[cx,cy]=hc;
  c.fillStyle='#1c1226';c.beginPath();c.moveTo(cx+6,cy+15);c.lineTo(cx+16,cy+14.4);c.lineTo(cx+15.6,cy+11.4);c.lineTo(cx+13.4,cy+11.4);c.lineTo(cx+13,cy-3);c.lineTo(cx+10.4,cy-3);c.lineTo(cx+10.8,cy+11.6);c.lineTo(cx+6,cy+12);c.closePath();c.fill();
  c.beginPath();rrect(c,cx+6.4,cy+1,2.2,8,1);c.fill();
  c.fillStyle='rgba(255,226,140,.7)';c.fillRect(cx+11.2,cy+.5,1.4,9);
- /* mouth: a flat copper circle sitting on the lower part of the plate, with a dark round opening */
- {const mx=cx+12,my=cy-8.5;c.beginPath();c.arc(mx,my,4.8,0,TAU);fillOut(c,lgrad(c,0,my-4.8,0,my+4.8,[HN.cop[2],HN.cop[1],HN.cop[0]]),OL*.75);
-  c.beginPath();c.arc(mx,my,2.4,0,TAU);c.fillStyle='#2a1830';c.fill();
-  c.strokeStyle='rgba(255,236,210,.7)';c.lineWidth=1;c.beginPath();c.arc(mx,my,3.7,1.9,2.9);c.stroke()}}
+ /* mouth: a round port set into the lower front edge of the plate, cut off by that edge, with a recessed
+    dark opening so it has depth. The plate outline is stroked again on top, with the same path, so the plate itself is unchanged */
+ {const mx=cx+17.6,my=cy-8.8,R=4.6,plate=()=>{c.beginPath();c.moveTo(cx+1,cy-16);c.lineTo(cx+15,cy-15);c.quadraticCurveTo(cx+21,cy-6,cx+20,cy+6);c.lineTo(cx+18,cy+19);c.lineTo(cx+4,cy+21);c.quadraticCurveTo(cx-2,cy+4,cx+1,cy-16);c.closePath()};
+  c.save();plate();c.clip();
+  /* soft shadow on the plate around the port */
+  c.fillStyle=rgrad(c,mx,my,R*.8,R*1.9,['rgba(60,20,16,.45)','rgba(60,20,16,0)']);c.beginPath();c.arc(mx,my,R*1.9,0,TAU);c.fill();
+  /* copper rim */
+  c.beginPath();c.arc(mx,my,R,0,TAU);fillOut(c,lgrad(c,mx-R,my+R,mx+R,my-R,[HN.cop[0],HN.cop[1],HN.cop[2],HN.cop[3]]),OL*.7);
+  /* inner step, then the deep dark hole, shifted inwards so you look into it */
+  c.beginPath();c.arc(mx+.5,my-.3,R*.68,0,TAU);fillOut(c,lgrad(c,mx-R,my+R,mx+R,my-R,[HN.cop[3],HN.cop[2],HN.cop[1]]),1.1);
+  c.beginPath();c.arc(mx+1,my-.6,R*.44,0,TAU);c.fillStyle=rgrad(c,mx+1.4,my-.9,0,R*.5,['#120a16','#2a1830','#4a2a2a']);c.fill();
+  /* light catching the far inner wall and the near rim */
+  c.lineCap='round';c.strokeStyle='rgba(255,214,170,.55)';c.lineWidth=.9;c.beginPath();c.arc(mx+1,my-.6,R*.44,-.9,.5);c.stroke();
+  c.strokeStyle='rgba(255,240,215,.75)';c.lineWidth=1;c.beginPath();c.arc(mx,my,R-1.1,1.9,3);c.stroke();
+  c.restore();
+  plate();c.strokeStyle=OUT;c.lineWidth=OL;c.lineJoin='round';c.stroke()}}
 
 /* ---- the rune aura (unchanged): a shield outline with two stacked chevrons; it draws itself (p 0..1) and fades (a) ---- */
 const RUNE=[[[-.8,-.45],[-.8,-.7],[0,-1],[.8,-.7],[.8,.2],[0,1],[-.8,.2],[-.8,-.1]],[[-.45,-.38],[0,.02],[.45,-.38]],[[-.45,.06],[0,.46],[.45,.06]]];
