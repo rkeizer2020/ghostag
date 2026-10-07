@@ -261,11 +261,6 @@ function harnessMask(c,hc){const OL=2.6,[cx,cy]=hc;
  /* strap round the back of the glass */
  c.strokeStyle=OUT;c.lineWidth=4.4;c.lineCap='round';c.beginPath();c.moveTo(cx+4,cy-6);c.quadraticCurveTo(cx-8,cy-9,cx-16.5,cy-3);c.stroke();c.strokeStyle=HN.leather;c.lineWidth=2.6;c.stroke();
  /* copper funnel on top, tilted back (switch off with HARNESS_STYLE.funnel=false) */
- if(HARNESS_STYLE.funnel){c.save();c.translate(cx-2,cy+13.6);c.rotate(.08);
-  /* flat copper hat: a wide, thin slab with a straight top, its top level with the mask */
-  c.beginPath();c.moveTo(-14,0);c.lineTo(13,0);c.lineTo(18,6);c.lineTo(-20,6);c.closePath();fillOut(c,lgrad(c,0,0,0,6,[HN.cop[3],HN.cop[2],HN.cop[1]]),OL);
-  c.beginPath();c.moveTo(-20,6);c.lineTo(18,6);c.lineTo(17.4,8.4);c.lineTo(-19.4,8.4);c.closePath();fillOut(c,lgrad(c,-20,0,18,0,[HN.cop[1],HN.cop[0],'#ffe3c8',HN.cop[0]]),OL*.85);
-  c.strokeStyle='rgba(255,230,200,.6)';c.lineWidth=1;c.beginPath();c.moveTo(-12,1.6);c.lineTo(12,1.6);c.stroke();c.restore()}
  /* tall purple face plate over the front of the glass, with a dark slit */
  c.beginPath();c.moveTo(cx+1,cy-16);c.lineTo(cx+15,cy-15);c.quadraticCurveTo(cx+21,cy-6,cx+20,cy+6);c.lineTo(cx+18,cy+19);c.lineTo(cx+4,cy+21);c.quadraticCurveTo(cx-2,cy+4,cx+1,cy-16);c.closePath();
  fillOut(c,lgrad(c,cx,0,cx+21,0,HN.armor),OL);
@@ -274,6 +269,12 @@ function harnessMask(c,hc){const OL=2.6,[cx,cy]=hc;
  c.fillStyle='#1c1226';c.beginPath();c.moveTo(cx+6,cy+15);c.lineTo(cx+16,cy+14.4);c.lineTo(cx+15.6,cy+11.4);c.lineTo(cx+13.4,cy+11.4);c.lineTo(cx+13,cy-3);c.lineTo(cx+10.4,cy-3);c.lineTo(cx+10.8,cy+11.6);c.lineTo(cx+6,cy+12);c.closePath();c.fill();
  c.beginPath();rrect(c,cx+6.4,cy+1,2.2,8,1);c.fill();
  c.fillStyle='rgba(255,226,140,.7)';c.fillRect(cx+11.2,cy+.5,1.4,9);
+ /* flat copper hat: it rests on the top edge of the face plate (cx+4,cy+21)-(cx+18,cy+19) and ends flush with its front */
+ if(HARNESS_STYLE.funnel){const ax=cx+4,ay=cy+21,L=Math.hypot(14,2),ux=14/L,uy=-2/L,nx=2/L,ny=14/L,q=(s,h)=>[ax+ux*s+nx*h,ay+uy*s+ny*h],F=L;
+  const poly=pts=>{c.beginPath();pts.forEach((p,i)=>i?c.lineTo(...p):c.moveTo(...p));c.closePath()};
+  poly([q(-16,0),q(F,0),q(F+1.6,5.6),q(-21,5.6)]);fillOut(c,lgrad(c,...q(0,0),...q(0,5.6),[HN.cop[3],HN.cop[2],HN.cop[1]]),OL);
+  poly([q(-21,5.6),q(F+1.6,5.6),q(F+1.2,8),q(-20.6,8)]);fillOut(c,lgrad(c,...q(-21,0),...q(F,0),[HN.cop[1],HN.cop[0],'#ffe3c8',HN.cop[0]]),OL*.85);
+  c.strokeStyle='rgba(255,230,200,.6)';c.lineWidth=1;c.beginPath();c.moveTo(...q(-14,1.6));c.lineTo(...q(F-1.5,1.6));c.stroke()}
  /* copper horn at the lower front of the plate */
  c.save();c.translate(cx+17,cy-10);c.rotate(-.55);
  c.beginPath();c.moveTo(-3,-3.4);c.lineTo(-3,3.4);c.lineTo(8,7);c.lineTo(8,-7);c.closePath();fillOut(c,lgrad(c,0,-7,0,7,[HN.cop[0],HN.cop[1],HN.cop[2]]),OL*.85);
