@@ -272,9 +272,12 @@ function harnessMask(c,hc){const OL=2.6,[cx,cy]=hc;
  fillOut(c,lgrad(c,cx,0,cx+21,0,HN.armor),OL);
  c.save();c.clip();c.fillStyle=lgrad(c,0,cy-16,0,cy+21,['rgba(70,25,20,.35)','rgba(70,25,20,0)','rgba(255,224,170,.25)']);c.fillRect(cx-4,cy-18,28,42);c.restore();
  c.strokeStyle='rgba(255,220,170,.6)';c.lineWidth=1.2;c.beginPath();c.moveTo(cx+18.4,cy+16);c.lineTo(cx+19.4,cy+4);c.stroke();
- c.fillStyle='#1c1226';c.beginPath();c.moveTo(cx+6,cy+15);c.lineTo(cx+16,cy+14.4);c.lineTo(cx+15.6,cy+11.4);c.lineTo(cx+13.4,cy+11.4);c.lineTo(cx+13,cy-3);c.lineTo(cx+10.4,cy-3);c.lineTo(cx+10.8,cy+11.6);c.lineTo(cx+6,cy+12);c.closePath();c.fill();
- c.beginPath();rrect(c,cx+6.4,cy+1,2.2,8,1);c.fill();
- c.fillStyle='rgba(255,226,140,.7)';c.fillRect(cx+11.2,cy+.5,1.4,9);
+ /* eye slit, after the drawing: one narrow vertical slit with a straight back edge and a curved front edge, pointed at the bottom */
+ {const ex=cx+10.6,et=cy+13.6,eb=cy+3.2,slit=(dx,dy)=>{c.beginPath();c.moveTo(ex+dx,et+dy);c.quadraticCurveTo(ex+1.6+dx,et+.6+dy,ex+2.2+dx,et-.6+dy);
+   c.quadraticCurveTo(ex+3.6+dx,cy+8.6+dy,ex+.6+dx,eb+dy);c.lineTo(ex-.2+dx,eb+.8+dy);c.closePath()};
+  slit(.6,-.6);c.fillStyle='rgba(255,224,170,.45)';c.fill();
+  slit(0,0);c.fillStyle=lgrad(c,0,et,0,eb,['#0e0812','#1c1226','#2a1830']);c.fill();c.strokeStyle=OUT;c.lineWidth=.9;c.stroke();
+  c.strokeStyle='rgba(255,226,140,.75)';c.lineWidth=.8;c.lineCap='round';c.beginPath();c.moveTo(ex+2,et-1.6);c.quadraticCurveTo(ex+2.9,cy+8.6,ex+.9,eb+1.4);c.stroke()}
  /* mouth: a round port set into the lower front edge of the plate, cut off by that edge, with a recessed
     dark opening so it has depth. The plate outline is stroked again on top, with the same path, so the plate itself is unchanged */
  {const mx=cx+17.6,my=cy-8.8,R=4.6,plate=()=>{c.beginPath();c.moveTo(cx+1,cy-16);c.lineTo(cx+15,cy-15);c.quadraticCurveTo(cx+21,cy-6,cx+20,cy+6);c.lineTo(cx+18,cy+19);c.lineTo(cx+4,cy+21);c.quadraticCurveTo(cx-2,cy+4,cx+1,cy-16);c.closePath()};
