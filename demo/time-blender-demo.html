@@ -380,7 +380,7 @@ function step(){clock+=1/60;
   let hit;if(e.type==='boss'){const hy=clamp(sy,e.y-80,e.y+85);hit=Math.hypot(e.x-sx,hy-sy)<=51+74&&(e.x-me.x)*me.atkFace>-70}else hit=Math.hypot(ec[0]-sx,ec[1]-sy)<=51+e.r*.9&&(ec[0]-me.x)*me.atkFace>-14;
   if(hit){e.hitId=me.atkId;damageEnemy(e,slashDmg())}}}
  updateEnemies();updateBullets();updateDrops();
- if(me.inv<=0)for(const e of ENM){if(e.dead||e.state==='intro'||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e);if(Math.hypot(ec[0]-me.x,ec[1]-(me.y-30))<16+e.r*.85){playerHit(e,ec);break}}
+ if(me.inv<=0)for(const e of ENM){if(e.dead||(e.type==='boss'&&e.state!=='dash')||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e);if(Math.hypot(ec[0]-me.x,ec[1]-(me.y-30))<16+e.r*.85){playerHit(e,ec);break}}
  if(room===0&&me.x<WALLW+16){me.x=WALLW+16;me.vx=Math.max(0,me.vx)}if(room===SC.length-1&&me.x>WORLD-WALLW-16){me.x=WORLD-WALLW-16;me.vx=Math.min(0,me.vx)}
  if(bossAlive()||CUT.on){me.x=clamp(me.x,14,WORLD-14)}else if(me.x>WORLD-8){me.x=40;setRoom(room+1);if(!CUT.on)cam=0}else if(me.x<8){me.x=WORLD-40;setRoom(room-1);cam=WORLD-WW}
  const tc=clamp(me.x-WW/2,0,WORLD-WW);cam+=(tc-cam)*.12}
@@ -600,7 +600,7 @@ function drawBoss(c,e,cam,t){const sx=e.x-cam,sy=e.y;if(sx<-220||sx>WW+220)retur
  c.translate(sx+(tele?Math.sin(t*80)*3:0),sy+Math.sin(t*2)*4);c.scale(1.25*e.face,1.25);
  /* the lantern he carries */
  const lx=58+Math.sin(t*2.4)*3,ly=10+Math.sin(t*3)*4;c.strokeStyle='rgba(120,190,230,.9)';c.lineWidth=7;c.lineCap='round';c.globalAlpha=alpha;c.beginPath();c.moveTo(30,-12);c.lineTo(lx-6,ly-14);c.stroke();
- ghostBody(c,e,t,alpha,e.phase===2||tele);
+ ghostBody(c,e,t,alpha,e.state==='tele'||e.state==='dash');
  c.globalAlpha=alpha;c.fillStyle='rgba(255,226,140,.35)';c.beginPath();c.arc(lx,ly+8,26,0,TAU);c.fill();rrect(c,lx-9,ly-4,18,24,5);c.fillStyle='#ffe9a0';c.fill();c.strokeStyle='#6e3426';c.lineWidth=3;c.stroke();c.strokeStyle='#6e3426';c.lineWidth=2;c.beginPath();c.moveTo(lx,ly-4);c.lineTo(lx,ly-12);c.stroke();
  if(e.flash>0){c.globalCompositeOperation='lighter';c.fillStyle='rgba(255,255,255,'+Math.min(1,e.flash/.15)*.55+')';c.beginPath();c.arc(0,-10,52,0,TAU);c.fill()}
  c.restore();
