@@ -263,7 +263,7 @@ function harnessMask(c,hc){const OL=2.6,[cx,cy]=hc;
  /* copper funnel on top, tilted back (switch off with HARNESS_STYLE.funnel=false) */
  /* flat copper hat: lies flat on top of the glass where it always was; its front end runs in under the
     back edge of the face plate (the plate is drawn after it) and its top is level with the plate's top */
- if(HARNESS_STYLE.funnel){const y0=cy+13.6,y1=cy+18.8,y2=cy+21,xb=cx-23,xf=cx+6;
+ if(HARNESS_STYLE.funnel){const y0=cy+13.6,y1=cy+18.8,y2=cy+21,xb=cx-16.4,xf=cx+6;
   c.beginPath();c.moveTo(xb+2,y0);c.lineTo(xf,y0);c.lineTo(xf,y1);c.lineTo(xb,y1);c.closePath();fillOut(c,lgrad(c,0,y0,0,y1,[HN.cop[3],HN.cop[2],HN.cop[1]]),OL);
   c.beginPath();c.moveTo(xb,y1);c.lineTo(xf,y1);c.lineTo(xf,y2);c.lineTo(xb+.6,y2);c.closePath();fillOut(c,lgrad(c,xb,0,xf,0,[HN.cop[1],HN.cop[0],'#ffe3c8',HN.cop[0]]),OL*.85);
   c.strokeStyle='rgba(255,230,200,.6)';c.lineWidth=1;c.beginPath();c.moveTo(xb+4,y0+1.6);c.lineTo(xf-2,y0+1.6);c.stroke()}
