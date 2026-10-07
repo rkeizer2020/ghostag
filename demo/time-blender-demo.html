@@ -613,7 +613,7 @@ function drawBossBar(c,t){const e=ENM.find(q=>q.type==='boss'&&!q.dead);if(!e||e
  c.textAlign='center';c.font='600 16px '+SERIF;c.fillStyle='#fff3cf';c.shadowColor='rgba(0,0,0,.7)';c.shadowBlur=4;c.fillText('THE LAST GUARD',WW/2,y-23);c.restore()}
 
 /* ---- upgrades, walls, the forge, the boss intro, possessed mini robots and music ---- */
-const UPG={sword:0,heart:0,bat:false};
+const UPG={sword:0,heart:0,bat:false,harness:false};
 const WALLW=64,FORGE_ROOM=SC.length-1,FX=WORLD-WALLW-250;
 let bossBeaten=false,shakeT=0,darkV=0,darkX=480,darkY=300,titleT=-1,barK=0,forgeOpen=false,forgeSel=0,forgeFlash=0;
 const CUT={on:false,t:0,f:{}},HUSK={on:false,x:0,eye:0,open:0,slump:0,shake:0,jaw:0},DARK=[],FLEE=[];
@@ -634,7 +634,8 @@ function scream(ghost){if(!ac||!soundOn)return;const t=ac.currentTime,D=ghost?1.
  play('impact',{gain:.35,rate:ghost?.7:.45})}
 function darkBurst(x,y,ghost){const col=ghost?'14,10,30':'6,2,12';for(let i=0;i<3;i++)DARK.push({x,y,t0:clock+i*.22,dur:1.5,R:560,col,seed:Math.random()*9});shakeT=1.1;darkV=1;darkX=x;darkY=y}
 /* ---- the boss intro: you are stunned in the middle, the big robot screams, The Last Guard climbs out and screams ---- */
-function startCut(){CUT.on=true;CUT.t=0;CUT.f={};Object.assign(HUSK,{on:true,x:WORLD/2+190,eye:0,open:0,slump:0,shake:0,jaw:0});
+function startFight(safeX){Object.assign(HUSK,{on:true,x:WORLD/2+190,eye:0,open:1,slump:1,shake:0,jaw:0});ENM=[mkBoss(clamp(safeX+560,300,WORLD-300))]}
+function startCut(){HUSK.seen=true;CUT.on=true;CUT.t=0;CUT.f={};Object.assign(HUSK,{on:true,x:WORLD/2+190,eye:0,open:0,slump:0,shake:0,jaw:0});
  me.x=WORLD/2-170;me.y=FLOOR;me.vx=0;me.vy=0;me.ground=true;me.face=1;me.atk=-1;me.kb=0;me.healT=0;cam=WORLD/2-WW/2;
  const b=mkBoss(HUSK.x);b.state='intro';b.y=HTOP+170;b.clipY=HTOP;b.vis=false;b.face=-1;ENM=[b];BUL.length=0;debris.length=0;DARK.length=0;FLEE.length=0;titleT=-1}
 function cutStep(){const dt=1/60,T=(CUT.t+=dt),b=ENM.find(q=>q.type==='boss'),once=k=>CUT.f[k]?false:(CUT.f[k]=true);
@@ -731,20 +732,24 @@ function drawForge(c,cam,t){if(room!==FORGE_ROOM)return;const x=FX-cam;if(x<-320
  c.save();c.translate(ax-18,FLOOR-70);c.rotate(-.5);rrect(c,-3,-34,6,36,2);fillOut(c,CL.copD,2);rrect(c,-12,-44,24,12,3);fillOut(c,'#5a5266',2);c.restore();
  if(Math.random()<.25)parts.push({x:FX+rnd(-40,40),y:FLOOR-40,vx:rnd(-.4,.4),vy:-rnd(.6,1.6),life:0,max:.8+Math.random(),r:1.2+Math.random()*1.6});
  if(nearForge()&&!forgeOpen){const py=FLOOR-252+Math.sin(t*3)*3;c.save();rrect(c,x-78,py-18,156,34,10);c.fillStyle='rgba(28,18,38,.88)';c.fill();c.strokeStyle=CL.copL;c.lineWidth=2;c.stroke();c.textAlign='center';c.textBaseline='middle';c.font='600 16px '+SERIF;c.fillStyle='#fff3cf';c.fillText('Z  ·  FORGE',x,py);c.restore()}}
-const FORGE_ITEMS=[{k:'sword',name:'SHARPENED EDGE',d1:'Your sword does',d2:'+0.5 damage',max:4},{k:'heart',name:'EXTRA HEART',d1:'One more head',d2:'+1 heart',max:5},{k:'bat',name:'LIQUID BATTERY',d1:'Every 3 hits fill',d2:'2/6 instead of 1/6'}];
-function forgeCost(i){const k=FORGE_ITEMS[i].k;return k==='bat'?10:10*Math.pow(2,UPG[k])}
-function forgeDone(i){const it=FORGE_ITEMS[i];return it.k==='bat'?UPG.bat:UPG[it.k]>=it.max}
+const FORGE_ITEMS=[{k:'sword',name:'SHARPENED EDGE',d1:'Your sword does',d2:'+0.5 damage',max:4},{k:'heart',name:'EXTRA HEART',d1:'One more head',d2:'+1 heart',max:5},{k:'bat',name:'LIQUID BATTERY',d1:'Every 3 hits fill',d2:'2/6 instead of 1/6'},{k:'harness',name:'HARNESS',d1:'Holds mysterious',d2:'powers...'}];
+function forgeCost(i){const k=FORGE_ITEMS[i].k;return k==='harness'?100:k==='bat'?10:10*Math.pow(2,UPG[k])}
+function forgeDone(i){const it=FORGE_ITEMS[i];return it.max?UPG[it.k]>=it.max:!!UPG[it.k]}
 function openForge(){forgeOpen=true;key.l=key.r=key.j=key.d=key.x=0;me.vx=0;me.atk=-1;forgeSel=Math.max(0,FORGE_ITEMS.findIndex((it,i)=>!forgeDone(i)));play('impact',{gain:.14,rate:1.3})}
 function forgeAct(i){if(forgeDone(i)||PARTS.n<forgeCost(i)){play('impact',{gain:.1,rate:.7});forgeDeny=.4;return}
- PARTS.n-=forgeCost(i);const k=FORGE_ITEMS[i].k;if(k==='heart'){UPG.heart++;HP.max=5+UPG.heart;HP.hp=HP.max;HP.slots.forEach(s=>{s.pop=1})}else if(k==='sword')UPG.sword++;else UPG.bat=true;
+ PARTS.n-=forgeCost(i);const k=FORGE_ITEMS[i].k;if(k==='heart'){UPG.heart++;HP.max=5+UPG.heart;HP.hp=HP.max;HP.slots.forEach(s=>{s.pop=1})}else if(k==='sword')UPG.sword++;else UPG[k]=true;
  forgeFlash=1;play('impact',{gain:.32,rate:1.6});setTimeout(()=>play('impact',{gain:.24,rate:1.9}),160);burst(FX,FLOOR-80,14)}
-function forgeHit(x,y){for(let i=0;i<3;i++){const cx=480+(i-1)*204;if(Math.abs(x-cx)<94&&y>172&&y<392)return i}return -1}
+function forgeHit(x,y){for(let i=0;i<4;i++){const cx=480+(i-1.5)*196;if(Math.abs(x-cx)<92&&y>172&&y<392)return i}return -1}
 function forgeKey(e){const k=e.key;
- if(k==='ArrowLeft'||k==='a'||k==='A')forgeSel=(forgeSel+2)%3;else if(k==='ArrowRight'||k==='d'||k==='D')forgeSel=(forgeSel+1)%3;
+ if(k==='ArrowLeft'||k==='a'||k==='A')forgeSel=(forgeSel+3)%4;else if(k==='ArrowRight'||k==='d'||k==='D')forgeSel=(forgeSel+1)%4;
  else if(k==='z'||k==='Z'||k==='Enter'||k===' '){const i=MOUSE.in&&(k==='z'||k==='Z')?forgeHit(MOUSE.x,MOUSE.y):-1;if(i>=0)forgeSel=i;forgeAct(forgeSel)}
  else if(k==='Escape'||k==='e'||k==='E'||k==='x'||k==='X'||k==='Tab')forgeOpen=false;else return;e.preventDefault()}
 function partIcon(c,x,y,r,rot){gearAt(c,x,y,r,6,rot,GS.copper,2);c.beginPath();c.arc(x,y,r*.35,0,TAU);c.fillStyle='#ffe27a';c.fill()}
-function forgeIcon(c,k,x,y,t){c.save();c.translate(x,y);
+function harnessIcon(c,t,s){c.save();c.scale(s,s);c.shadowColor='#b07aff';c.shadowBlur=16+6*Math.sin(t*3);c.lineCap='round';c.lineJoin='round';
+ c.strokeStyle='#3a2342';c.lineWidth=9;c.beginPath();c.moveTo(-16,-30);c.lineTo(14,18);c.moveTo(16,-30);c.lineTo(-14,18);c.moveTo(-20,6);c.lineTo(20,6);c.stroke();
+ c.strokeStyle='#7a4a9a';c.lineWidth=5;c.stroke();c.shadowBlur=0;rrect(c,-9,-3,18,18,4);fillOut(c,lgrad(c,0,-3,0,15,[CL.copH,CL.copD]),2);
+ c.beginPath();c.arc(0,6,4,0,TAU);c.fillStyle='rgba(200,150,255,'+(.6+.4*Math.sin(t*4))+')';c.fill();c.restore()}
+function forgeIcon(c,k,x,y,t){c.save();c.translate(x,y);if(k==='harness'){harnessIcon(c,t,1);c.restore();return}
  if(k==='sword'){c.save();c.rotate(-.75);c.shadowColor='#ffd84a';c.shadowBlur=16;c.beginPath();c.moveTo(-4,-12);c.lineTo(0,-46);c.lineTo(4,-12);c.closePath();c.fillStyle='#ffe9a0';c.fill();c.shadowBlur=0;c.strokeStyle=OUT;c.lineWidth=2;c.stroke();rrect(c,-14,-13,28,6,3);fillOut(c,CL.copL,2);rrect(c,-3,-7,6,22,2);fillOut(c,CL.copD,2);c.restore();
 }
  else if(k==='heart'){headIcon(c,-6,-4,22,{fill:1,flash:0,shake:0,pop:0},t);c.fillStyle='#ffe27a';c.strokeStyle=OUT;c.lineWidth=2;rrect(c,16,-30,18,6,2);c.fill();c.stroke();rrect(c,22,-36,6,18,2);c.fill();c.stroke()}
@@ -753,12 +758,12 @@ function forgeIcon(c,k,x,y,t){c.save();c.translate(x,y);
 let forgeDeny=0;
 function drawForgeMenu(c,t){if(!forgeOpen)return;forgeFlash=Math.max(0,forgeFlash-1/60);forgeDeny=Math.max(0,forgeDeny-1/60);
  c.fillStyle='rgba(8,4,12,.62)';c.fillRect(0,0,WW,HH);
- rrect(c,150,104,660,340,18);c.fillStyle=lgrad(c,0,104,0,444,['#5a2c24','#3a2342','#1c1226']);c.fill();c.strokeStyle=OUT;c.lineWidth=5;c.stroke();rrect(c,158,112,644,324,13);c.strokeStyle=CL.copL;c.lineWidth=2.5;c.stroke();
+ rrect(c,82,104,796,340,18);c.fillStyle=lgrad(c,0,104,0,444,['#5a2c24','#3a2342','#1c1226']);c.fill();c.strokeStyle=OUT;c.lineWidth=5;c.stroke();rrect(c,90,112,780,324,13);c.strokeStyle=CL.copL;c.lineWidth=2.5;c.stroke();
  c.save();c.textAlign='center';c.textBaseline='middle';c.font='700 30px '+SERIF;c.shadowColor='rgba(255,180,90,.8)';c.shadowBlur=16;c.fillStyle='#fff3cf';c.fillText('THE FORGE',480,146);c.restore();
- c.save();partIcon(c,730,146,11,t);c.textAlign='left';c.textBaseline='middle';c.font='600 18px '+SERIF;c.fillStyle=forgeDeny>0?'#ff8a6a':'#fff3cf';c.fillText(PARTS.n,748,147);c.restore();
- FORGE_ITEMS.forEach((it,i)=>{const cx=480+(i-1)*204,on=i===forgeSel,done=forgeDone(i),cost=forgeCost(i),can=!done&&PARTS.n>=cost,y0=176;c.save();
+ c.save();partIcon(c,800,146,11,t);c.textAlign='left';c.textBaseline='middle';c.font='600 18px '+SERIF;c.fillStyle=forgeDeny>0?'#ff8a6a':'#fff3cf';c.fillText(PARTS.n,818,147);c.restore();
+ FORGE_ITEMS.forEach((it,i)=>{const cx=480+(i-1.5)*196,on=i===forgeSel,done=forgeDone(i),cost=forgeCost(i),can=!done&&PARTS.n>=cost,y0=176;c.save();
   if(on&&forgeDeny>0)c.translate(Math.sin(t*70)*4*forgeDeny/.4,0);
-  rrect(c,cx-92,y0,184,214,12);c.fillStyle=on?'rgba(110,52,38,.95)':'rgba(43,29,51,.95)';c.fill();c.strokeStyle=on?'#ffe27a':CL.copD;c.lineWidth=on?3.5:2;if(on){c.shadowColor='#ffd84a';c.shadowBlur=14}c.stroke();c.shadowBlur=0;
+  rrect(c,cx-90,y0,180,214,12);c.fillStyle=on?'rgba(110,52,38,.95)':'rgba(43,29,51,.95)';c.fill();c.strokeStyle=on?'#ffe27a':CL.copD;c.lineWidth=on?3.5:2;if(on){c.shadowColor='#ffd84a';c.shadowBlur=14}c.stroke();c.shadowBlur=0;
   if(done)c.globalAlpha=.55;forgeIcon(c,it.k,cx,y0+60,t);
   c.textAlign='center';c.textBaseline='middle';c.font='600 15px '+SERIF;c.fillStyle='#fff3cf';c.fillText(it.name+(it.max?'  '+UPG[it.k]+'/'+it.max:''),cx,y0+114);
   c.font='italic 600 17px '+SERIF2;c.fillStyle='#f0c898';c.fillText(it.d1,cx,y0+140);c.fillText(it.d2,cx,y0+160);c.globalAlpha=1;
@@ -779,7 +784,8 @@ function drawDrops(c,cam,t){for(const d of DROPS){const x=d.x-cam,y=d.y-10+(d.gr
 function drawParts2(c,t){PARTS.show=Math.max(0,PARTS.show-1/60*1.5);const x0=26,y0=136,s=1+.25*Math.sin(PARTS.show*Math.PI);
  rrect(c,x0,y0,92,30,10);c.fillStyle=lgrad(c,0,y0,0,y0+30,['#8a4a2c','#5a2c24','#3a2342']);c.fill();c.strokeStyle=OUT;c.lineWidth=3.5;c.stroke();
  c.save();c.translate(x0+20,y0+15);c.scale(s,s);partIcon(c,0,0,9,t*.6);c.restore();
- c.save();c.textAlign='left';c.textBaseline='middle';c.font='700 17px '+SERIF;c.fillStyle='#fff3cf';c.fillText(PARTS.n,x0+38,y0+16);c.restore()}
+ c.save();c.textAlign='left';c.textBaseline='middle';c.font='700 17px '+SERIF;c.fillStyle='#fff3cf';c.fillText(PARTS.n,x0+38,y0+16);c.restore();
+ if(UPG.harness){rrect(c,x0+98,y0,34,30,10);c.fillStyle=lgrad(c,0,y0,0,y0+30,['#8a4a2c','#5a2c24','#3a2342']);c.fill();c.strokeStyle=OUT;c.lineWidth=3.5;c.stroke();c.save();c.translate(x0+115,y0+16);harnessIcon(c,t,.42);c.restore()}}
 /* ---- pause: gear button top right (mouse or Tab) ---- */
 let paused=false,pauseSel=1;const PAUSE_BTN={x:WW-46,y:46,r:22};
 function pauseItems(){return ['GO BACK TO MENU','CONTINUE']}
@@ -807,7 +813,7 @@ function musicUpdate(){if(!ac||ac.state!=='running')return;loopStart('mbg');loop
  if(bossOn){if(!loops.mboss)loopStart('mboss');loopGain('mboss',MUS.boss)}else if(loops.mboss){const L=loops.mboss;delete loops.mboss;L.g.gain.setTargetAtTime(0,ac.currentTime,.4);try{L.s.stop(ac.currentTime+2.5)}catch(e){}}}
 function genRoom(safeX){genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
  if(room===BOSS_ROOM){TER=[{x0:0,x1:WORLD,y:FLOOR}];const pl=(x,w,k)=>({x0:x,x1:x+w,y:FLOOR-[96,172][k],cx:x+w/2});PLAT=[pl(360,190,0),pl(1370,190,0),pl(780,200,1)];BUL.length=0;debris.length=0;
-  if(bossBeaten){ENM=[];Object.assign(HUSK,{on:true,x:WORLD/2+190,eye:0,open:1,slump:1,shake:0,jaw:0})}else startCut()}
+  if(bossBeaten){ENM=[];Object.assign(HUSK,{on:true,x:WORLD/2+190,eye:0,open:1,slump:1,shake:0,jaw:0})}else (HUSK.seen?startFight(safeX):startCut())}
  else if(room===FORGE_ROOM){ENM=[];TER=[{x0:0,x1:WORLD,y:FLOOR}];PLAT=PLAT.filter(p=>p.x1<FX-300)}}
 /* ---- intro (your logo), then the main menu ---- */
 const LOGO=new Image();LOGO.src=LOGO_SRC;
@@ -819,7 +825,7 @@ const MENU_GEARS=[[70,618,150,14,1],[300,648,122,11,-1],[540,632,160,13,1],[790,
 const TOP_GEARS=[[170,36,64,12,1],[286,-6,46,9,-1],[672,-8,48,9,1],[790,34,66,12,-1],[900,-4,44,8,1]];
 function menuItems(){return optMode?['SOUND: '+(soundOn?'ON':'OFF'),'BACK']:[SAVE.room===null?'START GAME':'CONTINUE','OPTIONS']}
 function menuSelNow(){return optMode?optSel:menuSel}
-function startGame(){if(SAVE.room===null){UPG.sword=0;UPG.heart=0;UPG.bat=false;HP.max=5;bossBeaten=false;PARTS.n=0}CUT.on=false;HUSK.on=false;forgeOpen=false;DARK.length=0;FLEE.length=0;titleT=-1;darkV=0;shakeT=0;if(SAVE.room===null)SOUL.v=0;me.healT=0;HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0;s.pop=0});me.dead=false;me.inv=0;me.kb=0;me.vx=0;me.vy=0;me.x=960;me.y=FLOOR;me.ground=true;me.atk=-1;cam=0;ENM.length=0;BUL.length=0;const r=SAVE.room===null?0:SAVE.room;me.x=r===0?(SAVE.room===null?960:WALLW+60):80;setRoom(r);if(!CUT.on){me.x=r===0?(SAVE.room===null?960:WALLW+60):80;cam=0}SAVE.room=r;paused=false;DROPS.length=0;SCENE='play';game.focus()}
+function startGame(){if(SAVE.room===null){UPG.sword=0;UPG.heart=0;UPG.bat=false;UPG.harness=false;HP.max=5;bossBeaten=false;PARTS.n=0}CUT.on=false;HUSK.on=false;forgeOpen=false;DARK.length=0;FLEE.length=0;titleT=-1;darkV=0;shakeT=0;if(SAVE.room===null)SOUL.v=0;me.healT=0;HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0;s.pop=0});me.dead=false;me.inv=0;me.kb=0;me.vx=0;me.vy=0;me.x=960;me.y=FLOOR;me.ground=true;me.atk=-1;cam=0;ENM.length=0;BUL.length=0;const r=SAVE.room===null?0:SAVE.room;me.x=r===0?(SAVE.room===null?960:WALLW+60):80;setRoom(r);if(!CUT.on){me.x=r===0?(SAVE.room===null?960:WALLW+60):80;cam=0}SAVE.room=r;paused=false;DROPS.length=0;SCENE='play';game.focus()}
 function menuAct(i){if(!optMode){if(i===0){startFade=flowT}else{optMode=true;optSel=0}}else{if(i===0)document.getElementById('snd').click();else{optMode=false}}}
 function menuKey(e){const k=e.key;let h=true;
  if(SCENE==='logo'){if(flowT>.4)introSkip=flowT;else h=false}
