@@ -202,7 +202,7 @@ function drawHero(c,P){
    round back tank with vents and a blue wind-up key, a thick blue hose, a big copper shoulder plate and a round
    plate (both with a triangle), a chest strap, a coat pocket with a V, and an orange flask with a cork at the back ---- */
 const HARNESS_STYLE={funnel:true};
-const HN={pur:['#6c4a78','#4f3359','#35213e'],purL:'#8a6896',blue:['#a9c0da','#7f9cc0','#5b7aa0','#3c5272'],cop:['#f6b57a','#e0904f','#b8613a','#7d3f28']};
+const HN={pur:['#c27591','#a65a7c','#7e4262'],purL:'#d99ab2',tank:['#b06d8c','#874a6a','#5e2f4a'],blue:['#bdb6d3','#978db2','#776d96','#554b72'],cop:['#f7cba9','#eda98a','#d4826f','#a65c58'],plate:['#c999b2','#a86f8c','#7b4b66'],dark:['#4a2140','#2a1027']};
 function hTri(c,x,y,s,rot){c.save();c.translate(x,y);c.rotate(rot||0);c.beginPath();c.moveTo(-s*.75,-s);c.lineTo(s,0);c.lineTo(-s*.75,s);c.closePath();c.strokeStyle=OUT;c.lineWidth=1.6;c.lineJoin='round';c.stroke();c.restore()}
 function harnessBack(c,P){const OL=2.6,t=P.t||0;
  /* rolled papers sticking up behind the tank */
@@ -216,7 +216,7 @@ function harnessBack(c,P){const OL=2.6,t=P.t||0;
  c.beginPath();c.arc(0,-1.5,7,0,TAU);c.strokeStyle=OUT;c.lineWidth=1.9;c.stroke();
  c.fillStyle='rgba(255,255,255,.85)';c.beginPath();c.ellipse(-3.4,1.4,1.3,2.6,-.6,0,TAU);c.fill();c.restore();
  /* round back tank */
- const tx=-15,ty=33;c.beginPath();c.arc(tx,ty,11.5,0,TAU);fillOut(c,rgrad(c,tx-3,ty+4,1,12,[HN.purL,HN.pur[1],HN.pur[2]]),OL);
+ const tx=-15,ty=33;c.beginPath();c.arc(tx,ty,11.5,0,TAU);fillOut(c,rgrad(c,tx-3,ty+4,1,12,HN.tank),OL);
  c.beginPath();c.arc(tx,ty,11.5,-.35,.9);c.strokeStyle='rgba(255,200,150,.35)';c.lineWidth=1.4;c.stroke();
  c.strokeStyle=OUT;c.lineWidth=2;c.lineCap='round';for(const [x,y] of[[-6,4],[-1,4],[-6,0]]){c.beginPath();c.moveTo(tx+x-2.2,ty+y);c.lineTo(tx+x+1.4,ty+y);c.stroke()}
  c.beginPath();c.arc(tx-1,ty-5,3.2,0,TAU);fillOut(c,HN.cop[2],1.4);
@@ -234,13 +234,13 @@ function harnessBack(c,P){const OL=2.6,t=P.t||0;
  rrect(c,-2.6,-1.6,5.2,5,1.4);fillOut(c,HN.blue[1],1.6);c.restore();}
 function harnessFront(c,P){const OL=2.6;
  /* coat pocket with a V */
- rrect(c,1.6,13.4,8.4,8.6,2);fillOut(c,lgrad(c,0,22,0,13,[HN.pur[2],'#26162d']),1.6);
+ rrect(c,1.6,13.4,8.4,8.6,2);fillOut(c,lgrad(c,0,22,0,13,HN.dark),1.6);
  c.strokeStyle=HN.cop[1];c.lineWidth=1.8;c.lineCap='round';c.lineJoin='round';c.beginPath();c.moveTo(3.6,19.6);c.lineTo(5.8,16);c.lineTo(8,19.6);c.stroke();
  /* chest strap with a copper buckle */
- c.strokeStyle=OUT;c.lineWidth=5.6;c.beginPath();c.moveTo(-6,36);c.lineTo(9.5,24);c.stroke();c.strokeStyle='#3a2342';c.lineWidth=3.4;c.stroke();
+ c.strokeStyle=OUT;c.lineWidth=5.6;c.beginPath();c.moveTo(-6,36);c.lineTo(9.5,24);c.stroke();c.strokeStyle=HN.dark[0];c.lineWidth=3.4;c.stroke();
  rrect(c,-1.4,28.4,4.4,4.4,1);fillOut(c,HN.cop[1],1.3);
  /* round plate with a triangle, behind the shoulder plate */
- c.beginPath();c.arc(-5,38,8,0,TAU);fillOut(c,rgrad(c,-7,40,1,9,['#b88aa0','#8a5e78','#5e3d58']),OL*.85);hTri(c,-5,38,3.4,-.4);
+ c.beginPath();c.arc(-5,38,8,0,TAU);fillOut(c,rgrad(c,-7,40,1,9,HN.plate),OL*.85);hTri(c,-5,38,3.4,-.4);
  /* big copper shoulder plate with a triangle */
  c.save();c.translate(8,33);c.rotate(-.22);
  c.beginPath();c.moveTo(-10,-7);c.lineTo(9,-8.5);c.quadraticCurveTo(13,-8.5,13,-4);c.lineTo(12,7);c.quadraticCurveTo(11.6,10,8,10);c.lineTo(-9,9);c.quadraticCurveTo(-12,9,-12,5);c.lineTo(-12.4,-3.6);c.quadraticCurveTo(-12.4,-7,-10,-7);c.closePath();
@@ -254,7 +254,7 @@ function harnessMask(c,hc){const OL=2.6,[cx,cy]=hc;
  /* copper funnel on top, tilted back (switch off with HARNESS_STYLE.funnel=false) */
  if(HARNESS_STYLE.funnel){c.save();c.translate(cx-1,cy+16);c.rotate(.16);
   c.beginPath();c.moveTo(-9,0);c.lineTo(9,0);c.lineTo(17,14);c.quadraticCurveTo(0,17.5,-19,14);c.closePath();fillOut(c,lgrad(c,-19,0,17,0,[HN.cop[2],HN.cop[1],HN.cop[0],HN.cop[1]]),OL);
-  c.beginPath();c.ellipse(-1,14.6,18.6,3.4,-.04,0,TAU);fillOut(c,lgrad(c,0,11,0,18,[HN.cop[1],'#ffd9a8']),OL*.85);
+  c.beginPath();c.ellipse(-1,14.6,18.6,3.4,-.04,0,TAU);fillOut(c,lgrad(c,0,11,0,18,[HN.cop[1],'#ffe3c8']),OL*.85);
   c.strokeStyle='rgba(42,24,48,.3)';c.lineWidth=1.2;c.beginPath();c.moveTo(-8,2.6);c.lineTo(8,2.6);c.stroke();c.restore()}
  /* tall purple face plate over the front of the glass, with a dark slit */
  c.beginPath();c.moveTo(cx+1,cy-16);c.lineTo(cx+15,cy-15);c.quadraticCurveTo(cx+21,cy-6,cx+20,cy+6);c.lineTo(cx+18,cy+19);c.lineTo(cx+4,cy+21);c.quadraticCurveTo(cx-2,cy+4,cx+1,cy-16);c.closePath();
