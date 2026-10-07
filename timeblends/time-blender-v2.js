@@ -202,7 +202,8 @@ function drawHero(c,P){
    round back tank with vents and a blue wind-up key, a thick blue hose, a big copper shoulder plate and a round
    plate (both with a triangle), a chest strap, a coat pocket with a V, and an orange flask with a cork at the back ---- */
 const HARNESS_STYLE={funnel:true};
-const HN={pur:['#c27591','#a65a7c','#7e4262'],purL:'#d99ab2',tank:['#b06d8c','#874a6a','#5e2f4a'],blue:['#bdb6d3','#978db2','#776d96','#554b72'],cop:['#f7cba9','#eda98a','#d4826f','#a65c58'],plate:['#c999b2','#a86f8c','#7b4b66'],dark:['#4a2140','#2a1027']};
+const HN={armor:['#7d4224','#a35a30','#cf7a42','#eb9556','#f4ab6c'],tank:['#f4ab6c','#cf7a42','#a35a30','#6e3a22'],plate:['#f2a565','#cf7a42','#8a4626'],
+ blue:['#b4c8de','#8aa6c4','#5b7aa0','#3c5272'],cop:['#f7cba9','#eda98a','#d4826f','#a65c58'],leather:'#6e4422',bag:['#8a5e9a','#5e3d6c','#3c2447','#2a1830']};
 function hTri(c,x,y,s,rot){c.save();c.translate(x,y);c.rotate(rot||0);c.beginPath();c.moveTo(-s*.75,-s);c.lineTo(s,0);c.lineTo(-s*.75,s);c.closePath();c.strokeStyle=OUT;c.lineWidth=1.6;c.lineJoin='round';c.stroke();c.restore()}
 function harnessBack(c,P){const OL=2.6,t=P.t||0;
  /* rolled papers sticking up behind the tank */
@@ -216,7 +217,7 @@ function harnessBack(c,P){const OL=2.6,t=P.t||0;
  c.beginPath();c.arc(0,-1.5,7,0,TAU);c.strokeStyle=OUT;c.lineWidth=1.9;c.stroke();
  c.fillStyle='rgba(255,255,255,.85)';c.beginPath();c.ellipse(-3.4,1.4,1.3,2.6,-.6,0,TAU);c.fill();c.restore();
  /* round back tank */
- const tx=-15,ty=33;c.beginPath();c.arc(tx,ty,11.5,0,TAU);fillOut(c,rgrad(c,tx-3,ty+4,1,12,HN.tank),OL);
+ const tx=-15,ty=33;c.beginPath();c.arc(tx,ty,11.5,0,TAU);fillOut(c,rgrad(c,tx-4,ty+5,1,13,HN.tank),OL);
  c.beginPath();c.arc(tx,ty,11.5,-.35,.9);c.strokeStyle='rgba(255,200,150,.35)';c.lineWidth=1.4;c.stroke();
  c.strokeStyle=OUT;c.lineWidth=2;c.lineCap='round';for(const [x,y] of[[-6,4],[-1,4],[-6,0]]){c.beginPath();c.moveTo(tx+x-2.2,ty+y);c.lineTo(tx+x+1.4,ty+y);c.stroke()}
  c.beginPath();c.arc(tx-1,ty-5,3.2,0,TAU);fillOut(c,HN.cop[2],1.4);
@@ -233,33 +234,43 @@ function harnessBack(c,P){const OL=2.6,t=P.t||0;
   c.beginPath();c.ellipse(s*6,2.6,1.6,1.4,0,0,TAU);c.fillStyle=HN.blue[3];c.fill()}
  rrect(c,-2.6,-1.6,5.2,5,1.4);fillOut(c,HN.blue[1],1.6);c.restore();}
 function harnessFront(c,P){const OL=2.6;
- /* coat pocket with a V */
- rrect(c,1.6,13.4,8.4,8.6,2);fillOut(c,lgrad(c,0,22,0,13,HN.dark),1.6);
- c.strokeStyle=HN.cop[1];c.lineWidth=1.8;c.lineCap='round';c.lineJoin='round';c.beginPath();c.moveTo(3.6,19.6);c.lineTo(5.8,16);c.lineTo(8,19.6);c.stroke();
  /* chest strap with a copper buckle */
- c.strokeStyle=OUT;c.lineWidth=5.6;c.beginPath();c.moveTo(-6,36);c.lineTo(9.5,24);c.stroke();c.strokeStyle=HN.dark[0];c.lineWidth=3.4;c.stroke();
+ c.strokeStyle=OUT;c.lineWidth=5.6;c.beginPath();c.moveTo(-6,36);c.lineTo(9.5,24);c.stroke();c.strokeStyle=HN.leather;c.lineWidth=3.4;c.stroke();
  rrect(c,-1.4,28.4,4.4,4.4,1);fillOut(c,HN.cop[1],1.3);
  /* round plate with a triangle, behind the shoulder plate */
- c.beginPath();c.arc(-5,38,8,0,TAU);fillOut(c,rgrad(c,-7,40,1,9,HN.plate),OL*.85);hTri(c,-5,38,3.4,-.4);
+ c.beginPath();c.arc(-5,38,8,0,TAU);fillOut(c,rgrad(c,-7,41,1,10,HN.plate),OL*.85);hTri(c,-5,38,3.4,-.4);
  /* big copper shoulder plate with a triangle */
  c.save();c.translate(8,33);c.rotate(-.22);
  c.beginPath();c.moveTo(-10,-7);c.lineTo(9,-8.5);c.quadraticCurveTo(13,-8.5,13,-4);c.lineTo(12,7);c.quadraticCurveTo(11.6,10,8,10);c.lineTo(-9,9);c.quadraticCurveTo(-12,9,-12,5);c.lineTo(-12.4,-3.6);c.quadraticCurveTo(-12.4,-7,-10,-7);c.closePath();
  fillOut(c,lgrad(c,0,-8.5,0,10,[HN.cop[3],HN.cop[2],HN.cop[1],HN.cop[0]]),OL);
  c.strokeStyle='rgba(255,230,190,.55)';c.lineWidth=1.3;c.beginPath();c.moveTo(-9.6,7.6);c.lineTo(8,8.4);c.stroke();
  c.strokeStyle='rgba(42,24,48,.35)';c.lineWidth=1.1;c.beginPath();c.moveTo(-10.6,-3.4);c.lineTo(11.4,-4.6);c.stroke();
- hTri(c,1,2.4,4,-.25);c.restore()}
+ hTri(c,1,2.4,4,-.25);c.restore();
+ /* purple bag under the arm on a leather strap; it swings a little when running */
+ const t=P.t||0,sw=Math.sin(t*2.1)*.04+Math.sin((P.t||0)*9)*.05*(P.sp||0)+.06*(P.sp||0);
+ c.strokeStyle=OUT;c.lineWidth=3.6;c.lineCap='round';c.beginPath();c.moveTo(11.5,24);c.quadraticCurveTo(14.6,21,14,17);c.stroke();c.strokeStyle=HN.leather;c.lineWidth=1.8;c.stroke();
+ c.save();c.translate(13,22);c.rotate(sw);
+ c.beginPath();c.moveTo(-6.4,-1);c.lineTo(6.6,-1);c.quadraticCurveTo(8.2,-1,8,-3);c.lineTo(7.4,-10.6);c.quadraticCurveTo(7,-12.6,4.8,-12.6);c.lineTo(-4.6,-12.6);c.quadraticCurveTo(-6.8,-12.6,-7,-10.6);c.lineTo(-7.8,-3);c.quadraticCurveTo(-8,-1,-6.4,-1);c.closePath();
+ fillOut(c,lgrad(c,-8,0,8,0,[HN.bag[2],HN.bag[1],HN.bag[0]]),OL*.85);
+ c.fillStyle='rgba(20,8,26,.35)';c.beginPath();c.ellipse(0,-12,6.4,1.4,0,0,TAU);c.fill();
+ /* flap with a copper V, and a bit of light on the top edge */
+ c.beginPath();c.moveTo(-7.2,-1.6);c.lineTo(7.4,-1.6);c.lineTo(6.6,-5.4);c.lineTo(0,-8.6);c.lineTo(-6.6,-5.4);c.closePath();fillOut(c,lgrad(c,0,-8.6,0,-1.6,[HN.bag[2],HN.bag[0]]),1.6);
+ c.strokeStyle='rgba(220,190,235,.5)';c.lineWidth=1;c.beginPath();c.moveTo(-5.6,-2.6);c.lineTo(5.8,-2.6);c.stroke();
+ c.strokeStyle=HN.cop[1];c.lineWidth=1.6;c.lineCap='round';c.lineJoin='round';c.beginPath();c.moveTo(-2.2,-4.4);c.lineTo(0,-7);c.lineTo(2.2,-4.4);c.stroke();
+ c.restore()}
 function harnessMask(c,hc){const OL=2.6,[cx,cy]=hc;
  /* strap round the back of the glass */
- c.strokeStyle=OUT;c.lineWidth=4.4;c.lineCap='round';c.beginPath();c.moveTo(cx+4,cy-6);c.quadraticCurveTo(cx-8,cy-9,cx-16.5,cy-3);c.stroke();c.strokeStyle=HN.pur[1];c.lineWidth=2.6;c.stroke();
+ c.strokeStyle=OUT;c.lineWidth=4.4;c.lineCap='round';c.beginPath();c.moveTo(cx+4,cy-6);c.quadraticCurveTo(cx-8,cy-9,cx-16.5,cy-3);c.stroke();c.strokeStyle=HN.leather;c.lineWidth=2.6;c.stroke();
  /* copper funnel on top, tilted back (switch off with HARNESS_STYLE.funnel=false) */
- if(HARNESS_STYLE.funnel){c.save();c.translate(cx-1,cy+16);c.rotate(.16);
-  c.beginPath();c.moveTo(-9,0);c.lineTo(9,0);c.lineTo(17,14);c.quadraticCurveTo(0,17.5,-19,14);c.closePath();fillOut(c,lgrad(c,-19,0,17,0,[HN.cop[2],HN.cop[1],HN.cop[0],HN.cop[1]]),OL);
-  c.beginPath();c.ellipse(-1,14.6,18.6,3.4,-.04,0,TAU);fillOut(c,lgrad(c,0,11,0,18,[HN.cop[1],'#ffe3c8']),OL*.85);
+ if(HARNESS_STYLE.funnel){c.save();c.translate(cx-2,cy+14);c.rotate(.12);
+  c.beginPath();c.moveTo(-9,0);c.lineTo(9,0);c.lineTo(17,12.6);c.quadraticCurveTo(0,16,-19,12.6);c.closePath();fillOut(c,lgrad(c,-19,0,17,0,[HN.cop[2],HN.cop[1],HN.cop[0],HN.cop[1]]),OL);
+  c.beginPath();c.ellipse(-1,13,18.6,3.2,-.04,0,TAU);fillOut(c,lgrad(c,0,11,0,18,[HN.cop[1],'#ffe3c8']),OL*.85);
   c.strokeStyle='rgba(42,24,48,.3)';c.lineWidth=1.2;c.beginPath();c.moveTo(-8,2.6);c.lineTo(8,2.6);c.stroke();c.restore()}
  /* tall purple face plate over the front of the glass, with a dark slit */
- c.beginPath();c.moveTo(cx+1,cy-16);c.lineTo(cx+15,cy-15);c.quadraticCurveTo(cx+21,cy-6,cx+20,cy+6);c.lineTo(cx+18,cy+19);c.lineTo(cx+4,cy+21);c.quadraticCurveTo(cx-2,cy+4,cx+1,cy-16);c.closePath();
- fillOut(c,lgrad(c,cx,0,cx+21,0,[HN.pur[2],HN.pur[1],HN.pur[0],HN.purL]),OL);
- c.strokeStyle='rgba(220,190,235,.4)';c.lineWidth=1.2;c.beginPath();c.moveTo(cx+18.4,cy+16);c.lineTo(cx+19.4,cy+4);c.stroke();
+ c.beginPath();c.moveTo(cx+1,cy-16);c.lineTo(cx+15,cy-15);c.quadraticCurveTo(cx+21,cy-6,cx+20,cy+6);c.lineTo(cx+19,cy+28.5);c.lineTo(cx+4,cy+29.5);c.quadraticCurveTo(cx-2,cy+6,cx+1,cy-16);c.closePath();
+ fillOut(c,lgrad(c,cx,0,cx+21,0,HN.armor),OL);
+ c.save();c.clip();c.fillStyle=lgrad(c,0,cy-16,0,cy+29,['rgba(70,25,20,.35)','rgba(70,25,20,0)','rgba(255,224,170,.25)']);c.fillRect(cx-4,cy-18,28,50);c.restore();
+ c.strokeStyle='rgba(255,220,170,.6)';c.lineWidth=1.2;c.beginPath();c.moveTo(cx+18.4,cy+25);c.lineTo(cx+19.4,cy+4);c.stroke();
  c.fillStyle='#1c1226';c.beginPath();c.moveTo(cx+6,cy+15);c.lineTo(cx+16,cy+14.4);c.lineTo(cx+15.6,cy+11.4);c.lineTo(cx+13.4,cy+11.4);c.lineTo(cx+13,cy-3);c.lineTo(cx+10.4,cy-3);c.lineTo(cx+10.8,cy+11.6);c.lineTo(cx+6,cy+12);c.closePath();c.fill();
  c.beginPath();rrect(c,cx+6.4,cy+1,2.2,8,1);c.fill();
  c.fillStyle='rgba(255,226,140,.7)';c.fillRect(cx+11.2,cy+.5,1.4,9);
