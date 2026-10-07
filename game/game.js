@@ -756,11 +756,11 @@ function updateBrushMoves(dt) {
   }
 }
 
-// --- Level 3: 35 kills call the boss ------------------------------------------------
+// --- Level 3: 25 kills call the boss ------------------------------------------------
 // The boss is a fat white man in a black suit with a red tie. He walks around the map, and when he
 // sees you (in range, and not through a platform) he runs at you, 10% slower than you. 125 hits take him down.
 // Every attack of his, and touching him, takes 1.5 hearts. No time limit, and nothing gets painted in this level.
-const BOSS_LEVEL = 3, BOSS_KILLS = 35;
+const BOSS_LEVEL = 3, BOSS_KILLS = 25;
 const BOSS_W = 116, BOSS_H = 180, BOSS_HP = 125, BOSS_DMG = 1.5;
 const BOSS_JUMP_V = Math.sqrt(2 * GRAVITY_UP * 275);         // jumps up through platforms from below
 const BOSS_SIGHT = 640, BOSS_WALK = 0.65, BOSS_RUN = 0.9;      // sight range (px); walking around: 35% slower than you, running at you: 10% slower than you
@@ -1765,7 +1765,7 @@ function drawCards(dt) {
 const LEVEL_INFO = {
   1: 'Paint the whole map green by defeating enemies. Yellow and red guards.',
   2: 'Same map, but subject 394 hunts you down. He follows you and takes 2 hearts.',
-  3: 'A blue guard hangs from the ceiling and grabs at you: watch the red target. Defeat 35 enemies to call the boss. Nothing gets painted. Or press BOSS.',
+  3: 'A blue guard hangs from the ceiling and grabs at you: watch the red target. Defeat 25 enemies to call the boss. Nothing gets painted. Or press BOSS.',
 };
 const LV_TILE = { w: 300, h: 330, gap: 70, y: 128 };
 function levelsLayout() {
