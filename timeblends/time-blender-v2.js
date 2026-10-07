@@ -198,24 +198,75 @@ function drawHero(c,P){
  heroHead(c,P,OL);
  c.restore()}
 
-/* ---- the harness (unchanged design): gas mask, back tank with a wind-up key, a hose, a shoulder plate and a small flask ---- */
+/* ---- the harness, after the right-hand drawing: funnel, purple face plate with a slit and a copper horn,
+   round back tank with vents and a blue wind-up key, a thick blue hose, a big copper shoulder plate and a round
+   plate (both with a triangle), a chest strap, a coat pocket with a V, and an orange flask with a cork at the back ---- */
+const HARNESS_STYLE={funnel:true};
+const HN={pur:['#6c4a78','#4f3359','#35213e'],purL:'#8a6896',blue:['#a9c0da','#7f9cc0','#5b7aa0','#3c5272'],cop:['#f6b57a','#e0904f','#b8613a','#7d3f28']};
+function hTri(c,x,y,s,rot){c.save();c.translate(x,y);c.rotate(rot||0);c.beginPath();c.moveTo(-s*.75,-s);c.lineTo(s,0);c.lineTo(-s*.75,s);c.closePath();c.strokeStyle=OUT;c.lineWidth=1.6;c.lineJoin='round';c.stroke();c.restore()}
 function harnessBack(c,P){const OL=2.6,t=P.t||0;
- c.lineCap='round';c.strokeStyle=OUT;c.lineWidth=7;c.beginPath();c.moveTo(-12,40);c.bezierCurveTo(-14,54,4,52,10,47);c.stroke();c.strokeStyle='#7f9cc0';c.lineWidth=4.2;c.stroke();
- c.strokeStyle='rgba(42,24,48,.45)';c.lineWidth=1.2;for(let k=1;k<5;k++){const u=k/5,bx=(1-u)**3*-12+3*(1-u)**2*u*-14+3*(1-u)*u*u*4+u**3*10,by=(1-u)**3*40+3*(1-u)**2*u*54+3*(1-u)*u*u*52+u**3*47;c.beginPath();c.arc(bx,by,2.2,0,TAU);c.stroke()}
- rrect(c,-21,18,15,25,6);fillOut(c,lgrad(c,-21,0,-6,0,['#3a2342','#5a3a62','#3a2342']),OL);
- for(const y of[23,36]){c.fillStyle=HC.cop;c.fillRect(-21,y,15,3.2);c.strokeStyle=OUT;c.lineWidth=1.2;c.strokeRect(-21,y,15,3.2)}
- const kw=Math.cos(t*2.2);c.save();c.translate(-22,30);c.strokeStyle=OUT;c.lineWidth=3.4;c.beginPath();c.moveTo(0,0);c.lineTo(-5,0);c.stroke();c.strokeStyle='#7f9cc0';c.lineWidth=2;c.stroke();
- c.translate(-7,0);c.scale(1,Math.max(.18,Math.abs(kw)));for(const s of[1,-1]){c.beginPath();c.ellipse(-1,s*4.4,3.2,4.2,0,0,TAU);fillOut(c,s*kw>0?'#9ab6d2':'#6a88ae',1.6)}c.restore()}
+ /* rolled papers sticking up behind the tank */
+ c.save();c.translate(-19,40);c.rotate(.35);rrect(c,-3,-4,6,14,1.5);fillOut(c,lgrad(c,-3,0,3,0,['#d9cfae','#fbf4dc']),1.5);c.restore();
+ /* orange flask with a cork, hanging low on the back */
+ c.save();c.translate(-19,14);c.rotate(.55);
+ rrect(c,-2.6,4,5.2,6,1.2);fillOut(c,lgrad(c,-3,0,3,0,['#c3d6d0','#f4faf6']),1.4);
+ rrect(c,-2.2,9,4.4,3.6,1.2);fillOut(c,lgrad(c,0,9,0,12.6,['#8a5a2a','#c48a52']),1.3);
+ c.beginPath();c.arc(0,-1.5,7,0,TAU);c.fillStyle='rgba(225,240,240,.92)';c.fill();c.save();c.clip();c.fillStyle=lgrad(c,0,-1,0,-8.5,['#f6b25a','#e07a2c']);c.fillRect(-8,-9,16,7.6);
+ c.fillStyle='rgba(255,255,255,.75)';c.beginPath();c.arc(-2.5,-4.5,1,0,TAU);c.arc(1.5,-6,.7,0,TAU);c.fill();c.restore();
+ c.beginPath();c.arc(0,-1.5,7,0,TAU);c.strokeStyle=OUT;c.lineWidth=1.9;c.stroke();
+ c.fillStyle='rgba(255,255,255,.85)';c.beginPath();c.ellipse(-3.4,1.4,1.3,2.6,-.6,0,TAU);c.fill();c.restore();
+ /* round back tank */
+ const tx=-15,ty=33;c.beginPath();c.arc(tx,ty,11.5,0,TAU);fillOut(c,rgrad(c,tx-3,ty+4,1,12,[HN.purL,HN.pur[1],HN.pur[2]]),OL);
+ c.beginPath();c.arc(tx,ty,11.5,-.35,.9);c.strokeStyle='rgba(255,200,150,.35)';c.lineWidth=1.4;c.stroke();
+ c.strokeStyle=OUT;c.lineWidth=2;c.lineCap='round';for(const [x,y] of[[-6,4],[-1,4],[-6,0]]){c.beginPath();c.moveTo(tx+x-2.2,ty+y);c.lineTo(tx+x+1.4,ty+y);c.stroke()}
+ c.beginPath();c.arc(tx-1,ty-5,3.2,0,TAU);fillOut(c,HN.cop[2],1.4);
+ /* thick ribbed blue hose from the tank up over the shoulder */
+ const hose=[[-21,39],[-33,52],[-20,68],[-8,60]],bz=u=>{const m=1-u;return[m*m*m*hose[0][0]+3*m*m*u*hose[1][0]+3*m*u*u*hose[2][0]+u*u*u*hose[3][0],m*m*m*hose[0][1]+3*m*m*u*hose[1][1]+3*m*u*u*hose[2][1]+u*u*u*hose[3][1]]};
+ c.lineCap='round';c.strokeStyle=OUT;c.lineWidth=9.5;c.beginPath();c.moveTo(...hose[0]);c.bezierCurveTo(...hose[1],...hose[2],...hose[3]);c.stroke();
+ c.strokeStyle=HN.blue[2];c.lineWidth=6.4;c.stroke();c.strokeStyle=HN.blue[0];c.lineWidth=2;c.globalAlpha=.7;c.beginPath();c.moveTo(-21.6,40);c.bezierCurveTo(-32.4,52.6,-19.6,67.4,-8.4,60.6);c.stroke();c.globalAlpha=1;
+ c.strokeStyle='rgba(42,24,48,.55)';c.lineWidth=1.1;for(let k=1;k<8;k++){const [x,y]=bz(k/8),[x2,y2]=bz(k/8+.01),a=Math.atan2(y2-y,x2-x)+Math.PI/2;c.beginPath();c.moveTo(x-Math.cos(a)*3.1,y-Math.sin(a)*3.1);c.lineTo(x+Math.cos(a)*3.1,y+Math.sin(a)*3.1);c.stroke()}
+ /* blue wind-up key on top of the tank, slowly turning */
+ const kw=Math.cos(t*2.2);c.save();c.translate(tx-9,ty+4);c.rotate(1.05);
+ c.strokeStyle=OUT;c.lineWidth=5;c.beginPath();c.moveTo(0,0);c.lineTo(0,7);c.stroke();c.strokeStyle=HN.blue[1];c.lineWidth=3;c.stroke();
+ c.translate(0,9);c.scale(Math.max(.2,Math.abs(kw)),1);
+ for(const s of[1,-1]){c.beginPath();c.ellipse(s*5.4,2.2,5,4.4,s*.35,0,TAU);fillOut(c,lgrad(c,0,-3,0,7,s*kw>0?[HN.blue[0],HN.blue[1]]:[HN.blue[1],HN.blue[2]]),1.8);
+  c.beginPath();c.ellipse(s*6,2.6,1.6,1.4,0,0,TAU);c.fillStyle=HN.blue[3];c.fill()}
+ rrect(c,-2.6,-1.6,5.2,5,1.4);fillOut(c,HN.blue[1],1.6);c.restore();}
 function harnessFront(c,P){const OL=2.6;
- c.save();c.translate(-3,17);c.rotate(.15);rrect(c,-4,-5,8,10,3.5);c.fillStyle='rgba(220,240,255,.85)';c.fill();c.save();c.clip();c.fillStyle='#ffd84a';c.fillRect(-4,-5,8,6);c.restore();rrect(c,-4,-5,8,10,3.5);c.strokeStyle=OUT;c.lineWidth=1.6;c.stroke();rrect(c,-2,4.5,4,3,1);fillOut(c,HC.copD,1.2);c.restore();
- c.save();c.translate(4,40);c.rotate(-.2);rrect(c,-8,-6,16,11,4);fillOut(c,lgrad(c,0,5,0,-6,[HC.copD,HC.cop,'#f0a868']),OL*.8);c.fillStyle=OUT;c.beginPath();c.moveTo(-2,-2);c.lineTo(2,-2);c.lineTo(0,2);c.closePath();c.fill();c.restore()}
-function harnessMask(c,hc){const OL=2.6;
- c.strokeStyle=OUT;c.lineWidth=3.6;c.beginPath();c.moveTo(6,64);c.quadraticCurveTo(-6,70,-15,63);c.stroke();c.strokeStyle='#5a3a62';c.lineWidth=2;c.stroke();
- c.beginPath();c.moveTo(5,70);c.lineTo(15,69);c.quadraticCurveTo(22,64,22,55);c.lineTo(19,45);c.lineTo(8,43);c.quadraticCurveTo(1,54,5,70);c.closePath();
- fillOut(c,lgrad(c,4,0,22,0,['#3a2342','#5a3a62','#6a4a72']),OL);
- c.fillStyle='#1c1226';rrect(c,11,57,8,3,1.2);c.fill();rrect(c,14,49,3,9,1.2);c.fill();
- c.fillStyle='rgba(255,226,140,.8)';c.fillRect(12,57.8,6,1.2);
- c.save();c.translate(21,47);c.beginPath();c.ellipse(0,0,5.4,6,.3,0,TAU);fillOut(c,lgrad(c,0,-6,0,6,['#f0a868',HC.cop,HC.copD]),2);c.strokeStyle='rgba(42,24,48,.7)';c.lineWidth=1.2;for(const d of[-2,0,2]){c.beginPath();c.moveTo(d-1.5,-3.2);c.lineTo(d+1.5,3.2);c.stroke()}c.restore()}
+ /* coat pocket with a V */
+ rrect(c,1.6,13.4,8.4,8.6,2);fillOut(c,lgrad(c,0,22,0,13,[HN.pur[2],'#26162d']),1.6);
+ c.strokeStyle=HN.cop[1];c.lineWidth=1.8;c.lineCap='round';c.lineJoin='round';c.beginPath();c.moveTo(3.6,19.6);c.lineTo(5.8,16);c.lineTo(8,19.6);c.stroke();
+ /* chest strap with a copper buckle */
+ c.strokeStyle=OUT;c.lineWidth=5.6;c.beginPath();c.moveTo(-6,36);c.lineTo(9.5,24);c.stroke();c.strokeStyle='#3a2342';c.lineWidth=3.4;c.stroke();
+ rrect(c,-1.4,28.4,4.4,4.4,1);fillOut(c,HN.cop[1],1.3);
+ /* round plate with a triangle, behind the shoulder plate */
+ c.beginPath();c.arc(-5,38,8,0,TAU);fillOut(c,rgrad(c,-7,40,1,9,['#b88aa0','#8a5e78','#5e3d58']),OL*.85);hTri(c,-5,38,3.4,-.4);
+ /* big copper shoulder plate with a triangle */
+ c.save();c.translate(8,33);c.rotate(-.22);
+ c.beginPath();c.moveTo(-10,-7);c.lineTo(9,-8.5);c.quadraticCurveTo(13,-8.5,13,-4);c.lineTo(12,7);c.quadraticCurveTo(11.6,10,8,10);c.lineTo(-9,9);c.quadraticCurveTo(-12,9,-12,5);c.lineTo(-12.4,-3.6);c.quadraticCurveTo(-12.4,-7,-10,-7);c.closePath();
+ fillOut(c,lgrad(c,0,-8.5,0,10,[HN.cop[3],HN.cop[2],HN.cop[1],HN.cop[0]]),OL);
+ c.strokeStyle='rgba(255,230,190,.55)';c.lineWidth=1.3;c.beginPath();c.moveTo(-9.6,7.6);c.lineTo(8,8.4);c.stroke();
+ c.strokeStyle='rgba(42,24,48,.35)';c.lineWidth=1.1;c.beginPath();c.moveTo(-10.6,-3.4);c.lineTo(11.4,-4.6);c.stroke();
+ hTri(c,1,2.4,4,-.25);c.restore()}
+function harnessMask(c,hc){const OL=2.6,[cx,cy]=hc;
+ /* strap round the back of the glass */
+ c.strokeStyle=OUT;c.lineWidth=4.4;c.lineCap='round';c.beginPath();c.moveTo(cx+4,cy-6);c.quadraticCurveTo(cx-8,cy-9,cx-16.5,cy-3);c.stroke();c.strokeStyle=HN.pur[1];c.lineWidth=2.6;c.stroke();
+ /* copper funnel on top, tilted back (switch off with HARNESS_STYLE.funnel=false) */
+ if(HARNESS_STYLE.funnel){c.save();c.translate(cx-1,cy+16);c.rotate(.16);
+  c.beginPath();c.moveTo(-9,0);c.lineTo(9,0);c.lineTo(17,14);c.quadraticCurveTo(0,17.5,-19,14);c.closePath();fillOut(c,lgrad(c,-19,0,17,0,[HN.cop[2],HN.cop[1],HN.cop[0],HN.cop[1]]),OL);
+  c.beginPath();c.ellipse(-1,14.6,18.6,3.4,-.04,0,TAU);fillOut(c,lgrad(c,0,11,0,18,[HN.cop[1],'#ffd9a8']),OL*.85);
+  c.strokeStyle='rgba(42,24,48,.3)';c.lineWidth=1.2;c.beginPath();c.moveTo(-8,2.6);c.lineTo(8,2.6);c.stroke();c.restore()}
+ /* tall purple face plate over the front of the glass, with a dark slit */
+ c.beginPath();c.moveTo(cx+1,cy-16);c.lineTo(cx+15,cy-15);c.quadraticCurveTo(cx+21,cy-6,cx+20,cy+6);c.lineTo(cx+18,cy+19);c.lineTo(cx+4,cy+21);c.quadraticCurveTo(cx-2,cy+4,cx+1,cy-16);c.closePath();
+ fillOut(c,lgrad(c,cx,0,cx+21,0,[HN.pur[2],HN.pur[1],HN.pur[0],HN.purL]),OL);
+ c.strokeStyle='rgba(220,190,235,.4)';c.lineWidth=1.2;c.beginPath();c.moveTo(cx+18.4,cy+16);c.lineTo(cx+19.4,cy+4);c.stroke();
+ c.fillStyle='#1c1226';c.beginPath();c.moveTo(cx+6,cy+15);c.lineTo(cx+16,cy+14.4);c.lineTo(cx+15.6,cy+11.4);c.lineTo(cx+13.4,cy+11.4);c.lineTo(cx+13,cy-3);c.lineTo(cx+10.4,cy-3);c.lineTo(cx+10.8,cy+11.6);c.lineTo(cx+6,cy+12);c.closePath();c.fill();
+ c.beginPath();rrect(c,cx+6.4,cy+1,2.2,8,1);c.fill();
+ c.fillStyle='rgba(255,226,140,.7)';c.fillRect(cx+11.2,cy+.5,1.4,9);
+ /* copper horn at the lower front of the plate */
+ c.save();c.translate(cx+17,cy-10);c.rotate(-.55);
+ c.beginPath();c.moveTo(-3,-3.4);c.lineTo(-3,3.4);c.lineTo(8,7);c.lineTo(8,-7);c.closePath();fillOut(c,lgrad(c,0,-7,0,7,[HN.cop[0],HN.cop[1],HN.cop[2]]),OL*.85);
+ c.beginPath();c.ellipse(8,0,2.6,7,0,0,TAU);fillOut(c,lgrad(c,6,0,10,0,[HN.cop[2],HN.cop[1]]),1.6);c.beginPath();c.ellipse(8.3,0,1.3,4.8,0,0,TAU);c.fillStyle='#2a1830';c.fill();c.restore()}
 
 /* ---- the rune aura (unchanged): a shield outline with two stacked chevrons; it draws itself (p 0..1) and fades (a) ---- */
 const RUNE=[[[-.8,-.45],[-.8,-.7],[0,-1],[.8,-.7],[.8,.2],[0,1],[-.8,.2],[-.8,-.1]],[[-.45,-.38],[0,.02],[.45,-.38]],[[-.45,.06],[0,.46],[.45,.06]]];

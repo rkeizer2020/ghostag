@@ -72,9 +72,10 @@ code{font-family:var(--body)}
   <label for="zoom">Grootte
    <select id="zoom"><option value="0.82">Zoals in het spel (0,82)</option><option value="1.75">Voorbeeld (1,75)</option><option value="2.6" selected>Dichtbij (2,6)</option></select></label>
   <label for="hp">Hoofdjes <input id="hp" type="range" min="0" max="5" step="1" value="5"> <output id="hpv">5</output></label>
-  <label for="harness"><input id="harness" type="checkbox"> Harnas</label>
+  <label for="harness"><input id="harness" type="checkbox" checked> Harnas</label>
   <label for="marks"><input id="marks" type="checkbox" checked> Maatstreepjes</label>
   <label for="rim"><input id="rim" type="checkbox" checked> Koperen rand</label>
+  <label for="funnel"><input id="funnel" type="checkbox" checked> Trechter (harnas)</label>
   <button id="pause" class="ghost" type="button" aria-pressed="false">Pauzeer</button>
  </div>
 </section>
@@ -91,7 +92,7 @@ code{font-family:var(--body)}
   <div class="card"><canvas data-a="hurt"></canvas><b>Geraakt</b><small>Deinst kort terug, het glas flitst wit met een barstje en de vloeistof spat.</small><code>hurt 1 → 0</code></div>
   <div class="card"><canvas data-a="ko"></canvas><b>Knock-out</b><small>Zakt in elkaar met het hoofd naar voren. De vloeistof is bijna weg en het licht gaat uit.</small><code>'ko' of ko 0..1</code></div>
   <div class="card"><canvas data-a="fill"></canvas><b>Vloeistof = levens</b><small>Het niveau in de kop volgt je hoofdjes. Elke klap laat iets weglekken.</small><code>fill: HP.hp / HP.max</code></div>
-  <div class="card"><canvas data-a="harness"></canvas><b>Met harnas</b><small>Je eigen harnas uit de forge (masker, tank en sleutel) past nog steeds op het nieuwe lichaam.</small><code>UPG.harness</code></div>
+  <div class="card"><canvas data-a="harness"></canvas><b>Met harnas</b><small>Naar het rechterdeel van je tekening: trechter, paarse gezichtsplaat met spleet en koperen hoorn, ronde tank met blauwe opwindsleutel, dikke slang, grote koperen schouderplaat, flesje en zak met V.</small><code>UPG.harness</code></div>
  </div>
 </section>
 
@@ -118,7 +119,7 @@ code{font-family:var(--body)}
 </script>
 <script>
 (()=>{
-window.UPG={harness:false};
+window.UPG={harness:true};
 const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 let paused=RM;const pauseBtn=document.getElementById('pause');
 const setPause=v=>{paused=v;pauseBtn.textContent=v?'Speel af':'Pauzeer';pauseBtn.setAttribute('aria-pressed',String(v))};setPause(paused);
@@ -161,6 +162,7 @@ const setHp=v=>{me.hp=clamp(v,0,5);hpIn.value=me.hp;hpOut.textContent=me.hp};hpI
 document.getElementById('harness').onchange=e=>{UPG.harness=e.target.checked};
 document.getElementById('marks').onchange=e=>{HERO_STYLE.marks=e.target.checked};
 document.getElementById('rim').onchange=e=>{HERO_STYLE.rim=e.target.checked};
+document.getElementById('funnel').onchange=e=>{HARNESS_STYLE.funnel=e.target.checked};
 const K=e=>e.key.length==1?e.key.toLowerCase():e.key;
 cv.addEventListener('keydown',e=>{const k=K(e);if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k))e.preventDefault();if(e.repeat)return;keys[k]=true;
  if(k=='z'||k=='Shift')attack();if(k=='h')hit();if(k=='k'){me.koOn=!me.koOn;if(!me.koOn&&me.hp<=0)setHp(5)}if((k==' '||k=='ArrowUp'||k=='w'))jump()});
@@ -217,7 +219,7 @@ function cards(dt){if(!paused)ct+=dt;const t=ct,S=1.75,X=150,Y=222;
   backdrop(c,300,250,Y+4,t,scroll);
   shadow(c,X,Y+5,k.a=='jump'?34-(Y-y)*.2:34,.45);
   const P=poseFor(st,o);if(!paused)k.aura.tick(c,dt,P,X,y,1,S,false);
-  const prev=UPG.harness;UPG.harness=harness||prev;heroDraw(c,X,y,1,P,0,P.squash,S);UPG.harness=prev;
+  const prev=UPG.harness;UPG.harness=harness;heroDraw(c,X,y,1,P,0,P.squash,S);UPG.harness=prev;
   if(extra)extra(c)}}
 
 /* ---------- hand-off text and copy buttons ---------- */
@@ -231,14 +233,16 @@ WAT ER NIEUW IS
 - Zwaard: alleen het gouden handvat, met omwikkeld gevest, gekrulde pareerstang en een knop van tijdvloeistof. Het flitst bij een slag.
 - Slash: dezelfde halvemaan (60% van een cirkel), nu met een witte kern, een zachte gloed en vonken.
 - Nieuwe animaties: genezen (gloed en bruisen), geraakt (terugdeinzen, witte flits, barstje), knock-out (inzakken, licht uit) en een vloeistofniveau dat je hoofdjes volgt.
-- Runen-aura en harnas zijn onveranderd en passen nog.
+- Harnas (upgrade uit de forge) is opnieuw getekend naar het rechterdeel van mijn tekening: koperen trechter bovenop, paarse gezichtsplaat met donkere spleet en een koperen hoorn, ronde paarse tank met ventilatiestreepjes en een draaiende blauwe opwindsleutel, een dikke geribbelde blauwe slang over de rug, een grote koperen schouderplaat en een ronde plaat (allebei met een driehoek), een borstriem met gesp, een zak met een V op de rok, een rond flesje met oranje vloeistof en kurk, en opgerolde papiertjes achter de tank. De trechter kan uit met HARNESS_STYLE.funnel=false.
+- Het harnas-icoon in de forge en in de HUD is nog het oude gasmasker. Pas dat eventueel aan zodat het bij het nieuwe harnas past.
+- De runen-aura is onveranderd.
 
 INBOUWEN
 1. Vervang in demo/time-blender-demo.html alles vanaf de regel
    /* ===== Time Blender, posed like the Knight in the video ...
    tot vlak vóór
    /* ===== Fifteen smooth 2D factory rooms ...
-   door de code hieronder. Alle namen blijven gelijk (TAU, OUT, HC, lerp, clamp, ease, ik, limb, lgrad, rrect, fillOut, hiltPos, drawHero, harnessBack/Front/Mask, RUNE, drawCurl, poseFor, slashFx), dus de rest van het spel blijft werken. Nieuw zijn HERO_STYLE, rgrad, wob en de hero*-tekenfuncties.
+   door de code hieronder. Alle namen blijven gelijk (TAU, OUT, HC, lerp, clamp, ease, ik, limb, lgrad, rrect, fillOut, hiltPos, drawHero, harnessBack/Front/Mask, RUNE, drawCurl, poseFor, slashFx), dus de rest van het spel blijft werken. Nieuw zijn HERO_STYLE, HARNESS_STYLE, HN, hTri, rgrad, wob en de hero*-tekenfuncties.
 2. Verderop staat nog een oude function heroDraw. Die doet precies hetzelfde als de nieuwe en mag blijven staan of weg.
 3. Optioneel, voor de nieuwe animaties: vervang in de render-loop de regel met poseFor door:
    const st=stateNow(),atkP=me.atk>=0?me.atk/26:-1,P=poseFor(me.dead?'ko':st,{ph:me.ph,t:clock,speed:me.speed,atk:atkP,heal:me.healT>0?me.healT/1.5:0,hurt:me.inv>56?(me.inv-56)/24:0,fill:HP.hp/HP.max});
