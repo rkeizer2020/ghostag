@@ -392,10 +392,10 @@ function harnessMask(c,hc){const OL=2.6,[cx,cy]=hc;
  c.fillStyle='#1c1226';c.beginPath();c.moveTo(cx+6,cy+15);c.lineTo(cx+16,cy+14.4);c.lineTo(cx+15.6,cy+11.4);c.lineTo(cx+13.4,cy+11.4);c.lineTo(cx+13,cy-3);c.lineTo(cx+10.4,cy-3);c.lineTo(cx+10.8,cy+11.6);c.lineTo(cx+6,cy+12);c.closePath();c.fill();
  c.beginPath();rrect(c,cx+6.4,cy+1,2.2,8,1);c.fill();
  c.fillStyle='rgba(255,226,140,.7)';c.fillRect(cx+11.2,cy+.5,1.4,9);
- /* copper horn at the lower front of the plate */
- c.save();c.translate(cx+17,cy-10);c.rotate(-.55);
- c.beginPath();c.moveTo(-3,-3.4);c.lineTo(-3,3.4);c.lineTo(8,7);c.lineTo(8,-7);c.closePath();fillOut(c,lgrad(c,0,-7,0,7,[HN.cop[0],HN.cop[1],HN.cop[2]]),OL*.85);
- c.beginPath();c.ellipse(8,0,2.6,7,0,0,TAU);fillOut(c,lgrad(c,6,0,10,0,[HN.cop[2],HN.cop[1]]),1.6);c.beginPath();c.ellipse(8.3,0,1.3,4.8,0,0,TAU);c.fillStyle='#2a1830';c.fill();c.restore()}
+ /* mouth: a flat copper circle sitting on the lower part of the plate, with a dark round opening */
+ {const mx=cx+12,my=cy-8.5;c.beginPath();c.arc(mx,my,4.8,0,TAU);fillOut(c,lgrad(c,0,my-4.8,0,my+4.8,[HN.cop[2],HN.cop[1],HN.cop[0]]),OL*.75);
+  c.beginPath();c.arc(mx,my,2.4,0,TAU);c.fillStyle='#2a1830';c.fill();
+  c.strokeStyle='rgba(255,236,210,.7)';c.lineWidth=1;c.beginPath();c.arc(mx,my,3.7,1.9,2.9);c.stroke()}}
 
 /* ---- the rune aura (unchanged): a shield outline with two stacked chevrons; it draws itself (p 0..1) and fades (a) ---- */
 const RUNE=[[[-.8,-.45],[-.8,-.7],[0,-1],[.8,-.7],[.8,.2],[0,1],[-.8,.2],[-.8,-.1]],[[-.45,-.38],[0,.02],[.45,-.38]],[[-.45,.06],[0,.46],[.45,.06]]];
@@ -589,7 +589,7 @@ WAT ER NIEUW IS
 - Zwaard: alleen het gouden handvat, met omwikkeld gevest, gekrulde pareerstang en een knop van tijdvloeistof. Het flitst bij een slag.
 - Slash: dezelfde halvemaan (60% van een cirkel), nu met een witte kern, een zachte gloed en vonken.
 - Nieuwe animaties: genezen (gloed en bruisen), geraakt (terugdeinzen, witte flits, barstje), knock-out (inzakken, licht uit) en een vloeistofniveau dat je hoofdjes volgt.
-- Harnas (upgrade uit de forge) is opnieuw getekend naar het rechterdeel van mijn tekening: een platte koperen hoed die plat bovenop het glas ligt (op dezelfde plek als eerst); hij loopt naar achteren maar steekt niet verder uit dan de achterkant van het hoofd, zijn voorkant verdwijnt onder de achterrand van de gezichtsplaat en de bovenkant van de hoed ligt gelijk met de bovenkant van het masker; gezichtsplaat met donkere spleet, ronde tank en ronde plaat in het brons van de cape (met licht en schaduw); een koperen hoorn; een draaiende leisteenblauwe opwindsleutel; een dikke geribbelde blauwe slang over de rug; een grote koperen schouderplaat met driehoek; een rond flesje met oranje vloeistof en kurk; opgerolde papiertjes achter de tank; en een PAARS tasje met koperen V; de leren riem loopt van de voorste schouder schuin over de borst naar achteren, en het tasje hangt achter onder de bovenarm (vóór de tank en cape, dus zichtbaar). Het zwaait naar achter als hij rent. Alleen het tasje is paars. De hoed kan uit met HARNESS_STYLE.funnel=false.
+- Harnas (upgrade uit de forge) is opnieuw getekend naar het rechterdeel van mijn tekening: een platte koperen hoed die plat bovenop het glas ligt (op dezelfde plek als eerst); hij loopt naar achteren maar steekt niet verder uit dan de achterkant van het hoofd, zijn voorkant verdwijnt onder de achterrand van de gezichtsplaat en de bovenkant van de hoed ligt gelijk met de bovenkant van het masker; gezichtsplaat met donkere spleet en een ronde koperen mond die plat op het masker zit, ronde tank en ronde plaat in het brons van de cape (met licht en schaduw); een draaiende leisteenblauwe opwindsleutel; een dikke geribbelde blauwe slang over de rug; een grote koperen schouderplaat met driehoek; een rond flesje met oranje vloeistof en kurk; opgerolde papiertjes achter de tank; en een PAARS tasje met koperen V; de leren riem loopt van de voorste schouder schuin over de borst naar achteren, en het tasje hangt achter onder de bovenarm (vóór de tank en cape, dus zichtbaar). Het zwaait naar achter als hij rent. Alleen het tasje is paars. De hoed kan uit met HARNESS_STYLE.funnel=false.
 - Het harnas-icoon in de forge en in de HUD is nog het oude gasmasker. Pas dat eventueel aan zodat het bij het nieuwe harnas past.
 - De runen-aura is onveranderd.
 
