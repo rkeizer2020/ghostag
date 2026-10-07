@@ -201,7 +201,7 @@ function drawHero(c,P){
 /* ---- the harness, after the right-hand drawing: funnel, purple face plate with a slit and a copper horn,
    round back tank with vents and a blue wind-up key, a thick blue hose, a big copper shoulder plate and a round
    plate (both with a triangle), a chest strap, a coat pocket with a V, and an orange flask with a cork at the back ---- */
-const HARNESS_STYLE={funnel:true};
+const HARNESS_STYLE={funnel:true}; /* funnel = the flat copper hat */
 const HN={armor:['#7d4224','#a35a30','#cf7a42','#eb9556','#f4ab6c'],tank:['#f4ab6c','#cf7a42','#a35a30','#6e3a22'],plate:['#f2a565','#cf7a42','#8a4626'],
  blue:['#b4c8de','#8aa6c4','#5b7aa0','#3c5272'],cop:['#f7cba9','#eda98a','#d4826f','#a65c58'],leather:'#6e4422',bag:['#8a5e9a','#5e3d6c','#3c2447','#2a1830']};
 function hTri(c,x,y,s,rot){c.save();c.translate(x,y);c.rotate(rot||0);c.beginPath();c.moveTo(-s*.75,-s);c.lineTo(s,0);c.lineTo(-s*.75,s);c.closePath();c.strokeStyle=OUT;c.lineWidth=1.6;c.lineJoin='round';c.stroke();c.restore()}
@@ -261,10 +261,11 @@ function harnessMask(c,hc){const OL=2.6,[cx,cy]=hc;
  /* strap round the back of the glass */
  c.strokeStyle=OUT;c.lineWidth=4.4;c.lineCap='round';c.beginPath();c.moveTo(cx+4,cy-6);c.quadraticCurveTo(cx-8,cy-9,cx-16.5,cy-3);c.stroke();c.strokeStyle=HN.leather;c.lineWidth=2.6;c.stroke();
  /* copper funnel on top, tilted back (switch off with HARNESS_STYLE.funnel=false) */
- if(HARNESS_STYLE.funnel){c.save();c.translate(cx-3,cy+7);c.rotate(.1);
-  c.beginPath();c.moveTo(-9,0);c.lineTo(9,0);c.lineTo(17,12.6);c.quadraticCurveTo(0,16,-19,12.6);c.closePath();fillOut(c,lgrad(c,-19,0,17,0,[HN.cop[2],HN.cop[1],HN.cop[0],HN.cop[1]]),OL);
-  c.beginPath();c.ellipse(-1,13,18.6,3.2,-.04,0,TAU);fillOut(c,lgrad(c,0,11,0,18,[HN.cop[1],'#ffe3c8']),OL*.85);
-  c.strokeStyle='rgba(42,24,48,.3)';c.lineWidth=1.2;c.beginPath();c.moveTo(-8,2.6);c.lineTo(8,2.6);c.stroke();c.restore()}
+ if(HARNESS_STYLE.funnel){c.save();c.translate(cx-2,cy+13.6);c.rotate(.08);
+  /* flat copper hat: a wide, thin slab with a straight top, its top level with the mask */
+  c.beginPath();c.moveTo(-14,0);c.lineTo(13,0);c.lineTo(18,6);c.lineTo(-20,6);c.closePath();fillOut(c,lgrad(c,0,0,0,6,[HN.cop[3],HN.cop[2],HN.cop[1]]),OL);
+  c.beginPath();c.moveTo(-20,6);c.lineTo(18,6);c.lineTo(17.4,8.4);c.lineTo(-19.4,8.4);c.closePath();fillOut(c,lgrad(c,-20,0,18,0,[HN.cop[1],HN.cop[0],'#ffe3c8',HN.cop[0]]),OL*.85);
+  c.strokeStyle='rgba(255,230,200,.6)';c.lineWidth=1;c.beginPath();c.moveTo(-12,1.6);c.lineTo(12,1.6);c.stroke();c.restore()}
  /* tall purple face plate over the front of the glass, with a dark slit */
  c.beginPath();c.moveTo(cx+1,cy-16);c.lineTo(cx+15,cy-15);c.quadraticCurveTo(cx+21,cy-6,cx+20,cy+6);c.lineTo(cx+18,cy+19);c.lineTo(cx+4,cy+21);c.quadraticCurveTo(cx-2,cy+4,cx+1,cy-16);c.closePath();
  fillOut(c,lgrad(c,cx,0,cx+21,0,HN.armor),OL);
