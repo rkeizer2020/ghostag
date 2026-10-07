@@ -92,7 +92,7 @@ code{font-family:var(--body)}
   <div class="card"><canvas data-a="hurt"></canvas><b>Geraakt</b><small>Deinst kort terug, het glas flitst wit met een barstje en de vloeistof spat.</small><code>hurt 1 → 0</code></div>
   <div class="card"><canvas data-a="ko"></canvas><b>Knock-out</b><small>Zakt in elkaar met het hoofd naar voren. De vloeistof is bijna weg en het licht gaat uit.</small><code>'ko' of ko 0..1</code></div>
   <div class="card"><canvas data-a="fill"></canvas><b>Vloeistof = levens</b><small>Het niveau in de kop volgt je hoofdjes. Elke klap laat iets weglekken.</small><code>fill: HP.hp / HP.max</code></div>
-  <div class="card"><canvas data-a="harness"></canvas><b>Met harnas</b><small>Naar het rechterdeel van je tekening: trechter op gelijke hoogte met de gezichtsplaat, bronzen pantser in de kleur van de cape, ronde tank met blauwe opwindsleutel, dikke slang, koperen schouderplaat, flesje en een paars tasje onder de arm.</small><code>UPG.harness</code></div>
+  <div class="card"><canvas data-a="harness"></canvas><b>Met harnas</b><small>Naar het rechterdeel van je tekening: trechter lager op het glas, met de rand op de hoogte van het masker, bronzen pantser in de kleur van de cape, ronde tank met blauwe opwindsleutel, dikke slang, koperen schouderplaat, flesje en een paars tasje over de schouder, achter onder de bovenarm.</small><code>UPG.harness</code></div>
  </div>
 </section>
 
@@ -352,8 +352,8 @@ function harnessBack(c,P){const OL=2.6,t=P.t||0;
  rrect(c,-2.6,-1.6,5.2,5,1.4);fillOut(c,HN.blue[1],1.6);c.restore();}
 function harnessFront(c,P){const OL=2.6;
  /* chest strap with a copper buckle */
- c.strokeStyle=OUT;c.lineWidth=5.6;c.beginPath();c.moveTo(-6,36);c.lineTo(9.5,24);c.stroke();c.strokeStyle=HN.leather;c.lineWidth=3.4;c.stroke();
- rrect(c,-1.4,28.4,4.4,4.4,1);fillOut(c,HN.cop[1],1.3);
+ c.strokeStyle=OUT;c.lineWidth=5.6;c.lineCap='round';c.beginPath();c.moveTo(10,41);c.quadraticCurveTo(5,29,-8,24.6);c.stroke();c.strokeStyle=HN.leather;c.lineWidth=3.4;c.stroke();
+ rrect(c,3.2,29.4,4.4,4.4,1);fillOut(c,HN.cop[1],1.3);
  /* round plate with a triangle, behind the shoulder plate */
  c.beginPath();c.arc(-5,38,8,0,TAU);fillOut(c,rgrad(c,-7,41,1,10,HN.plate),OL*.85);hTri(c,-5,38,3.4,-.4);
  /* big copper shoulder plate with a triangle */
@@ -363,10 +363,9 @@ function harnessFront(c,P){const OL=2.6;
  c.strokeStyle='rgba(255,230,190,.55)';c.lineWidth=1.3;c.beginPath();c.moveTo(-9.6,7.6);c.lineTo(8,8.4);c.stroke();
  c.strokeStyle='rgba(42,24,48,.35)';c.lineWidth=1.1;c.beginPath();c.moveTo(-10.6,-3.4);c.lineTo(11.4,-4.6);c.stroke();
  hTri(c,1,2.4,4,-.25);c.restore();
- /* purple bag under the arm on a leather strap; it swings a little when running */
- const t=P.t||0,sw=Math.sin(t*2.1)*.04+Math.sin((P.t||0)*9)*.05*(P.sp||0)+.06*(P.sp||0);
- c.strokeStyle=OUT;c.lineWidth=3.6;c.lineCap='round';c.beginPath();c.moveTo(11.5,24);c.quadraticCurveTo(14.6,21,14,17);c.stroke();c.strokeStyle=HN.leather;c.lineWidth=1.8;c.stroke();
- c.save();c.translate(13,22);c.rotate(sw);
+ /* purple bag worn over the shoulder, hanging at the back under the upper arm; it swings back when running */
+ const t=P.t||0,sw=Math.sin(t*2.1)*.04+Math.sin(t*9)*.05*(P.sp||0)-.12*(P.sp||0);
+ c.save();c.translate(-11,26);c.rotate(sw+.08);
  c.beginPath();c.moveTo(-6.4,-1);c.lineTo(6.6,-1);c.quadraticCurveTo(8.2,-1,8,-3);c.lineTo(7.4,-10.6);c.quadraticCurveTo(7,-12.6,4.8,-12.6);c.lineTo(-4.6,-12.6);c.quadraticCurveTo(-6.8,-12.6,-7,-10.6);c.lineTo(-7.8,-3);c.quadraticCurveTo(-8,-1,-6.4,-1);c.closePath();
  fillOut(c,lgrad(c,-8,0,8,0,[HN.bag[2],HN.bag[1],HN.bag[0]]),OL*.85);
  c.fillStyle='rgba(20,8,26,.35)';c.beginPath();c.ellipse(0,-12,6.4,1.4,0,0,TAU);c.fill();
@@ -379,15 +378,15 @@ function harnessMask(c,hc){const OL=2.6,[cx,cy]=hc;
  /* strap round the back of the glass */
  c.strokeStyle=OUT;c.lineWidth=4.4;c.lineCap='round';c.beginPath();c.moveTo(cx+4,cy-6);c.quadraticCurveTo(cx-8,cy-9,cx-16.5,cy-3);c.stroke();c.strokeStyle=HN.leather;c.lineWidth=2.6;c.stroke();
  /* copper funnel on top, tilted back (switch off with HARNESS_STYLE.funnel=false) */
- if(HARNESS_STYLE.funnel){c.save();c.translate(cx-2,cy+14);c.rotate(.12);
+ if(HARNESS_STYLE.funnel){c.save();c.translate(cx-3,cy+7);c.rotate(.1);
   c.beginPath();c.moveTo(-9,0);c.lineTo(9,0);c.lineTo(17,12.6);c.quadraticCurveTo(0,16,-19,12.6);c.closePath();fillOut(c,lgrad(c,-19,0,17,0,[HN.cop[2],HN.cop[1],HN.cop[0],HN.cop[1]]),OL);
   c.beginPath();c.ellipse(-1,13,18.6,3.2,-.04,0,TAU);fillOut(c,lgrad(c,0,11,0,18,[HN.cop[1],'#ffe3c8']),OL*.85);
   c.strokeStyle='rgba(42,24,48,.3)';c.lineWidth=1.2;c.beginPath();c.moveTo(-8,2.6);c.lineTo(8,2.6);c.stroke();c.restore()}
  /* tall purple face plate over the front of the glass, with a dark slit */
- c.beginPath();c.moveTo(cx+1,cy-16);c.lineTo(cx+15,cy-15);c.quadraticCurveTo(cx+21,cy-6,cx+20,cy+6);c.lineTo(cx+19,cy+28.5);c.lineTo(cx+4,cy+29.5);c.quadraticCurveTo(cx-2,cy+6,cx+1,cy-16);c.closePath();
+ c.beginPath();c.moveTo(cx+1,cy-16);c.lineTo(cx+15,cy-15);c.quadraticCurveTo(cx+21,cy-6,cx+20,cy+6);c.lineTo(cx+18,cy+19);c.lineTo(cx+4,cy+21);c.quadraticCurveTo(cx-2,cy+4,cx+1,cy-16);c.closePath();
  fillOut(c,lgrad(c,cx,0,cx+21,0,HN.armor),OL);
- c.save();c.clip();c.fillStyle=lgrad(c,0,cy-16,0,cy+29,['rgba(70,25,20,.35)','rgba(70,25,20,0)','rgba(255,224,170,.25)']);c.fillRect(cx-4,cy-18,28,50);c.restore();
- c.strokeStyle='rgba(255,220,170,.6)';c.lineWidth=1.2;c.beginPath();c.moveTo(cx+18.4,cy+25);c.lineTo(cx+19.4,cy+4);c.stroke();
+ c.save();c.clip();c.fillStyle=lgrad(c,0,cy-16,0,cy+21,['rgba(70,25,20,.35)','rgba(70,25,20,0)','rgba(255,224,170,.25)']);c.fillRect(cx-4,cy-18,28,42);c.restore();
+ c.strokeStyle='rgba(255,220,170,.6)';c.lineWidth=1.2;c.beginPath();c.moveTo(cx+18.4,cy+16);c.lineTo(cx+19.4,cy+4);c.stroke();
  c.fillStyle='#1c1226';c.beginPath();c.moveTo(cx+6,cy+15);c.lineTo(cx+16,cy+14.4);c.lineTo(cx+15.6,cy+11.4);c.lineTo(cx+13.4,cy+11.4);c.lineTo(cx+13,cy-3);c.lineTo(cx+10.4,cy-3);c.lineTo(cx+10.8,cy+11.6);c.lineTo(cx+6,cy+12);c.closePath();c.fill();
  c.beginPath();rrect(c,cx+6.4,cy+1,2.2,8,1);c.fill();
  c.fillStyle='rgba(255,226,140,.7)';c.fillRect(cx+11.2,cy+.5,1.4,9);
@@ -588,7 +587,7 @@ WAT ER NIEUW IS
 - Zwaard: alleen het gouden handvat, met omwikkeld gevest, gekrulde pareerstang en een knop van tijdvloeistof. Het flitst bij een slag.
 - Slash: dezelfde halvemaan (60% van een cirkel), nu met een witte kern, een zachte gloed en vonken.
 - Nieuwe animaties: genezen (gloed en bruisen), geraakt (terugdeinzen, witte flits, barstje), knock-out (inzakken, licht uit) en een vloeistofniveau dat je hoofdjes volgt.
-- Harnas (upgrade uit de forge) is opnieuw getekend naar het rechterdeel van mijn tekening: koperen trechter bovenop waarvan de rand op dezelfde hoogte zit als de bovenkant van de gezichtsplaat; gezichtsplaat met donkere spleet, ronde tank en ronde plaat in het brons van de cape (met licht en schaduw); een koperen hoorn; een draaiende leisteenblauwe opwindsleutel; een dikke geribbelde blauwe slang over de rug; een grote koperen schouderplaat met driehoek; een leren borstriem met gesp; een rond flesje met oranje vloeistof en kurk; opgerolde papiertjes achter de tank; en een PAARS tasje met koperen V aan een leren riempje onder de arm, vóór het lichaam zodat je het altijd ziet. Alleen het tasje is paars. De trechter kan uit met HARNESS_STYLE.funnel=false.
+- Harnas (upgrade uit de forge) is opnieuw getekend naar het rechterdeel van mijn tekening: koperen trechter die lager op het glas zit, zodat de rand op dezelfde hoogte zit als de bovenkant van de gezichtsplaat (het masker zelf is niet hoger gemaakt); gezichtsplaat met donkere spleet, ronde tank en ronde plaat in het brons van de cape (met licht en schaduw); een koperen hoorn; een draaiende leisteenblauwe opwindsleutel; een dikke geribbelde blauwe slang over de rug; een grote koperen schouderplaat met driehoek; een rond flesje met oranje vloeistof en kurk; opgerolde papiertjes achter de tank; en een PAARS tasje met koperen V; de leren riem loopt van de voorste schouder schuin over de borst naar achteren, en het tasje hangt achter onder de bovenarm (vóór de tank en cape, dus zichtbaar). Het zwaait naar achter als hij rent. Alleen het tasje is paars. De trechter kan uit met HARNESS_STYLE.funnel=false.
 - Het harnas-icoon in de forge en in de HUD is nog het oude gasmasker. Pas dat eventueel aan zodat het bij het nieuwe harnas past.
 - De runen-aura is onveranderd.
 
