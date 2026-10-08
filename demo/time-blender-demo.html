@@ -1947,7 +1947,7 @@ const SHOP_ROOM=SEW_LAST,HX=1460;let shopOpen=false,shopSel=0,shopMsg=0,shopLine
 const TFX={mode:null,until:0,cdUntil:0},CRIT={n:0,ready:false,pop:0},DASH={t:0,cd:0,air:true};
 const SHOP_LINES=['W-welcome... please don’t hit me!','I-I only sell chips. Very good chips!','Th-those parts... are they for me?','Eek! Sorry. Take your time...'];
 const SHOP_ITEMS=[
- {k:'time',name:()=>UPG.slow?'STOP':'SLOW',cost:()=>UPG.slow?600:300,done:()=>UPG.stop,d:()=>UPG.slow?['Press 1: everything stops for 3 s.','Nothing can hurt you.']:['Press 1: everything slows','down for 3 seconds.']},
+ {k:'time',name:()=>UPG.slow?'STOP':'SLOW',cost:()=>300,done:()=>UPG.stop,d:()=>UPG.slow?['Press 1: everything stops for 3 s.','Nothing can hurt you.']:['Press 1: everything slows','down for 3 seconds.']},
  {k:'crit',name:()=>'CRIT',cost:()=>150,done:()=>UPG.crit,d:()=>['After 5 hits, your next hit','does double damage.']},
  {k:'dash',name:()=>'DASH',cost:()=>50,done:()=>UPG.dash,d:()=>['Press C to dash.','']}];
 function nearHouse(){return room===SHOP_ROOM&&!me.dead&&Math.abs(me.x-HX)<100&&me.ground}
