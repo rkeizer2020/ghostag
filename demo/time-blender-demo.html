@@ -2045,56 +2045,51 @@ function drawGodTarget(c,cam,t){if(room!==GOD_ROOM)return;const e=ENM.find(q=>q.
  c.font='700 15px '+SERIF;c.textAlign='center';c.fillStyle='#fff3cf';c.shadowColor='rgba(0,0,0,.9)';c.shadowBlur=6;c.fillText('HIT THE EYE',x,ay-18);c.restore()}
 
 /* ===== Rustfin the Immortal: intro talk scene =====
-   Black screen, him in white, three speech bubbles typed out one by one, with its own music. Plays once per run. */
-const TALK={on:false,t:0,line:-1,lt:0,shown:[],end:0,pop:[]},TALK_LINES=["I won't let you get past me.","I won't let you destroy the entire world.","I will kill you... no matter what!"];
+   He fills the screen in colour, one big speech bubble at a time, typed out with slow fades between lines,
+   over its own music. It cannot be skipped and plays once per run. */
+const TALK={on:false,t:0,line:-1,lt:0,shown:0,end:0},TALK_LINES=["I won't let you get past me.","I won't let you destroy the entire world.","I will kill you... no matter what!"];
+const T_IN=.5,T_CPS=24,T_OUT=.6,T_GAP=.35,T_START=1.8;
 let godTalked=false,talkCv=null;
 const PIX='"Press Start 2P","Courier New",monospace';
-function startTalk(){TALK.on=true;TALK.t=0;TALK.line=-1;TALK.lt=0;TALK.shown=[0,0,0];TALK.end=0;TALK.pop=[0,0,0];talkCv=null;key.l=key.r=key.j=key.d=0;me.atk=-1}
-function talkLineLen(i){return TALK_LINES[i].length}
-function talkNext(){if(TALK.end)return;if(TALK.line<0){TALK.line=0;TALK.lt=0;TALK.pop[0]=TALK.t;return}
- const n=talkLineLen(TALK.line);if(TALK.shown[TALK.line]<n){TALK.shown[TALK.line]=n;TALK.lt=n/30;return}
- if(TALK.line<2){TALK.line++;TALK.lt=0;TALK.pop[TALK.line]=TALK.t}else TALK.end=TALK.t}
-function talkKey(e){const k=e.key;if(k==='z'||k==='Z'||k==='Enter'||k===' '||k==='Shift'){if(TALK.t>.5)talkNext()}else if(k==='Escape'||k==='Tab'){if(!TALK.end){TALK.shown=TALK_LINES.map(s=>s.length);TALK.line=2;TALK.end=TALK.t}}else return;e.preventDefault()}
+function startTalk(){TALK.on=true;TALK.t=0;TALK.line=-1;TALK.lt=0;TALK.shown=0;TALK.end=0;talkCv=null;key.l=key.r=key.j=key.d=0;me.atk=-1}
+function talkHold(i){return i===2?2.8:2.3}
+function talkLineEnd(i){return T_IN+TALK_LINES[i].length/T_CPS+talkHold(i)}
+/* every key is swallowed: the scene plays out by itself */
+function talkKey(e){e.preventDefault()}
 function blip(){if(!ac||!soundOn)return;const t0=ac.currentTime,o=ac.createOscillator();o.type='square';o.frequency.value=190+Math.random()*30;const g2=ac.createGain();g2.gain.setValueAtTime(.035,t0);g2.gain.exponentialRampToValueAtTime(.001,t0+.05);o.connect(g2);g2.connect(ac.destination);o.start(t0);o.stop(t0+.06)}
 function talkStep(dt){if(!TALK.on)return;TALK.t+=dt;
- if(TALK.end){if(TALK.t-TALK.end>.7){TALK.on=false;godTalked=true}return}
- if(TALK.line<0){if(TALK.t>1.6){TALK.line=0;TALK.lt=0;TALK.pop[0]=TALK.t}return}
- TALK.lt+=dt;const i=TALK.line,n=talkLineLen(i),was=TALK.shown[i];TALK.shown[i]=Math.min(n,Math.floor(TALK.lt*30));
- if(TALK.shown[i]>was){const ch=TALK_LINES[i][TALK.shown[i]-1];if(ch!==' '&&TALK.shown[i]%2===0)blip()}
- const hold=i===2?2.4:1.6;if(TALK.shown[i]>=n&&TALK.lt>n/30+hold){if(i<2){TALK.line++;TALK.lt=0;TALK.pop[TALK.line]=TALK.t}else TALK.end=TALK.t}}
+ if(TALK.end){if(TALK.t-TALK.end>.9){TALK.on=false;godTalked=true}return}
+ if(TALK.line<0){if(TALK.t>T_START){TALK.line=0;TALK.lt=0;TALK.shown=0}return}
+ TALK.lt+=dt;const i=TALK.line,s=TALK_LINES[i],was=TALK.shown;TALK.shown=clamp(Math.floor((TALK.lt-T_IN)*T_CPS),0,s.length);
+ if(TALK.shown>was){const ch=s[TALK.shown-1];if(ch!==' '&&TALK.shown%2===0)blip()}
+ const L=talkLineEnd(i);if(i===2){if(TALK.lt>=L)TALK.end=TALK.t}else if(TALK.lt>=L+T_OUT+T_GAP){TALK.line++;TALK.lt=0;TALK.shown=0}}
 function talkWrap(c,s,w){const out=[];let cur='';for(const word of s.split(' ')){const tr=cur?cur+' '+word:word;if(c.measureText(tr).width>w&&cur){out.push(cur);cur=word}else cur=tr}if(cur)out.push(cur);return out}
 function drawTalk(c){if(!TALK.on)return;const t=TALK.t,e=ENM.find(q=>q.type==='fishgod');
- const fin=TALK.end?clamp((t-TALK.end)/.7,0,1):0;
- c.save();c.globalAlpha=1-fin;c.fillStyle='#000';c.fillRect(0,0,WW,HH);
- /* him, drawn in white on black into a layer so he can glitch */
- if(e){const k=.6,px=330,py=190+Math.sin(t*1.6)*4;
+ const fin=TALK.end?clamp((t-TALK.end)/.9,0,1):0;
+ c.save();c.globalAlpha=1-fin;
+ /* deep sewer backdrop with a red glow behind him */
+ c.fillStyle=rgrad(c,300,260,20,640,['#163c3c','#0a2024','#030a0c']);c.fillRect(0,0,WW,HH);
+ c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,280,230,10,300,['rgba(255,90,50,'+(.16+.05*Math.sin(t*2))+')','rgba(255,60,30,0)']);c.fillRect(0,0,WW,HH);
+ for(let k=0;k<26;k++){const x=(k*137+t*(8+k%5*3))%WW,y=HH-((k*89+t*(14+k%7*4))%(HH+40));c.fillStyle='rgba(160,255,220,'+(.05+.05*(k%3))+')';c.beginPath();c.arc(x,y,1.5+k%3,0,TAU);c.fill()}c.restore();
+ /* him, in colour, drawn once into a layer so he can glitch */
+ if(e){const k=.74,px=255,py=250,dy=Math.sin(t*1.6)*5;
   if(!talkCv){talkCv=document.createElement('canvas');talkCv.width=WW*Q;talkCv.height=HH*Q;
-   const o=talkCv.getContext('2d');o.setTransform(Q,0,0,Q,0,0);o.save();o.beginPath();o.rect(0,0,WW,384);o.clip();
-   o.translate(px,190);o.scale(k,k);o.translate(-(e.hx-cam),-e.hy);const sv=e.roar;e.roar=0;drawGodBack(o,cam,clock);e.roar=sv;o.restore();
-   /* turn him white on black once: grey, then a strong contrast curve */
-   const id=o.getImageData(0,0,talkCv.width,talkCv.height),d=id.data;for(let i=0;i<d.length;i+=4){if(!d[i+3])continue;const l=(d[i]*.3+d[i+1]*.59+d[i+2]*.11)/255,v=clamp((l-.1)*3.4,0,1)*255;d[i]=d[i+1]=d[i+2]=v;if(v<30)d[i+3]=0}o.putImageData(id,0,0)}
-  const o=c,dy=py-190;
-  /* glitch: heavy while he appears, short bursts later, and on the last line */
-  const gIn=clamp(1-t/1.5,0,1),burst=(Math.sin(t*2.3)>.985||(TALK.line===2&&Math.random()<.06))?.5:0,gl=Math.max(gIn,burst,fin);
-  if(gl>.02){const sh=6;for(let y=0;y<388;y+=sh){const off=Math.random()<gl?rnd(-60,60)*gl:0;if(Math.random()<gl*.35)continue;c.drawImage(talkCv,0,y*Q,WW*Q,sh*Q,off,y+dy,WW,sh)}}
-  else c.drawImage(talkCv,0,0,WW*Q,388*Q,0,dy,WW,388)
-  /* the eye keeps its colour */
-  o.save();o.globalCompositeOperation='lighter';const ex=px+17*2.3*k,ey=py-14*2.3*k,ep=.75+.25*Math.sin(t*6);o.fillStyle=rgrad(o,ex,ey,1,26,['rgba(255,110,60,'+ep+')','rgba(255,60,30,0)']);o.beginPath();o.arc(ex,ey,26,0,TAU);o.fill();o.restore();o.fillStyle='#ff4a1e';o.beginPath();o.arc(ex,ey,8+Math.sin(t*6),0,TAU);o.fill();o.fillStyle='#ffd0b0';o.beginPath();o.arc(ex-2,ey-2,2.5,0,TAU);o.fill();}
- /* speech bubbles, one per line, stacked to his right */
- c.font='12px '+PIX;let by=46;
- for(let i=0;i<3;i++){if(TALK.line<i)break;const s=TALK_LINES[i],lines=talkWrap(c,s,290),h=lines.length*22+26,w=330,bx=585;
-  const pp=clamp((t-TALK.pop[i])/.12,0,1),sc=.85+.15*pp;c.save();c.globalAlpha=pp*(1-fin);c.translate(bx,by+h/2);c.scale(sc,sc);c.translate(-bx,-(by+h/2));
-  rrect(c,bx,by,w,h,10);c.fillStyle='#fff';c.fill();c.beginPath();c.moveTo(bx+2,by+h/2-9);c.lineTo(bx-18,by+h/2);c.lineTo(bx+2,by+h/2+9);c.closePath();c.fill();
-  let left=TALK.shown[i];c.fillStyle='#000';c.textBaseline='top';c.textAlign='left';
-  lines.forEach((ln,j)=>{const part=ln.slice(0,Math.max(0,left));left-=ln.length+1;c.fillText(part,bx+16,by+14+j*22)});c.restore();by+=h+18}
- /* the box and the line under it */
- c.globalAlpha=1-fin;c.strokeStyle='#fff';c.lineWidth=4;c.strokeRect(150,402,660,98);
- if(TALK.line>=0&&TALK.shown[TALK.line]>=talkLineLen(TALK.line)&&!TALK.end&&Math.sin(t*8)>0){c.fillStyle='#fff';c.beginPath();c.moveTo(780,474);c.lineTo(794,474);c.lineTo(787,484);c.closePath();c.fill()}
- c.font='12px '+PIX;c.fillStyle='#fff';c.textBaseline='middle';c.textAlign='left';c.fillText('RUSTFIN',150,522);c.fillText('LV ∞',270,522);c.fillText('HP',380,522);
- c.fillStyle='#ffe23a';c.fillRect(414,514,120,16);c.fillStyle='#fff';c.fillText(e?e.hp+' / '+e.max:'',548,522);
- c.fillStyle='rgba(255,255,255,.4)';c.font='9px '+PIX;c.textAlign='left';c.fillText('Z  NEXT    ESC  SKIP',166,486);
+   const o=talkCv.getContext('2d');o.setTransform(Q,0,0,Q,0,0);o.save();o.translate(px,py);o.scale(k,k);o.translate(-(e.hx-cam),-e.hy);const sv=e.roar;e.roar=0;drawGodBack(o,cam,clock);e.roar=sv;o.restore()}
+  const gIn=clamp(1-t/1.5,0,1),burst=(TALK.line===2&&Math.random()<.03)?.35:0,gl=Math.max(gIn,burst);
+  if(gl>.02){const sh=6;for(let y=-10;y<HH;y+=sh){const off=Math.random()<gl?rnd(-60,60)*gl:0;if(Math.random()<gl*.35)continue;c.drawImage(talkCv,0,Math.max(0,y)*Q,WW*Q,sh*Q,off,Math.max(0,y)+dy,WW,sh)}}
+  else c.drawImage(talkCv,0,0,WW*Q,HH*Q,0,dy,WW,HH);
+  const ex=px+17*2.3*k,ey=py-14*2.3*k+dy,ep=.6+.25*Math.sin(t*6);c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,ex,ey,1,34,['rgba(255,110,60,'+ep+')','rgba(255,60,30,0)']);c.beginPath();c.arc(ex,ey,34,0,TAU);c.fill();c.restore()}
+ /* one big speech bubble; lines fade in and out slowly */
+ if(TALK.line>=0){const i=TALK.line,s=TALK_LINES[i],L=talkLineEnd(i),lt=TALK.lt;
+  const a=i===2&&TALK.end?1:Math.min(clamp(lt/T_IN,0,1),1-clamp((lt-L)/T_OUT,0,1)),ea=a*a*(3-2*a);
+  c.font='17px '+PIX;const w=440,lines=talkWrap(c,s,w-56),h=lines.length*34+46,bx=480,by=200-h/2+(1-ea)*14;
+  c.save();c.globalAlpha=ea*(1-fin);c.shadowColor='rgba(0,0,0,.45)';c.shadowBlur=24;c.shadowOffsetY=6;
+  rrect(c,bx,by,w,h,16);c.fillStyle='#fff';c.fill();c.shadowColor='transparent';
+  c.beginPath();c.moveTo(bx+2,by+h/2-14);c.lineTo(bx-30,by+h/2+10);c.lineTo(bx+2,by+h/2+12);c.closePath();c.fill();
+  let left=TALK.shown;c.fillStyle='#000';c.textBaseline='top';c.textAlign='left';
+  lines.forEach((ln,j)=>{const part=ln.slice(0,Math.max(0,left));left-=ln.length+1;c.fillText(part,bx+28,by+26+j*34)});c.restore()}
  c.restore();
- if(fin>0){c.fillStyle='rgba(255,255,255,'+(Math.sin(fin*Math.PI)*.5)+')';c.fillRect(0,0,WW,HH)}}
+ if(fin>0){c.fillStyle='rgba(255,255,255,'+(Math.sin(fin*Math.PI)*.45)+')';c.fillRect(0,0,WW,HH)}}
 
 function genRoom(safeX){genRoom0(safeX);if(room===SHOP_ROOM)ENM=[];if(PUZ_ROOMS[room]!==undefined){if(!isSewer())TER=[{x0:0,x1:WORLD,y:FLOOR}];initPuzzle()}else PZ=null}
 function genRoom0(safeX){CORPSES.length=0;if(SC[room].sewer){HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;genSewer(safeX);return}genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
@@ -2246,6 +2241,6 @@ setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimat
 function unlockAll(){UPG.chip=true;UPG.slow=UPG.stop=UPG.crit=UPG.dash=true;UPG.sword=4;UPG.heart=5;UPG.bat=true;UPG.harness=true;HP.max=10;HP.hp=10;HP.slots.forEach(s=>{s.fill=1;s.pop=1})}
 document.getElementById('bunlock').onclick=()=>{unlockAll();game.focus()};
 document.getElementById('bhurt').onclick=()=>{hurt();game.focus()};document.getElementById('bheal').onclick=()=>{heal();game.focus()};
-window.__demo={TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},talkNext,get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
+window.__demo={TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
 
 </script>
