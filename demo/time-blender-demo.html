@@ -805,7 +805,11 @@ let ac=null,soundOn=true,loading=false;const buf={};
 function b64buf(s){const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer}
 async function initAudio(){if(ac||loading)return;loading=true;
  try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){loading=false;return}
- for(const n in SND){try{buf[n]=await ac.decodeAudioData(b64buf(SND[n]))}catch(e){}}}
+ for(const n in SND){try{buf[n]=await ac.decodeAudioData(b64buf(SND[n]));if(n==='mmenu')buf[n]=seamless(buf[n],.28,31.0081,.25)}catch(e){}}}
+/* menu track: cut at a bar line before its fade-out and crossfade the end into the bar before the loop point, so the loop has no dip */
+function seamless(b,s0,L,X){const sr=b.sampleRate,s=Math.round(s0*sr),E=s+Math.round(L*sr),x=Math.round(X*sr);if(E>b.length||x>s)return b;
+ const o=ac.createBuffer(b.numberOfChannels,E,sr);for(let ch=0;ch<b.numberOfChannels;ch++){const a=b.getChannelData(ch),d=o.getChannelData(ch);d.set(a.subarray(0,E));
+  for(let i=0;i<x;i++){const k=i/x;d[E-x+i]=a[E-x+i]*Math.cos(k*Math.PI/2)+a[s-x+i]*Math.sin(k*Math.PI/2)}}o.loopFrom=s/sr;return o}
 function unlock(){initAudio();if(ac&&ac.state==='suspended')ac.resume().catch(()=>{})}
 addEventListener('keydown',unlock);addEventListener('pointerdown',unlock);
 function play(name,o2){if(!ac||!soundOn||!buf[name])return;const {gain=1,rate=1,offset=0,dur=0}=o2||{};
@@ -1043,7 +1047,7 @@ function drawDebris(c,dt){for(let i=debris.length-1;i>=0;i--){const d=debris[i];
  c.save();c.translate(d.x-cam,d.y);c.rotate(d.rot);c.globalAlpha=1-Math.pow(d.life/d.max,3);c.fillStyle=d.col;c.fillRect(-d.s/2,-d.s/2,d.s,d.s);c.strokeStyle=OUT;c.lineWidth=1.4;c.strokeRect(-d.s/2,-d.s/2,d.s,d.s);c.restore()}}
 
 const loops={};
-function loopStart(name){if(!ac||!buf[name]||loops[name])return;const s=ac.createBufferSource();s.buffer=buf[name];s.loop=true;const g0=ac.createGain();g0.gain.value=0;s.connect(g0);g0.connect(ac.destination);s.start();loops[name]={s,g:g0}}
+function loopStart(name){if(!ac||!buf[name]||loops[name])return;const s=ac.createBufferSource();s.buffer=buf[name];s.loop=true;if(buf[name].loopFrom){s.loopStart=buf[name].loopFrom;s.loopEnd=buf[name].duration}const g0=ac.createGain();g0.gain.value=0;s.connect(g0);g0.connect(ac.destination);s.start();loops[name]={s,g:g0}}
 function loopGain(name,v){const L=loops[name];if(!L)return;L.g.gain.setTargetAtTime(soundOn?v:0,ac.currentTime,.2)}
 function updateLoops(){if(!ac||ac.state!=='running')return;loopStart('roll');loopStart('drone');let ds=1e9,dd=1e9;
  for(const e of ENM){if(e.dead)continue;const d=Math.hypot(e.x-me.x,e.y-me.y);if(e.type=='saw'&&d<ds)ds=d;if(e.type=='drone'&&d<dd)dd=d}
