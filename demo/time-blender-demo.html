@@ -386,7 +386,7 @@ function poseFor(st,o){o=Object.assign({},o);const t=o.t,sp=o.speed||0,ph=o.ph||
  return P}
 
 /* the slash: a bright crescent (60% of a circle, sharp tips, wide middle) with a hot core, streaks and sparks */
-function slashFx(c,hx,oy,f,k,seed,S){if(k<0||k>1)return;const R=54*S,ox=hx+f*(R+12*S),p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-TAU*.3,th1=TAU*.3,N=44;
+function slashFx(c,hx,oy,f,k,seed,S){if(k<0||k>1)return;const R=54*S,ox=hx+f*(R-8*S),p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-TAU*.3,th1=TAU*.3,N=44;
  c.save();c.globalCompositeOperation='lighter';
  const pt=(u,r)=>{const a=lerp(th0,th0+(th1-th0)*p,u);return [ox+f*Math.cos(a)*r,oy+Math.sin(a)*r]};
  const band=(w,off)=>{c.beginPath();for(let i=0;i<=N;i++){const u=i/N,th=Math.pow(Math.sin(Math.PI*u),1.25)*w*S,q=pt(u,R+off*S+th*.5);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}
@@ -660,7 +660,7 @@ function step(){clock+=1/60;
  me.speed=Math.min(1,Math.abs(me.vx)/MAXV);
  if(me.ground&&Math.abs(me.vx)>.3){me.ph+=Math.abs(me.vx)/CYCLE*TAU;const si=Math.floor((me.ph+Math.PI/2)/Math.PI);if(si!==me.lastStep){me.lastStep=si;playStep()}}
  /* combat: the slash hurts enemies, enemies hurt you */
- if(me.atk>=8&&me.atk<=20){for(const e of ENM){if(e.dead||e.hitId===me.atkId||e.state==='intro'||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e),sx=me.x+me.atkFace*62,sy=me.y-36;
+ if(me.atk>=8&&me.atk<=20){for(const e of ENM){if(e.dead||e.hitId===me.atkId||e.state==='intro'||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e),sx=me.x+me.atkFace*44,sy=me.y-36;
   let hit;if(e.type==='boss'){const hy=clamp(sy,e.y-80,e.y+85);hit=Math.hypot(e.x-sx,hy-sy)<=51+74&&(e.x-me.x)*me.atkFace>-70}else hit=Math.hypot(ec[0]-sx,ec[1]-sy)<=51+e.r*.9&&(ec[0]-me.x)*me.atkFace>-14;
   if(hit){e.hitId=me.atkId;damageEnemy(e,slashDmg())}}}
  updateEnemies();updateBullets();updateDrops();
@@ -755,7 +755,7 @@ const BUL=[];
 function updateBullets(){for(let i=BUL.length-1;i>=0;i--){const b=BUL[i];b.tr.push([b.x,b.y]);if(b.tr.length>9)b.tr.shift();b.x+=b.vx;b.y+=b.vy;b.life+=1/60;let gone=false;
  if(b.life>4||b.x<-80||b.x>WORLD+80||b.y>HH+80||b.y<-80)gone=true;
  else if(b.y>groundAt(b.x)-3){gone=true;burst(b.x,b.y,4)}
- else if(me.atk>=8&&me.atk<=20&&Math.hypot(b.x-(me.x+me.atkFace*62),b.y-(me.y-36))<62){gone=true;burst(b.x,b.y,6)}
+ else if(me.atk>=8&&me.atk<=20&&Math.hypot(b.x-(me.x+me.atkFace*44),b.y-(me.y-36))<62){gone=true;burst(b.x,b.y,6)}
  else if(!me.dead&&me.inv<=0&&Math.hypot(b.x-me.x,b.y-(me.y-32))<22){gone=true;playerHit({type:'bullet',cool:0,vy:0},[b.x,b.y])}
  if(gone)BUL.splice(i,1)}}
 function updateEnemies(){for(let i=ENM.length-1;i>=0;i--){const e=ENM[i];if(e.dead){ENM.splice(i,1);continue}
