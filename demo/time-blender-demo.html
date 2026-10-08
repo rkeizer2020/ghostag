@@ -953,7 +953,7 @@ const SOUL={v:0};
 function damageEnemy(e,d){if(e.type==='boss'&&(e.state==='enter'||e.state==='intro'||e.dying))return;SOUL.v=Math.min(1,SOUL.v+soulGain());play('impact',{gain:.32,rate:.95+Math.random()*.15});e.hp-=d;e.flash=.15;
  if(e.type==='boss'){burst(e.x,e.y,4);if(e.hp<=0){e.hp=0;e.dying=true;e.dieT=2.4;e.state='dying';BUL.length=0;for(const q of ENM)if(q.type==='imp'&&!q.dead){q.dead=true;impFlee(q)}}return}
  e.kb=10;e.vx=me.atkFace*5;burst(e.x,enemyCenter(e)[1],e.hp<=0?16:5);if(e.hp<=0){e.dead=true;if(e.type==='imp')impFlee(e);if(e.type==='sludge'&&e.big)sludgeSplit(e);if(Math.random()<.05)dropPart(e.x,enemyCenter(e)[1])}}
-function playerHit(e,ec){me.healT=0;play('impact',{gain:.36,rate:.8});hurt();me.inv=80;me.kb=14;me.vx=(me.x>=ec[0]?1:-1)*6.5;me.vy=-6.5;me.ground=false;e.cool=70;if(e.type=='drone')e.vy=-3;if(HP.hp<=0){me.dead=true;me.deadT=110;me.vx=0}}
+function playerHit(e,ec){me.healT=0;play('impact',{gain:.36,rate:.8});hurt();if(SEWT[e.type]||e.slime)hurt();me.inv=80;me.kb=14;me.vx=(me.x>=ec[0]?1:-1)*6.5;me.vy=-6.5;me.ground=false;e.cool=70;if(e.type=='drone')e.vy=-3;if(HP.hp<=0){me.dead=true;me.deadT=110;me.vx=0}}
 function respawn(){SOUL.v=0;me.healT=0;HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0});me.dead=false;me.inv=90;me.vx=0;me.vy=0;me.y=FLOOR;me.ground=true;me.atk=-1;me.kb=0;me.face=1;DROPS.length=0;
  const r=room>=CORR?Math.max(CORR,room-1):Math.max(0,room-1);me.x=(r===0||r===CORR)?WALLW+60:80;cam=0;setRoom(r);if(!CUT.on){me.x=r===0?WALLW+60:80;cam=0}}
 let FLOW0=null;
@@ -963,7 +963,7 @@ function updateBullets(){for(let i=BUL.length-1;i>=0;i--){const b=BUL[i];b.tr.pu
  if(b.life>4||b.x<-80||b.x>WORLD+80||b.y>viewY()+HH+160||b.y<viewY()-260)gone=true;
  else if(b.y>groundAt(b.x)-3){gone=true;burst(b.x,b.y,4)}
  else if(me.atk>=8&&me.atk<=20&&Math.hypot(b.x-(me.x+me.atkFace*44),b.y-(me.y-36))<62){gone=true;burst(b.x,b.y,6)}
- else if(!me.dead&&me.inv<=0&&Math.hypot(b.x-me.x,b.y-(me.y-32))<22){gone=true;playerHit({type:'bullet',cool:0,vy:0},[b.x,b.y])}
+ else if(!me.dead&&me.inv<=0&&Math.hypot(b.x-me.x,b.y-(me.y-32))<22){gone=true;playerHit({type:'bullet',cool:0,vy:0,slime:b.slime},[b.x,b.y])}
  if(gone)BUL.splice(i,1)}}
 function updateEnemies(){for(let i=ENM.length-1;i>=0;i--){const e=ENM[i];if(e.dead){ENM.splice(i,1);continue}
  if(e.type==='boss'){updateBoss(e);continue}
@@ -1496,11 +1496,11 @@ function zap(c,x,y,r){c.save();c.globalCompositeOperation='lighter';c.strokeStyl
 
 /* ---------- the five sewer enemies ---------- */
 function mkS(type,x,y,lo,hi,r,hp,extra){const e=mkEnemy('saw',x,y,lo,hi);Object.assign(e,{type,r,hp,max:hp,kb:0,vx:0,vy:0,st:rnd(.3,1),state:'idle'},extra||{});return e}
-function mkRat(x,y,lo,hi){return mkS('rat',x,y,lo,hi,16,2,{wheel:0})}
-function mkSludge(x,y,lo,hi,big){return mkS('sludge',x,y,lo,hi,big?26:14,big?3:1,{big})}
-function mkSpider(x,gy){const ay=gy-380;return mkS('spider',x,ay+70,x,x,20,2,{ax:x,ay,gy,state:'hang',cd:0})}
-function mkSpitter(x,y){return mkS('spitter',x,y,x,x,24,3,{fireT:rnd(1.5,3),aim:-Math.PI/2})}
-function mkEel(lo,hi,wl,gy){return mkS('eel',(lo+hi)/2,wl+30,lo,hi,18,3,{wl,gy,state:'swim',cd:1,trail:[],face:Math.random()<.5?-1:1})}
+function mkRat(x,y,lo,hi){return mkS('rat',x,y,lo,hi,16,5,{wheel:0})}
+function mkSludge(x,y,lo,hi,big){return mkS('sludge',x,y,lo,hi,big?26:14,big?7:5,{big})}
+function mkSpider(x,gy){const ay=gy-380;return mkS('spider',x,ay+70,x,x,20,5,{ax:x,ay,gy,state:'hang',cd:0})}
+function mkSpitter(x,y){return mkS('spitter',x,y,x,x,24,6,{fireT:rnd(1.5,3),aim:-Math.PI/2})}
+function mkEel(lo,hi,wl,gy){return mkS('eel',(lo+hi)/2,wl+30,lo,hi,18,6,{wl,gy,state:'swim',cd:1,trail:[],face:Math.random()<.5?-1:1})}
 function pips(c,e,x,y){if(e.hp>=e.max)return;for(let k=0;k<e.max;k++){c.beginPath();c.arc(x-(e.max-1)*5+k*10,y,3.4,0,TAU);c.fillStyle=k+1<=e.hp?'#7fe0a0':(k<e.hp?'#3f8f60':'#18323a');c.fill();c.strokeStyle=OUT;c.lineWidth=1.5;c.stroke()}}
 function flashOn(c,e,x,y,r){if(e.flash>0){c.save();c.globalCompositeOperation='lighter';c.fillStyle='rgba(255,255,255,'+Math.min(1,e.flash/.15)*.75+')';c.beginPath();c.arc(x,y,r,0,TAU);c.fill();c.restore()}}
 function groundKb(e){if(e.kb>0){e.kb--;e.x=clamp(e.x+e.vx,e.lo,e.hi);e.vx*=.8;return true}return false}
