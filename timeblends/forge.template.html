@@ -1,0 +1,146 @@
+<title>Sunrise Forge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: the forge scene on top with a few switches, then the hand-off block with copy buttons */
+:root{
+ --bg:#efe9f0;--fg:#2b1d33;--muted:#6b5870;--panel:#ffffff;--line:#cdbfd2;--accent:#b8613a;--accent-fg:#ffffff;--gold:#a8741c;--code:#f6f1f7;
+ --display:'Cinzel',Georgia,'Times New Roman',serif;--body:'Space Mono','Courier New',monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a1220;--fg:#f0e2d6;--muted:#a592a8;--panel:#261a2e;--line:#4a3050;--accent:#d98348;--accent-fg:#1c1226;--gold:#ffd84a;--code:#20152a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1a1220;--fg:#f0e2d6;--muted:#a592a8;--panel:#261a2e;--line:#4a3050;--accent:#d98348;--accent-fg:#1c1226;--gold:#ffd84a;--code:#20152a;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.6;padding-inline:16px;padding-block:28px 48px}
+main{max-width:980px;margin-inline:auto;display:flex;flex-direction:column;gap:24px}
+header{display:flex;flex-direction:column;gap:8px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(28px,5vw,44px);line-height:1.1;margin:0;letter-spacing:.04em;text-wrap:balance}
+h1 span{color:var(--gold)}
+h2{font-family:var(--display);font-weight:600;font-size:20px;margin:0;letter-spacing:.04em}
+p{margin:0;max-width:66ch}.lede{color:var(--muted)}
+section{display:flex;flex-direction:column;gap:12px;min-width:0}
+.stage{border:3px solid var(--line);background:#1c1226;line-height:0}
+#scene{width:100%;aspect-ratio:16/9;display:block}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.controls label{display:flex;gap:8px;align-items:center;font-size:13px}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
+button{font-family:var(--body);font-size:13px;min-height:38px;background:var(--accent);color:var(--accent-fg);border:0;padding:8px 14px;font-weight:700;cursor:pointer}
+button.ghost{background:var(--panel);color:var(--fg);border:2px solid var(--line);font-weight:400}
+button:focus-visible,input:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;max-width:72ch}
+.handoff{background:var(--panel);border:2px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.status{font-size:12px;color:var(--muted);min-height:1.6em}
+details{border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;font-weight:700}
+pre{background:var(--code);border:1px solid var(--line);padding:12px;margin:10px 0 0;max-height:420px;overflow:auto;font-size:11px;line-height:1.5;white-space:pre}
+</style>
+
+<main>
+<header>
+ <span class="eyebrow">Timeblends · kamer 15</span>
+ <h1>Sunrise <span>Forge</span></h1>
+ <p class="lede">De forge aan het eind van de fabriek, in dezelfde stijl als de Time Blender: koper met klinknagels, leisteenblauwe schoorsteen, paars leren blaasbalg, een glazen tank met gele tijdvloeistof en de gouden rune van je held op de kap.</p>
+</header>
+
+<section aria-labelledby="h-scene">
+ <h2 id="h-scene">In de kamer</h2>
+ <div class="stage"><canvas id="scene" aria-label="De forge met de Time Blender die ernaartoe loopt"></canvas></div>
+ <div class="controls">
+  <label for="walk"><input id="walk" type="checkbox" checked> Time Blender loopt heen en weer</label>
+  <label for="near"><input id="near" type="checkbox"> Altijd "dichtbij" tonen</label>
+  <button id="pause" class="ghost" type="button" aria-pressed="false">Pauzeer</button>
+ </div>
+ <ul>
+  <li>Het vuur flakkert, de blaasbalg pompt en bij elke pomp licht het vuur op.</li>
+  <li>De vloeistof in de tank klotst en heeft belletjes. De klok boven het vuur loopt.</li>
+  <li>Vonken en een paar gouden runen stijgen op. Het tandwiel in de sokkel draait.</li>
+  <li>Kom je dichtbij, dan wordt het vuur feller, gloeit de rune sterker en verschijnt het koperen bordje "Z · FORGE".</li>
+ </ul>
+</section>
+
+<section class="handoff" aria-labelledby="h-send">
+ <h2 id="h-send">Doorsturen naar je code-chat</h2>
+ <p>Kopieer het bericht en plak het in de chat waar je aan het spel werkt. De code van de forge zit erin.</p>
+ <div class="row">
+  <button id="copyAll" type="button">Kopieer bericht + code</button>
+  <button id="copyCode" class="ghost" type="button">Alleen de code</button>
+  <span class="status" id="status" role="status" aria-live="polite"></span>
+ </div>
+ <details><summary>Bekijk het bericht</summary><pre id="msgView"></pre></details>
+ <details><summary>Bekijk de code</summary><pre id="codeView"></pre></details>
+</section>
+</main>
+
+<script>
+/*@@HERO@@*/
+</script>
+<script id="forge-src">
+/*@@FORGE@@*/
+</script>
+<script>
+(()=>{
+window.UPG={harness:false};
+const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+let paused=RM;const pb=document.getElementById('pause');const setP=v=>{paused=v;pb.textContent=v?'Speel af':'Pauzeer';pb.setAttribute('aria-pressed',String(v))};setP(paused);pb.onclick=()=>setP(!paused);
+const cv=document.getElementById('scene'),c=cv.getContext('2d'),W=960,H=540,DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;
+/* the game's globals that drawForge reads */
+window.room=14;window.FORGE_ROOM=14;window.WW=W;window.FLOOR=452;window.FX=600;window.forgeOpen=false;window.SERIF="'Cinzel',Georgia,serif";
+const me={x:220,face:1,ph:0,wait:0};const walkIn=document.getElementById('walk'),nearIn=document.getElementById('near');
+window.nearForge=()=>nearIn.checked||Math.abs(me.x-FX)<210;
+let t=0,last=0;
+function scene(){const F=FLOOR;
+ const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#5a3550');g.addColorStop(.55,'#3a2440');g.addColorStop(1,'#20152a');c.fillStyle=g;c.fillRect(0,0,W,H);
+ /* a tall window with the sunrise behind it */
+ const wx=120,wy=60,ww=170,wh=250;c.save();rrect(c,wx,wy,ww,wh,80);c.clip();const sk=c.createLinearGradient(0,wy,0,wy+wh);sk.addColorStop(0,'#6a4a72');sk.addColorStop(.55,'#e88a5a');sk.addColorStop(1,'#ffd27a');c.fillStyle=sk;c.fillRect(wx,wy,ww,wh);
+ c.fillStyle='rgba(255,240,190,.9)';c.beginPath();c.arc(wx+ww/2,wy+wh-10,46,0,TAU);c.fill();c.restore();
+ rrect(c,wx,wy,ww,wh,80);c.strokeStyle=OUT;c.lineWidth=8;c.stroke();c.strokeStyle='#b8613a';c.lineWidth=4;c.stroke();
+ c.strokeStyle=OUT;c.lineWidth=5;c.beginPath();c.moveTo(wx+ww/2,wy+4);c.lineTo(wx+ww/2,wy+wh);c.moveTo(wx,wy+120);c.lineTo(wx+ww,wy+120);c.stroke();
+ c.save();c.globalCompositeOperation='lighter';const lb=c.createLinearGradient(wx,wy,wx+260,F);lb.addColorStop(0,'rgba(255,200,120,.16)');lb.addColorStop(1,'rgba(255,200,120,0)');c.fillStyle=lb;
+ c.beginPath();c.moveTo(wx,wy+20);c.lineTo(wx+ww,wy+20);c.lineTo(wx+ww+220,F);c.lineTo(wx+60,F);c.closePath();c.fill();c.restore();
+ /* floor with warning stripes */
+ c.fillStyle='#6e3426';c.fillRect(0,F,W,H-F);c.fillStyle='#b8613a';c.fillRect(0,F,W,10);
+ c.save();c.beginPath();c.rect(0,F+10,W,16);c.clip();c.fillStyle='#1c1226';c.fillRect(0,F+10,W,16);c.fillStyle='#e8b23c';for(let x=-40;x<W+40;x+=36){c.beginPath();c.moveTo(x,F+26);c.lineTo(x+18,F+26);c.lineTo(x+30,F+10);c.lineTo(x+12,F+10);c.closePath();c.fill()}c.restore();
+ c.fillStyle='rgba(28,18,38,.5)';c.fillRect(0,F+26,W,H)}
+function frame(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;
+ if(!paused){t+=dt;
+  if(walkIn.checked){if(me.wait>0)me.wait-=dt;else{me.x+=me.face*1.8;me.ph+=.25;if(me.x>FX-150&&me.face>0){me.face=-1;me.wait=2.2}if(me.x<200&&me.face<0){me.face=1;me.wait=1}}}}
+ c.setTransform(DPR,0,0,DPR,0,0);scene();drawForge(c,0,t);
+ const moving=walkIn.checked&&me.wait<=0&&!paused,P=poseFor(moving?'walk':'idle',{t,ph:me.ph,speed:moving?.8:0,atk:-1});
+ const sg=c.createRadialGradient(me.x,FLOOR+2,2,me.x,FLOOR+2,26);sg.addColorStop(0,'rgba(10,4,16,.45)');sg.addColorStop(1,'rgba(10,4,16,0)');c.fillStyle=sg;c.beginPath();c.ellipse(me.x,FLOOR+2,26,7,0,0,TAU);c.fill();
+ heroDraw(c,me.x,FLOOR,me.face,P,0,P.squash,.82);
+ requestAnimationFrame(frame)}
+requestAnimationFrame(ts=>{last=ts;frame(ts)});
+
+const CODE=document.getElementById('forge-src').textContent.trim()+'\n';
+const MSG=`Hoi! Hier is een nieuwe forge voor Timeblends: de Sunrise Forge (kamer 15), in dezelfde stijl als de Time Blender. Bouw hem in mijn spel in (demo/time-blender-demo.html).
+
+WAT ER IN ZIT
+- Een bakstenen oven tussen twee koperen pilaren met klinknagels, op een koperen sokkel met gloeiende ventilatiegaten en een draaiend tandwiel.
+- Een koperen boog met gouden sluitsteen (zandloper) rond de vuurmond, met geanimeerde vlammen in drie lagen en gloeiende kolen.
+- Een koperen kap met een platte rand (zoals de hoed van de held) en de gouden rune van de held die zacht gloeit.
+- Een klok boven het vuur waarvan de wijzers lopen.
+- Een leisteenblauwe schoorsteen met koperen banden tot in het plafond.
+- Rechts een glazen tank met gele tijdvloeistof (klotsend, met belletjes en maatstreepjes) op een koperen standaard, met een koperen pijp naar de kap.
+- Links een paars leren blaasbalg die pompt (het vuur licht op bij elke pomp) en een aambeeld op een stronk met koperen banden, een gloeiend staafje en een hamer.
+- Vonken en een paar gouden runen die opstijgen. Dichtbij wordt het vuur feller, de rune gloeit sterker en er verschijnt een koperen bordje "Z · FORGE".
+
+INBOUWEN
+1. Vervang in demo/time-blender-demo.html de hele functie
+   function drawForge(c,cam,t){ ... }
+   (vanaf de regel "function drawForge" tot vlak vóór "const FORGE_ITEMS") door de code hieronder.
+2. De code gebruikt alleen dingen die al in het spel zitten: OUT, TAU, lerp, rrect, fillOut, lgrad, drawCurl, room, FORGE_ROOM, FX, WW, FLOOR, nearForge, forgeOpen en SERIF. Nieuw zijn FG, FORGE_GLOW, fgRad, fgRivets, fgGear en forgeArt.
+3. De oude drawForge duwde ook vonken in parts[]; dat hoeft niet meer, de nieuwe tekent zijn eigen vonken.
+4. De forge is iets breder dan de oude (van ongeveer FX-300 tot FX+200). FX=WORLD-WALLW-250, dus hij past voor de muur. Het bordje "Z · FORGE" staat nu op FLOOR-290.
+
+Test daarna kamer 15: loop naar de forge, kijk of het bordje verschijnt en of Z/E het forge-menu opent. Zet het daarna op dezelfde artifact-link, commit en push zoals altijd.
+
+----- CODE -----
+`;
+document.getElementById('codeView').textContent=CODE;document.getElementById('msgView').textContent=MSG+'(de code staat hieronder)';
+const st=document.getElementById('status');
+async function copy(txt,label){try{await navigator.clipboard.writeText(txt);st.textContent=label+' gekopieerd. Plak het in je code-chat.'}
+ catch(e){const pre=label=='Code'?document.getElementById('codeView'):document.getElementById('msgView');pre.parentElement.open=true;const r=document.createRange();r.selectNodeContents(pre);const s=getSelection();s.removeAllRanges();s.addRange(r);st.textContent='Kopiëren mocht niet. De tekst is geselecteerd: druk op Ctrl+C of Cmd+C.'}}
+document.getElementById('copyAll').onclick=()=>copy(MSG+CODE,'Bericht en code');
+document.getElementById('copyCode').onclick=()=>copy(CODE,'Code');
+})();
+</script>
