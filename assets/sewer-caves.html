@@ -1,0 +1,264 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Sewer Caves</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap">
+<style>
+/* Layout: one big living painting on top, its name and story under it, then a strip of 15 small paintings to switch scenes.
+   Single dark look on purpose: these are dark flooded sewer caves. */
+:root{
+ --bg:#04100f;--panel:#071a19;--fg:#d6ece6;--muted:#86aaa4;--line:#163633;--accent:#7fe0c4;--new:#9be37a;
+ --display:'Cinzel',Georgia,'Times New Roman',serif;--body:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+ color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:18px;line-height:1.5;padding-inline:16px;padding-block:24px 40px}
+main{max-width:1100px;margin-inline:auto;display:flex;flex-direction:column;gap:16px}
+.frame{border:1px solid var(--line);background:#000;line-height:0;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#cv{width:100%;max-width:100%;aspect-ratio:16/9;display:block}
+.cap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:baseline;justify-content:space-between}
+.cap div{display:flex;gap:10px;align-items:baseline;min-width:0}
+.num{font-family:var(--display);color:var(--accent);font-size:15px;letter-spacing:.1em;font-variant-numeric:tabular-nums}
+h1{font-family:var(--display);font-weight:700;letter-spacing:.06em;font-size:clamp(22px,4vw,32px);margin:0;text-wrap:balance}
+.tag{font-family:var(--display);font-size:11px;letter-spacing:.14em;color:var(--new);border:1px solid var(--new);padding:1px 6px}
+p{margin:0;color:var(--muted);max-width:66ch}
+.ctrl{display:flex;gap:8px}
+button{font-family:var(--display);font-size:13px;letter-spacing:.1em;background:transparent;color:var(--accent);border:1px solid var(--line);padding:8px 14px;cursor:pointer;min-height:38px}
+button:hover{border-color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,160px),1fr));gap:10px}
+.thumb{padding:0;display:flex;flex-direction:column;gap:0;border:1px solid var(--line);text-align:left;min-height:0}
+.thumb canvas{width:100%;aspect-ratio:16/9;display:block}
+.thumb span{font-family:var(--body);font-size:15px;letter-spacing:0;color:var(--fg);padding:5px 8px 6px;display:flex;gap:6px;justify-content:space-between}
+.thumb span i{font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums}
+.thumb[aria-current="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.thumb.n span i{color:var(--new)}
+.keys{font-size:15px}
+</style>
+<main>
+ <div class="frame"><canvas id="cv" role="img" aria-label=""></canvas></div>
+ <div class="cap">
+  <div><span class="num" id="num">01 / 15</span><h1 id="title">Sewer Cave</h1><span class="tag" id="tag" hidden>NEW</span></div>
+  <div class="ctrl"><button id="prev" type="button" aria-label="Previous scene">◀</button><button id="pause" type="button" aria-pressed="false">Pause</button><button id="next" type="button" aria-label="Next scene">▶</button></div>
+ </div>
+ <p id="desc"></p>
+ <div class="strip" id="strip" aria-label="All scenes"></div>
+ <p class="keys">Scenes 1 to 10 are the ten sea caves from the pixel-art gallery, repainted smooth with a blue-green sewer look. Scenes 11 to 15 are new. Use ◀ ▶ or the arrow keys to switch.</p>
+</main>
+<script>
+(()=>{
+const W=960,H=540,TAU=Math.PI*2,WY=462;
+const main=document.getElementById('cv');const DPR=Math.min(2,window.devicePixelRatio||1);main.width=W*DPR;main.height=H*DPR;
+let c=main.getContext('2d');
+let seed=1;const R=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646};const rr=(a,b)=>a+R()*(b-a);
+const lg=(x0,y0,x1,y1,st)=>{const g=c.createLinearGradient(x0,y0,x1,y1);st.forEach((s,i)=>g.addColorStop(i/(st.length-1),s));return g};
+const rg=(x,y,r0,r1,st)=>{const g=c.createRadialGradient(x,y,r0,x,y,r1);st.forEach((s,i)=>g.addColorStop(i/(st.length-1),s));return g};
+const blob=(pts)=>{c.beginPath();const n=pts.length;for(let i=0;i<=n;i++){const p=pts[i%n],q=pts[(i+1)%n],mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2;i?c.quadraticCurveTo(p[0],p[1],mx,my):c.moveTo(mx,my)}c.closePath()};
+const rock=(cx,cy,rx,ry,j,n)=>{const pts=[];n=n||11;for(let i=0;i<n;i++){const a=i/n*TAU,k=1+rr(-j,j);pts.push([cx+Math.cos(a)*rx*k,cy+Math.sin(a)*ry*k])}return pts};
+const add=(f)=>{c.save();c.globalCompositeOperation='lighter';f();c.restore()};
+
+/* =================== the shared cave frame (same in every scene, like the gallery) =================== */
+function makeFrame(S,o){
+ seed=S.seed;
+ S.far=[];for(let i=0;i<9;i++)S.far.push({pts:rock(i*120+rr(-30,30),rr(120,260),rr(90,150),rr(70,120),.25),a:rr(.35,.6)});
+ S.stal=[];for(let i=0;i<(o.stal||34);i++){const far=R()<.45;S.stal.push({x:rr(-20,W+20),w:far?rr(10,22):rr(16,38),h:(far?rr(50,130):rr(70,210))*(o.stalH||1),far,slime:R()<(o.slime||.35)})}
+ S.drips=S.stal.filter(s=>s.slime&&!s.far).map(s=>({s,t:rr(0,3),per:rr(2.2,4.2)}));
+ S.left=[];{let y=490;for(let i=0;i<7;i++){const rx=rr(52,74),ry=rr(26,36);S.left.push({x:rr(70,120)-i*4,y:y-ry,rx,ry,pts:rock(0,0,rx,ry,.12)});y-=ry*1.55}}
+ S.stones=[];for(let x=-30;x<W+40;){const w=rr(46,86);S.stones.push({x:x+w/2,w,pts:rock(0,0,w/2,rr(13,20),.14)});x+=w*.82}
+ S.weeds=[];for(const [bx,n] of(o.weeds||[[150,8],[210,5],[790,7],[850,5]]))for(let i=0;i<n;i++)S.weeds.push({x:bx+rr(-30,30),h:rr(55,130),w:rr(9,15),ph:rr(0,TAU),sp:rr(.6,1.1),hue:R()});
+ S.motes=[];for(let i=0;i<70;i++)S.motes.push({x:rr(0,W),y:rr(0,H),r:rr(.8,2.6),s:rr(.15,.6),ph:rr(0,TAU),g:R()<.5});
+ S.bubbles=[];for(let i=0;i<26;i++)S.bubbles.push({x:rr(60,W-60),y:rr(330,540),r:rr(1.5,5),s:rr(.25,.7),ph:rr(0,TAU)});
+ S.arch=[];for(let i=0;i<24;i++){const x=rr(780,960),y=rr(20,320);if(x>815&&x<925&&y>210)continue;S.arch.push([x,y,rr(6,16),rr(4,10),rr(0,3),rr(.2,.45)])}
+}
+function backWall(S){const p=S.o.sky||['#03090f','#052028','#06302c','#041612'];c.fillStyle=lg(0,0,0,H,p);c.fillRect(0,0,W,H);
+ for(const f of S.far){blob(f.pts);c.fillStyle='rgba(8,40,48,'+f.a+')';c.fill()}}
+function glow(S,t){const L=S.o.light||{x:500,y:310,r:420,a:.45},fl=.9+.06*Math.sin(t*1.3)+.04*Math.sin(t*3.7),col=L.col||[150,255,225];
+ add(()=>{c.fillStyle=rg(L.x,L.y,20,L.r,['rgba('+col+','+L.a*fl+')','rgba(80,200,190,'+L.a*.55*fl+')','rgba(40,120,150,'+L.a*.22*fl+')','rgba(20,60,90,0)']);c.fillRect(0,0,W,H)})}
+function fog(t,y,a,sp){add(()=>{for(let i=0;i<5;i++){const x=((i*260+t*sp)%(W+400)+W+400)%(W+400)-200;c.fillStyle=rg(x,y,10,220,['rgba(110,220,200,'+a+')','rgba(60,150,160,0)']);c.beginPath();c.ellipse(x,y,260,70,0,0,TAU);c.fill()}})}
+function stalactites(S,far){for(const s of S.stal){if(s.far!==far)continue;c.beginPath();c.moveTo(s.x-s.w,-10);c.quadraticCurveTo(s.x-s.w*.4,s.h*.55,s.x,s.h);c.quadraticCurveTo(s.x+s.w*.4,s.h*.55,s.x+s.w,-10);c.closePath();
+  if(far){c.fillStyle='rgba(10,48,58,.75)';c.fill()}else{c.fillStyle=lg(s.x-s.w,0,s.x+s.w,0,['#05161c','#0d3338','#06191f']);c.fill();
+   c.strokeStyle='rgba(120,220,200,.18)';c.lineWidth=1.5;c.beginPath();c.moveTo(s.x+s.w*.55,0);c.quadraticCurveTo(s.x+s.w*.25,s.h*.55,s.x,s.h-2);c.stroke();
+   if(s.slime){c.fillStyle='rgba(70,200,110,.55)';c.beginPath();c.moveTo(s.x-s.w*.5,s.h*.35);c.quadraticCurveTo(s.x,s.h*.5,s.x+s.w*.45,s.h*.32);c.quadraticCurveTo(s.x+s.w*.2,s.h*.8,s.x,s.h+3);c.quadraticCurveTo(s.x-s.w*.2,s.h*.8,s.x-s.w*.5,s.h*.35);c.fill()}}}
+ if(!far){c.fillStyle=lg(0,0,0,70,['#020a0d','rgba(4,20,24,0)']);c.fillRect(0,0,W,70)}}
+function drips(S,dt){const fy=S.o.dripTo||470;for(const d of S.drips){d.t+=dt;const k=(d.t%d.per)/d.per,x=d.s.x,y0=d.s.h+3;
+  if(k<.55){const r=1.5+2.2*k/.55;c.fillStyle='rgba(120,240,150,.85)';c.beginPath();c.ellipse(x,y0+r*.6,r*.8,r,0,0,TAU);c.fill()}
+  else{const f=(k-.55)/.45,y=y0+f*f*(fy+40-y0);if(y<fy){c.fillStyle='rgba(140,250,170,.9)';c.beginPath();c.ellipse(x,y,2,3.6,0,0,TAU);c.fill()}
+   else{const sp=Math.min(1,(y-fy)/40);c.strokeStyle='rgba(140,250,170,'+(1-sp)+')';c.lineWidth=1.4;c.beginPath();c.ellipse(x,fy,4+sp*18,1.5+sp*4,0,0,TAU);c.stroke()}}}}
+function leftColumn(S){for(const b of S.left){c.save();c.translate(b.x,b.y);blob(b.pts);c.fillStyle=lg(-b.rx,-b.ry,b.rx,b.ry,['#1b4c5a','#0e2c38','#061820']);c.fill();
+  c.strokeStyle='rgba(2,10,14,.8)';c.lineWidth=2;c.stroke();c.strokeStyle='rgba(140,230,215,.25)';c.lineWidth=2;c.beginPath();c.ellipse(0,0,b.rx*.82,b.ry*.75,0,-2.6,-1.1);c.stroke();
+  c.fillStyle='rgba(60,170,100,.55)';for(let i=0;i<5;i++){c.beginPath();c.ellipse(-b.rx*.6+i*b.rx*.3,-b.ry*.82,7,3,0,0,TAU);c.fill()}c.restore()}
+ c.fillStyle=lg(0,0,180,0,['#020c10','rgba(2,12,16,0)']);c.fillRect(0,0,180,H)}
+function rightArch(S,t){
+ blob([[760,-20],[930,-20],[985,40],[985,520],[930,520],[925,300],[900,230],[860,215],[830,240],[815,300],[815,330],[770,330],[760,200]]);
+ c.fillStyle=lg(760,0,990,0,['#0a2a34','#06161d','#03090d']);c.fill();c.strokeStyle='rgba(120,220,200,.12)';c.lineWidth=2;c.stroke();
+ for(const a of S.arch){c.fillStyle='rgba(30,80,90,'+a[5]+')';c.beginPath();c.ellipse(a[0],a[1],a[2],a[3],a[4],0,TAU);c.fill()}
+ if(S.o.pipe!==false){const px=812,py=250;c.fillStyle=lg(0,py-16,0,py+16,['#4f7a6a','#2c5048','#16302c']);c.fillRect(px-70,py-16,72,32);c.strokeStyle='rgba(2,10,12,.9)';c.lineWidth=2;c.strokeRect(px-70,py-16,72,32);
+  c.beginPath();c.ellipse(px-70,py,8,18,0,0,TAU);c.fillStyle='#0d2422';c.fill();c.stroke();c.beginPath();c.ellipse(px-70,py,4.6,12,0,0,TAU);c.fillStyle='#03100e';c.fill();
+  c.fillStyle='#3f6e5c';c.fillRect(px-46,py-19,10,38);c.strokeRect(px-46,py-19,10,38);c.fillStyle='rgba(80,190,120,.6)';c.beginPath();c.ellipse(px-30,py+16,12,4,0,0,TAU);c.fill();
+  const sx=px-74,fy=S.o.water===false?492:470;add(()=>{for(let i=0;i<3;i++){c.strokeStyle='rgba(120,240,170,'+(.35-i*.1)+')';c.lineWidth=5-i*1.5;c.beginPath();c.moveTo(sx,py+6);
+   for(let y=py+6;y<=fy;y+=10)c.lineTo(sx-((y-py)/220)**2*26+Math.sin(y*.08-t*9+i)*1.2,y);c.stroke()}
+   const sp=(t*3)%1;c.strokeStyle='rgba(150,250,190,'+(1-sp)*.7+')';c.lineWidth=1.4;c.beginPath();c.ellipse(sx-26,fy,6+sp*22,2+sp*5,0,0,TAU);c.stroke()})}
+ c.fillStyle=lg(W-160,0,W,0,['rgba(2,12,16,0)','#020c10']);c.fillRect(W-160,0,160,H)}
+function water(S,t){if(S.o.water===false)return;const L=S.o.light||{x:500};c.fillStyle=lg(0,WY,0,H,['rgba(30,110,100,.85)','rgba(10,60,60,.95)','#041a1c']);c.fillRect(0,WY,W,H-WY);
+ add(()=>{for(let i=0;i<14;i++){const y=WY+6+i*5,w=150-i*6+Math.sin(t*1.6+i)*12;c.fillStyle='rgba(150,255,220,'+(.22-i*.013)+')';c.fillRect(L.x-w/2+Math.sin(t*2+i*1.7)*8,y,w,2)}});
+ c.strokeStyle='rgba(160,255,225,.28)';c.lineWidth=1.2;for(let i=0;i<9;i++){const x=((i*137+t*22)%(W+200))-100,y=WY+8+(i%4)*9;c.beginPath();c.moveTo(x-30,y);c.quadraticCurveTo(x,y-2.5,x+30,y);c.stroke()}
+ c.strokeStyle='rgba(120,240,200,.5)';c.lineWidth=1.6;c.beginPath();c.moveTo(0,WY);for(let x=0;x<=W;x+=12)c.lineTo(x,WY+Math.sin(x*.05+t*1.8)*1.4);c.stroke()}
+function floor(S){for(const s of S.stones){c.save();c.translate(s.x,500);blob(s.pts);c.fillStyle=lg(0,-20,0,20,['#174752','#0b2a33','#05141a']);c.fill();c.strokeStyle='rgba(2,10,14,.9)';c.lineWidth=2;c.stroke();
+  c.strokeStyle='rgba(140,230,215,.22)';c.lineWidth=1.6;c.beginPath();c.ellipse(0,0,s.w*.38,10,0,-2.7,-.6);c.stroke();c.fillStyle='rgba(70,190,110,.5)';c.beginPath();c.ellipse(-s.w*.1,-13,s.w*.22,3.2,0,0,TAU);c.fill();c.restore()}
+ c.fillStyle=lg(0,505,0,H,['rgba(2,10,12,0)','#020a0c']);c.fillRect(0,505,W,H-505)}
+function weeds(S,t){for(const w of S.weeds){const base=496,pts=[];for(let i=1;i<=10;i++){const u=i/10,sw=Math.sin(t*w.sp+w.ph+u*2.4)*12*u*u;pts.push([w.x+sw,base-w.h*u,w.w*(1-u*.85)])}
+  c.beginPath();c.moveTo(w.x-w.w/2,base);for(const p of pts)c.lineTo(p[0]-p[2]/2,p[1]);for(let i=pts.length-1;i>=0;i--)c.lineTo(pts[i][0]+pts[i][2]/2,pts[i][1]);c.lineTo(w.x+w.w/2,base);c.closePath();
+  c.fillStyle=lg(0,base,0,base-w.h,w.hue<.5?['#0c3b3a','#1f7a5c','#58c98e']:['#0b2f3c','#1c6470','#5fbfb0']);c.fill()}}
+function particles(S,t,dt){add(()=>{for(const m of S.motes){m.y-=m.s*dt*20;m.x+=Math.sin(t*.4+m.ph)*.15;if(m.y<-5){m.y=H+5;m.x=Math.random()*W}const a=.35+.35*Math.sin(t*1.5+m.ph);
+  c.fillStyle=rg(m.x,m.y,0,m.r*3,[m.g?'rgba(150,255,170,'+a+')':'rgba(160,230,255,'+a+')','rgba(100,200,200,0)']);c.beginPath();c.arc(m.x,m.y,m.r*3,0,TAU);c.fill()}});
+ for(const b of S.bubbles){b.y-=b.s*dt*40;b.x+=Math.sin(t*2+b.ph)*.25;if(b.y<330){b.y=480+Math.random()*60;b.x=Math.random()*(W-120)+60}const a=Math.min(1,(480-b.y)/40)*Math.min(1,(b.y-330)/40);
+  if(a<=0)continue;c.strokeStyle='rgba(190,250,240,'+.6*a+')';c.lineWidth=1;c.beginPath();c.arc(b.x,b.y,b.r,0,TAU);c.stroke();c.fillStyle='rgba(230,255,250,'+.7*a+')';c.beginPath();c.arc(b.x-b.r*.35,b.y-b.r*.35,b.r*.3,0,TAU);c.fill()}}
+function shafts(t,list){add(()=>{for(const [x0,w,ph,k] of list){const a=(.07+.04*Math.sin(t*.6+ph))*(k||1),sw=Math.sin(t*.25+ph)*20;c.fillStyle=lg(0,0,0,470,['rgba(150,255,220,'+a*1.6+')','rgba(100,220,200,'+a*.6+')','rgba(80,200,190,0)']);
+  c.beginPath();c.moveTo(x0-w*.4,0);c.lineTo(x0+w*.4,0);c.lineTo(x0+w*1.6+sw,470);c.lineTo(x0-w*1.4+sw,470);c.closePath();c.fill()}});
+ for(const [x] of list){c.fillStyle='#03100f';c.fillRect(x-24,0,48,10);c.strokeStyle='rgba(150,240,210,.45)';c.lineWidth=2;for(let i=-18;i<=18;i+=9){c.beginPath();c.moveTo(x+i,0);c.lineTo(x+i,9);c.stroke()}}}
+function vignette(){c.fillStyle=rg(W/2,H*.55,H*.35,W*.75,['rgba(0,0,0,0)','rgba(1,8,10,.65)']);c.fillRect(0,0,W,H)}
+/* small shared bits */
+const MOSS=['#2f8f5a','#4fbf74'];
+function moss(x,y,w,n){for(let i=0;i<n;i++){c.fillStyle=MOSS[i%2];c.beginPath();c.ellipse(x+(i/(n-1||1)-.5)*w,y+Math.sin(i*2.3)*2,8,4,0,0,TAU);c.fill()}}
+function brickWall(x,y,w,h,lit){c.fillStyle=lg(x,0,x+w,0,['#0e3038','#1a5052','#0c2a30']);c.fillRect(x,y,w,h);c.strokeStyle='rgba(2,14,16,.85)';c.lineWidth=1.4;
+ for(let yy=y+12,r=0;yy<y+h;yy+=12,r++){c.beginPath();c.moveTo(x,yy);c.lineTo(x+w,yy);c.stroke();for(let xx=x+(r%2?12:0);xx<x+w;xx+=24){c.beginPath();c.moveTo(xx,yy);c.lineTo(xx,yy-12);c.stroke()}}
+ if(lit){c.fillStyle=lg(x,y,x,y+h,['rgba(140,240,210,.12)','rgba(140,240,210,0)']);c.fillRect(x,y,w,h)}}
+
+/* =================== the middle of each scene =================== */
+const MID={
+ /* 1: the round brick tunnel with the bent grate */
+ tunnel:{init(S){seed=S.seed+5;S.bricks=[];const TR=118;for(let ring=0;ring<3;ring++){const r0=TR+ring*14,n=26+ring*3;for(let i=0;i<n;i++){const off=(ring%2?.5:0)/n*Math.PI,a0=Math.PI+i/n*Math.PI+off;S.bricks.push({r0,r1:r0+13,a0,a1:a0+Math.PI/n,s:rr(.75,1.05)})}}},
+  draw(S,t){const TX=500,TY=300,TR=118;
+   for(let k=6;k>=0;k--){const r=TR*(.28+k*.12),y=TY+18-k*3;c.beginPath();c.arc(TX,y,r,Math.PI,0);c.lineTo(TX+r,y+r*.55);c.lineTo(TX-r,y+r*.55);c.closePath();c.fillStyle='rgba('+(120+k*6)+','+(240-k*18)+','+(215-k*14)+','+(.9-k*.11)*.55+')';c.fill()}
+   c.fillStyle=rg(TX,TY+10,4,TR*.5,['rgba(235,255,245,.95)','rgba(170,255,225,.5)','rgba(120,230,210,0)']);c.beginPath();c.arc(TX,TY+10,TR*.5,0,TAU);c.fill();
+   for(const b of S.bricks){c.beginPath();c.arc(TX,TY+40,b.r1,b.a0,b.a1);c.arc(TX,TY+40,b.r0,b.a1,b.a0,true);c.closePath();const lit=.55+.45*Math.cos((b.a0+b.a1)/2+Math.PI/2);
+    c.fillStyle='rgb('+Math.round(20+30*lit*b.s)+','+Math.round(70+60*lit*b.s)+','+Math.round(80+50*lit*b.s)+')';c.fill();c.strokeStyle='rgba(2,14,16,.85)';c.lineWidth=1.6;c.stroke()}
+   for(const s of[-1,1])brickWall(TX+s*(TR+21)-21,TY+40,42,150);
+   c.save();c.globalAlpha=.85;for(let i=0;i<22;i++){const a=Math.PI+.15+i/21*(Math.PI-.3),r=TR+43;c.fillStyle=MOSS[i%3?0:1];c.beginPath();c.ellipse(TX+Math.cos(a)*r,TY+40+Math.sin(a)*r,9,4.5,a+Math.PI/2,0,TAU);c.fill()}c.restore();
+   c.save();c.beginPath();c.arc(TX,TY+40,TR,Math.PI,0);c.lineTo(TX+TR,TY+190);c.lineTo(TX-TR,TY+190);c.closePath();c.clip();c.strokeStyle='rgba(6,28,32,.75)';c.lineWidth=6;
+   for(let x=TX-TR+20;x<TX+TR;x+=30){c.beginPath();c.moveTo(x,TY-80);const d=x-TX;if(Math.abs(d)<35){c.lineTo(x,TY+70);c.quadraticCurveTo(x,TY+120,x+Math.sign(d||1)*26,TY+150);c.lineTo(x+Math.sign(d||1)*30,TY+190)}else c.lineTo(x,TY+190);c.stroke()}
+   c.lineWidth=7;c.beginPath();c.moveTo(TX-TR,TY+20);c.lineTo(TX+TR,TY+20);c.stroke();c.restore()}},
+ /* 2: dead branching coral, now with glowing green polyps, and a broken pipe lying in it */
+ coral:{init(S){seed=S.seed+5;S.trees=[];const grow=(x,y,a,len,d,out)=>{const x2=x+Math.cos(a)*len,y2=y+Math.sin(a)*len;out.push([x,y,x2,y2,d]);if(d<4){const n=R()<.7?2:3;for(let i=0;i<n;i++)grow(x2,y2,a+rr(-.75,.75),len*rr(.6,.8),d+1,out)}};
+   for(const x of[60,190,290,420,520,640,720]){const out=[];grow(x+rr(-20,20),470,-Math.PI/2+rr(-.2,.2),rr(55,85),0,out);S.trees.push({out,ph:rr(0,TAU)})}},
+  draw(S,t){c.fillStyle='rgba(30,90,100,.25)';c.fillRect(0,400,W,70);
+   for(const tr of S.trees){const sw=Math.sin(t*.7+tr.ph)*.6;c.lineCap='round';for(const [x,y,x2,y2,d] of tr.out){const k=(470-y2)/200;c.strokeStyle='#061b22';c.lineWidth=Math.max(1.5,7-d*1.4);c.beginPath();c.moveTo(x+sw*(470-y)/60,y);c.lineTo(x2+sw*k*3.3,y2);c.stroke()}
+    add(()=>{for(const [x,y,x2,y2,d] of tr.out)if(d===4){const k=(470-y2)/200,px=x2+sw*k*3.3,a=.5+.4*Math.sin(t*2+x2);c.fillStyle=rg(px,y2,0,7,['rgba(150,255,170,'+a+')','rgba(80,220,140,0)']);c.beginPath();c.arc(px,y2,7,0,TAU);c.fill()}})}
+   c.save();c.translate(560,452);c.rotate(-.08);c.fillStyle=lg(0,-14,0,14,['#3f6e5c','#244640','#10241f']);c.fillRect(-60,-14,120,28);c.strokeStyle='rgba(2,10,12,.9)';c.lineWidth=2;c.strokeRect(-60,-14,120,28);
+   c.beginPath();c.ellipse(60,0,7,16,0,0,TAU);c.fillStyle='#03100e';c.fill();c.stroke();moss(-10,-14,90,6);c.restore()}},
+ /* 3: kelp forest: tall kelp reaching up to rusted chains */
+ kelp:{init(S){seed=S.seed+5;S.kelp=[];for(let i=0;i<16;i++)S.kelp.push({x:rr(160,820),h:rr(220,420),w:rr(6,11),ph:rr(0,TAU),far:R()<.45});S.kelp.sort((a,b)=>a.far?-1:1);S.chains=[];for(let i=0;i<4;i++)S.chains.push({x:rr(260,720),len:rr(120,260),ph:rr(0,TAU)})},
+  draw(S,t){for(const ch of S.chains){const sw=Math.sin(t*.5+ch.ph)*6;c.strokeStyle='rgba(60,110,110,.8)';c.lineWidth=2.4;for(let y=0;y<ch.len;y+=10){const x=ch.x+sw*(y/ch.len);c.beginPath();c.ellipse(x,y+5,3,5.5,0,0,TAU);c.stroke()}}
+   for(const k of S.kelp){const base=470,n=24,pts=[];for(let i=0;i<=n;i++){const u=i/n;pts.push([k.x+Math.sin(t*.8+k.ph+u*3)*18*u,base-k.h*u])}
+    c.strokeStyle=k.far?'rgba(20,80,70,.6)':'#1d6a4c';c.lineWidth=k.w;c.lineCap='round';c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.stroke();
+    for(let i=3;i<n;i+=3){const p=pts[i],s=i%6?1:-1;c.fillStyle=k.far?'rgba(30,110,90,.55)':'rgba(70,170,110,.85)';c.beginPath();c.ellipse(p[0]+s*12,p[1],16,5,s*.5+Math.sin(t+i)*.2,0,TAU);c.fill()}
+    if(!k.far){c.fillStyle='rgba(150,240,170,.7)';c.beginPath();c.arc(pts[n][0],pts[n][1],4,0,TAU);c.fill()}}}},
+ /* 4: open water: drifting light layers, a school of fish and a far outfall pipe */
+ open:{init(S){seed=S.seed+5;S.fish=[];for(let i=0;i<22;i++)S.fish.push({dx:rr(-60,60),dy:rr(-24,24),ph:rr(0,TAU)})},
+  draw(S,t){add(()=>{for(let i=0;i<5;i++){const y=230+i*45,x=Math.sin(t*.12+i)*60;c.fillStyle=lg(0,y-14,0,y+14,['rgba(140,240,220,0)','rgba(140,240,220,'+(.14-i*.015)+')','rgba(140,240,220,0)']);c.fillRect(-100+x,y-14,W+200,28)}});
+   c.fillStyle='rgba(14,50,56,.85)';c.beginPath();c.moveTo(150,410);for(let x=150;x<=780;x+=30)c.lineTo(x,410-Math.sin(x*.012)*18-14);c.lineTo(780,470);c.lineTo(150,470);c.closePath();c.fill();
+   c.fillStyle='#163c3a';c.fillRect(600,330,140,30);c.beginPath();c.ellipse(600,345,10,22,0,0,TAU);c.fillStyle='#071817';c.fill();
+   add(()=>{c.fillStyle='rgba(120,240,170,.25)';c.beginPath();c.moveTo(592,330);c.quadraticCurveTo(560,380,520,470);c.lineTo(560,470);c.quadraticCurveTo(580,390,600,360);c.fill()});
+   const cx=((t*30)%(W+300))-150,cy=250+Math.sin(t*.7)*20;for(const f of S.fish){const x=cx+f.dx+Math.sin(t*1.3+f.ph)*6,y=cy+f.dy+Math.sin(t*2+f.ph)*4;c.fillStyle='rgba(8,30,36,.85)';c.beginPath();c.ellipse(x,y,7,2.6,0,0,TAU);c.fill();c.beginPath();c.moveTo(x-6,y);c.lineTo(x-11,y-3);c.lineTo(x-11,y+3);c.closePath();c.fill()}}},
+ /* 5: rock arches, now an old brick aqueduct with water running under it */
+ arches:{init(){},draw(S,t){for(const [x,r] of[[230,105],[560,125]]){const top=470-r*2.05;c.beginPath();c.moveTo(x-r-34,470);c.lineTo(x-r-34,top+r);c.arc(x,top+r,r+34,Math.PI,0);c.lineTo(x+r+34,470);c.lineTo(x+r,470);c.lineTo(x+r,top+r+10);c.arc(x,top+r+10,r,0,Math.PI,true);c.lineTo(x-r,470);c.closePath();
+   c.save();c.clip();brickWall(x-r-40,top-40,2*r+80,520-top,true);c.restore();c.strokeStyle='rgba(2,14,16,.9)';c.lineWidth=2.5;c.stroke();moss(x,top+2,r*1.6,9);
+   add(()=>{c.fillStyle=rg(x,top+r+40,10,r,['rgba(150,255,220,.22)','rgba(100,220,200,0)']);c.fillRect(x-r,top,2*r,470-top)})}
+   add(()=>{for(let i=0;i<6;i++){const y=455+i*2;c.strokeStyle='rgba(150,250,210,'+(.2-i*.03)+')';c.lineWidth=1.2;c.beginPath();for(let x=120;x<700;x+=10)c.lineTo(x,y+Math.sin(x*.05-t*4+i)*1.5);c.stroke()}})}},
+ /* 6: rocky seabed: low mounds, anemones and a sunken manhole cover */
+ seabed:{init(S){seed=S.seed+5;S.mounds=[];for(let i=0;i<6;i++)S.mounds.push({x:rr(150,800),rx:rr(60,120),ry:rr(28,55),pts:null});for(const m of S.mounds)m.pts=rock(m.x,470,m.rx,m.ry,.15);S.anem=[];for(let i=0;i<12;i++)S.anem.push({x:rr(160,800),ph:rr(0,TAU),c:R()<.5})},
+  draw(S,t){c.fillStyle='rgba(18,64,70,.85)';c.beginPath();c.moveTo(0,400);for(let x=0;x<=W;x+=40)c.lineTo(x,395-Math.sin(x*.01+1)*25);c.lineTo(W,470);c.lineTo(0,470);c.closePath();c.fill();
+   for(const m of S.mounds){blob(m.pts);c.fillStyle=lg(0,470-m.ry,0,470,['#1d5560','#0c2c34']);c.fill();c.strokeStyle='rgba(140,230,210,.35)';c.lineWidth=2;c.stroke()}
+   c.save();c.translate(420,452);c.rotate(-.35);c.beginPath();c.ellipse(0,0,34,10,0,0,TAU);c.fillStyle='#24443e';c.fill();c.strokeStyle='#0a1a18';c.lineWidth=2;c.stroke();c.strokeStyle='rgba(120,200,170,.4)';for(let i=-2;i<=2;i++){c.beginPath();c.moveTo(i*10-6,-6);c.lineTo(i*10+6,6);c.stroke()}c.restore();
+   for(const a of S.anem){const y=470-10;for(let k=0;k<9;k++){const ang=-Math.PI/2+(k-4)*.24+Math.sin(t*1.5+a.ph+k)*.15;c.strokeStyle=a.c?'rgba(110,230,160,.85)':'rgba(110,210,230,.85)';c.lineWidth=2;c.lineCap='round';c.beginPath();c.moveTo(a.x,y);c.lineTo(a.x+Math.cos(ang)*20,y+Math.sin(ang)*20);c.stroke()}}}},
+ /* 7: stalagmites growing up, fed by the slime drips */
+ spikes:{init(S){seed=S.seed+5;S.sp=[];for(let i=0;i<14;i++)S.sp.push({x:rr(150,820),h:rr(70,210),w:rr(20,42)});S.sp.sort((a,b)=>b.h-a.h)},
+  draw(S,t){for(const s of S.sp){c.beginPath();c.moveTo(s.x-s.w,470);c.quadraticCurveTo(s.x-s.w*.3,470-s.h*.5,s.x,470-s.h);c.quadraticCurveTo(s.x+s.w*.3,470-s.h*.5,s.x+s.w,470);c.closePath();c.fillStyle=lg(s.x-s.w,0,s.x+s.w,0,['#12404a','#22646a','#0c2c34']);c.fill();c.strokeStyle='rgba(2,12,14,.8)';c.lineWidth=2;c.stroke();
+   c.fillStyle='rgba(70,200,110,.6)';c.beginPath();c.ellipse(s.x,470-s.h*.95,s.w*.2,3,0,0,TAU);c.fill();c.strokeStyle='rgba(140,230,215,.2)';c.lineWidth=1.4;c.beginPath();c.moveTo(s.x-s.w*.4,468);c.quadraticCurveTo(s.x-s.w*.15,470-s.h*.5,s.x-1,470-s.h+4);c.stroke()}}},
+ /* 8: a big round drain above lets in strong light; soft silt dunes */
+ bright:{init(){},draw(S,t){c.fillStyle='#03100f';c.beginPath();c.ellipse(480,0,90,24,0,0,TAU);c.fill();c.strokeStyle='rgba(150,240,210,.6)';c.lineWidth=3;for(let i=-70;i<=70;i+=14){c.beginPath();c.moveTo(480+i,0);c.lineTo(480+i,18);c.stroke()}
+   add(()=>{const a=.18+.05*Math.sin(t*.8);c.fillStyle=lg(0,0,0,470,['rgba(190,255,230,'+a*2+')','rgba(120,230,210,'+a+')','rgba(80,200,190,0)']);c.beginPath();c.moveTo(400,0);c.lineTo(560,0);c.lineTo(700+Math.sin(t*.3)*20,470);c.lineTo(260+Math.sin(t*.3)*20,470);c.closePath();c.fill()});
+   for(const [y,a,ph] of[[420,.5,0],[440,.75,2],[455,1,4]]){c.fillStyle='rgba(16,'+Math.round(56+a*20)+','+Math.round(60+a*14)+','+a+')';c.beginPath();c.moveTo(0,470);for(let x=0;x<=W;x+=30)c.lineTo(x,y-Math.sin(x*.009+ph)*16);c.lineTo(W,470);c.closePath();c.fill()}}},
+ /* 9: rock stacks become old sewer support pillars, some broken */
+ stacks:{init(S){seed=S.seed+5;S.pil=[];for(const [x,w] of[[240,44],[380,52],[540,40],[680,56],[780,36]])S.pil.push({x,w,h:rr(150,300),broken:R()<.5})},
+  draw(S,t){for(const p of S.pil){const top=470-p.h;c.save();c.beginPath();if(p.broken){c.moveTo(p.x-p.w/2,470);c.lineTo(p.x-p.w/2,top+10);c.lineTo(p.x-p.w/4,top);c.lineTo(p.x,top+14);c.lineTo(p.x+p.w/4,top+4);c.lineTo(p.x+p.w/2,top+16);c.lineTo(p.x+p.w/2,470)}else c.rect(p.x-p.w/2,top,p.w,p.h);c.clip();
+   brickWall(p.x-p.w/2,top-20,p.w,p.h+20,true);c.restore();if(!p.broken){c.fillStyle='#163c3a';c.fillRect(p.x-p.w/2-6,top-8,p.w+12,10);c.strokeStyle='rgba(2,14,16,.9)';c.lineWidth=2;c.strokeRect(p.x-p.w/2-6,top-8,p.w+12,10)}moss(p.x,top+(p.broken?12:-6),p.w*.9,4)}}},
+ /* 10: a deep trench between wavy cliff walls, glowing green at the bottom */
+ trench:{init(){},draw(S,t){add(()=>{c.fillStyle=rg(560,500,10,300,['rgba(120,255,170,.35)','rgba(60,200,150,.12)','rgba(40,160,140,0)']);c.fillRect(0,0,W,H)});
+   for(const [side,off,col] of[[-1,0,'#0b2d36'],[1,40,'#0a2830'],[-1,90,'#071c24'],[1,140,'#06171e']]){c.beginPath();const bx=side<0?120+off:W-200-off;c.moveTo(bx,0);for(let y=0;y<=470;y+=20)c.lineTo(bx+side*(-1)*(30+Math.sin(y*.02+off)*40),y);c.lineTo(side<0?-20:W+20,470);c.lineTo(side<0?-20:W+20,0);c.closePath();c.fillStyle=col;c.fill();c.strokeStyle='rgba(120,220,200,.12)';c.lineWidth=2;c.stroke()}}},
+ /* 11 NEW: flooded pump hall with a big waterwheel turning */
+ pump:{init(){},draw(S,t){const x=470,y=380,r=150,a=t*.25;c.save();c.translate(x,y);c.rotate(a);c.strokeStyle='#1f4a48';c.lineWidth=14;c.beginPath();c.arc(0,0,r,0,TAU);c.stroke();c.strokeStyle='#0c2422';c.lineWidth=3;c.beginPath();c.arc(0,0,r+7,0,TAU);c.arc(0,0,r-7,0,TAU);c.stroke();
+   for(let i=0;i<12;i++){c.rotate(TAU/12);c.fillStyle='#1a3e3c';c.fillRect(-5,0,10,r);c.fillStyle='#2b5a54';c.fillRect(-20,r-24,40,22);c.strokeStyle='#081a18';c.lineWidth=2;c.strokeRect(-20,r-24,40,22);c.fillStyle='rgba(70,190,110,.6)';c.fillRect(-20,r-24,40,4)}
+   c.beginPath();c.arc(0,0,24,0,TAU);c.fillStyle='#2f625a';c.fill();c.stroke();c.restore();
+   add(()=>{for(let i=0;i<5;i++){const k=((t*.4+i/5)%1),ang=-Math.PI*.15+k*.5,px=x+Math.cos(ang)*r,py=y+Math.sin(ang)*r;c.fillStyle='rgba(140,250,190,'+(1-k)*.6+')';c.beginPath();c.arc(px+k*30,py+k*k*90,3,0,TAU);c.fill()}});
+   c.fillStyle=lg(0,200,0,240,['#3f6e5c','#16302c']);c.fillRect(140,205,190,26);c.fillRect(610,205,200,26);c.strokeStyle='rgba(2,10,12,.9)';c.lineWidth=2;c.strokeRect(140,205,190,26);c.strokeRect(610,205,200,26);
+   for(const vx of[300,640]){c.beginPath();c.arc(vx,200,13,0,TAU);c.fillStyle='#2c5048';c.fill();c.stroke();c.save();c.translate(vx,200);c.rotate(t*.6);c.strokeStyle='#7fd0b0';c.lineWidth=2;c.beginPath();c.moveTo(-9,0);c.lineTo(9,0);c.moveTo(0,-9);c.lineTo(0,9);c.stroke();c.restore()}}},
+ /* 12 NEW: a round drain chamber full of slow glowing jellyfish */
+ jelly:{init(S){seed=S.seed+5;S.j=[];for(let i=0;i<9;i++)S.j.push({x:rr(200,760),y:rr(130,400),s:rr(.6,1.3),ph:rr(0,TAU),g:R()<.5})},
+  draw(S,t){c.strokeStyle='rgba(60,140,140,.35)';c.lineWidth=18;c.beginPath();c.arc(480,300,220,0,TAU);c.stroke();c.strokeStyle='rgba(2,14,16,.6)';c.lineWidth=2;for(let i=0;i<28;i++){const a=i/28*TAU;c.beginPath();c.moveTo(480+Math.cos(a)*211,300+Math.sin(a)*211);c.lineTo(480+Math.cos(a)*229,300+Math.sin(a)*229);c.stroke()}
+   for(const j of S.j){const pulse=Math.sin(t*1.6+j.ph),x=j.x+Math.sin(t*.3+j.ph)*20,y=j.y-((t*8*j.s)%60)+Math.sin(t*.5+j.ph)*30,s=j.s*(1+.08*pulse),col=j.g?'150,255,180':'150,220,255';
+    add(()=>{c.fillStyle=rg(x,y,0,40*s,['rgba('+col+',.35)','rgba('+col+',0)']);c.beginPath();c.arc(x,y,40*s,0,TAU);c.fill()});
+    c.fillStyle='rgba('+col+',.55)';c.beginPath();c.ellipse(x,y,22*s,16*s*(1-.1*pulse),0,Math.PI,0);c.quadraticCurveTo(x,y+5*s,x-22*s,y);c.fill();
+    c.strokeStyle='rgba('+col+',.45)';c.lineWidth=1.4;for(let k=-3;k<=3;k++){c.beginPath();c.moveTo(x+k*5*s,y+2);for(let u=1;u<=8;u++)c.lineTo(x+k*5*s+Math.sin(t*2+u*.7+k)*3,y+2+u*6*s);c.stroke()}}}},
+ /* 13 NEW: a big grate high in the wall pours a waterfall into a misty pool */
+ falls:{init(){},draw(S,t){const gx=480,gy=150;brickWall(330,60,300,170,true);c.fillStyle='#03100f';c.beginPath();c.arc(gx,gy,70,0,TAU);c.fill();c.strokeStyle='#244a46';c.lineWidth=7;c.beginPath();c.arc(gx,gy,70,0,TAU);c.stroke();
+   c.save();c.beginPath();c.arc(gx,gy,66,0,TAU);c.clip();c.strokeStyle='#1d3e3a';c.lineWidth=6;for(let x=gx-60;x<=gx+60;x+=20){c.beginPath();c.moveTo(x,gy-70);c.lineTo(x,gy+70);c.stroke()}c.restore();moss(gx,gy-74,110,7);
+   add(()=>{for(let i=0;i<5;i++){const w=90-i*14,x=gx-w/2+Math.sin(t*3+i)*2;c.fillStyle=lg(0,gy+40,0,465,['rgba(170,255,220,'+(.16+i*.05)+')','rgba(120,240,200,'+(.12+i*.04)+')']);c.fillRect(x,gy+40,w,425-gy)}
+    for(let i=0;i<14;i++){const k=((t*1.2+i/14)%1);c.fillStyle='rgba(220,255,240,'+(.5-k*.4)+')';c.fillRect(gx-40+((i*37)%80),gy+60+k*(400-gy),2,18)}
+    for(let i=0;i<4;i++){const k=((t*.6+i/4)%1);c.fillStyle=rg(gx,462,0,90+k*80,['rgba(200,255,235,'+(.35*(1-k))+')','rgba(150,240,220,0)']);c.beginPath();c.ellipse(gx,462,90+k*80,22+k*14,0,0,TAU);c.fill()}})}},
+ /* 14 NEW: huge pipes crossing the cave, covered in barnacles, leaking */
+ pipes:{init(S){seed=S.seed+5;S.barn=[];for(let i=0;i<60;i++)S.barn.push([R(),R()<.5?0:1,rr(2,4.5)])},
+  draw(S,t){const P=[[[120,170],[860,300],40],[[180,420],[820,140],30],[[100,330],[880,330],26]];
+   P.forEach(([a,b,r],idx)=>{const ang=Math.atan2(b[1]-a[1],b[0]-a[0]),L=Math.hypot(b[0]-a[0],b[1]-a[1]);c.save();c.translate(a[0],a[1]);c.rotate(ang);c.fillStyle=lg(0,-r,0,r,['#4f7a6a','#2c5048','#12282a']);c.fillRect(0,-r,L,2*r);c.strokeStyle='rgba(2,10,12,.9)';c.lineWidth=2;c.strokeRect(0,-r,L,2*r);
+    for(let x=60;x<L;x+=120){c.fillStyle='#244640';c.fillRect(x,-r-4,14,2*r+8);c.strokeRect(x,-r-4,14,2*r+8)}
+    for(const [u,side,s] of S.barn){if((u*7+idx)%3>1)continue;const x=u*L,y=(side?1:-1)*r*.75;c.fillStyle='#8fb7a8';c.beginPath();c.arc(x,y,s,0,TAU);c.fill();c.fillStyle='#0d2422';c.beginPath();c.arc(x,y,s*.4,0,TAU);c.fill()}
+    c.fillStyle='rgba(70,190,110,.55)';c.fillRect(0,-r,L,5);c.restore()});
+   add(()=>{for(const [x,y] of[[420,265],[600,255]]){c.strokeStyle='rgba(140,250,190,.45)';c.lineWidth=3;c.beginPath();c.moveTo(x,y);for(let yy=y;yy<=462;yy+=10)c.lineTo(x+Math.sin(yy*.1-t*8)*1.2,yy);c.stroke()}})}},
+ /* 15 NEW: a still lagoon lit by glowing algae mats and spores */
+ lagoon:{init(S){seed=S.seed+5;S.mats=[];for(let i=0;i<9;i++)S.mats.push({x:rr(150,820),w:rr(40,110),ph:rr(0,TAU)});S.roots=[];for(let i=0;i<12;i++)S.roots.push({x:rr(180,800),len:rr(120,300),ph:rr(0,TAU)});S.isl=[];for(const [x,w,h] of[[380,120,70],[610,90,52]]){S.isl.push({x,w,h,pts:rock(x,468,w,h,.12,14),spots:Array.from({length:14},()=>[rr(-w*.8,w*.8),rr(-h*.9,-h*.2),rr(3,7),rr(0,TAU)])})}},
+  draw(S,t){for(const r of S.roots){c.strokeStyle='#1b4a44';c.lineWidth=5;c.beginPath();c.moveTo(r.x,0);for(let y=0;y<=r.len;y+=12)c.lineTo(r.x+Math.sin(y*.04+r.ph+t*.4)*8,y);c.stroke();
+    add(()=>{c.fillStyle='rgba(150,255,170,.6)';c.beginPath();c.arc(r.x+Math.sin(r.len*.04+r.ph+t*.4)*8,r.len,3+Math.sin(t*2+r.ph),0,TAU);c.fill()})}
+  },
+  post(S,t){for(const s of S.isl){blob(s.pts);c.fillStyle=lg(0,468-s.h,0,468,['#123a42','#071c22']);c.fill();c.strokeStyle='rgba(2,10,14,.9)';c.lineWidth=2.5;c.stroke();c.strokeStyle='rgba(140,230,210,.28)';c.lineWidth=2;c.beginPath();c.ellipse(s.x,468-s.h*.55,s.w*.7,s.h*.4,0,-2.7,-.5);c.stroke();
+    add(()=>{for(const [dx,dy,r,ph] of s.spots){const a=.3+.25*Math.sin(t*1.6+ph);c.fillStyle=rg(s.x+dx,468+dy,0,r*2.4,['rgba(160,255,180,'+a+')','rgba(90,230,150,0)']);c.beginPath();c.arc(s.x+dx,468+dy,r*2.4,0,TAU);c.fill()}})}
+   add(()=>{for(const m of S.mats){const a=.35+.15*Math.sin(t*1.2+m.ph);c.fillStyle=rg(m.x,WY+6,2,m.w,['rgba(150,255,170,'+a+')','rgba(80,220,140,'+a*.4+')','rgba(60,200,130,0)']);c.beginPath();c.ellipse(m.x,WY+6,m.w,10,0,0,TAU);c.fill()}
+    for(let i=0;i<40;i++){const x=(i*97)%W,y=WY+4+(i*13)%30,a=.5+.5*Math.sin(t*3+i);c.fillStyle='rgba(170,255,190,'+a*.7+')';c.beginPath();c.arc(x,y,1.3,0,TAU);c.fill()}})}}
+};
+
+/* =================== the fifteen scenes =================== */
+const SCENES=[
+ {name:'Sewer Cave',mid:'tunnel',d:'The light in the middle pours out of an old brick sewer tunnel. Two bars of its grate are bent open, slime drips from the stalactites and a rusty pipe trickles into the channel.',shafts:[[330,40,0],[610,55,1.7],[460,30,3.1]]},
+ {name:'Coral Outfall',mid:'coral',d:'The dead coral branches from the gallery, now growing over the sewer floor. Their tips glow green, and a broken pipe lies half buried between them.',light:{x:430,y:300,r:420,a:.4},shafts:[[280,36,1],[520,44,2.4]]},
+ {name:'Kelp Drain',mid:'kelp',d:'Tall kelp reaches up through the drain towards rusted chains that hang from the ceiling and sway slowly.',light:{x:520,y:260,r:440,a:.42},shafts:[[420,40,.5],[640,36,2]]},
+ {name:'Open Cistern',mid:'open',d:'The open water scene as a huge flooded cistern: soft light layers drift past, a school of fish swims through and a far outfall pipe pours into the dark.',light:{x:520,y:300,r:470,a:.46}},
+ {name:'Aqueduct Arches',mid:'arches',d:'The two rock arches are now old brick aqueduct arches with moss on top, and water flows underneath them.',light:{x:420,y:330,r:430,a:.42},shafts:[[350,40,0],[600,40,2]]},
+ {name:'Silt Bed',mid:'seabed',d:'Low rock mounds on the sea floor, anemones waving in the current and a rusty manhole cover sunk into the silt.',light:{x:540,y:330,r:430,a:.42},shafts:[[480,50,1]]},
+ {name:'Dripstone Gallery',mid:'spikes',d:'Stalagmites rise from the floor, each one fed by green slime dripping from the stalactites above.',light:{x:480,y:300,r:420,a:.4},o:{slime:.6},shafts:[[300,36,.4],[700,36,1.8]]},
+ {name:'Drain Light',mid:'bright',d:'A big round drain in the ceiling lets in a wide beam of light over soft dunes of silt.',light:{x:480,y:250,r:520,a:.55}},
+ {name:'Pillar Hall',mid:'stacks',d:'The rock stacks are now old brick sewer pillars. Some still hold their capstone, others have broken off.',light:{x:470,y:300,r:440,a:.44},shafts:[[320,36,0],[620,44,2]]},
+ {name:'Deep Trench',mid:'trench',d:'Wavy cliff walls lead down into a deep trench that glows green at the bottom.',light:{x:560,y:360,r:420,a:.36},o:{water:false}},
+ {name:'Pump Hall',mid:'pump',isNew:1,d:'A flooded pump hall: a giant rusty waterwheel turns slowly, scooping water between two pipes with spinning valves.',light:{x:470,y:330,r:460,a:.44},shafts:[[250,36,1]]},
+ {name:'Jelly Chamber',mid:'jelly',isNew:1,d:'A round drain chamber where glowing green and blue jellyfish drift slowly upwards.',light:{x:480,y:300,r:380,a:.3}},
+ {name:'Grate Falls',mid:'falls',isNew:1,d:'A huge round grate high in the brick wall pours a waterfall into a misty pool.',light:{x:480,y:300,r:460,a:.42},o:{pipe:false}},
+ {name:'Barnacle Pipeworks',mid:'pipes',isNew:1,d:'Thick pipes cross the whole cave, crusted with barnacles and moss, and two of them leak thin green streams.',light:{x:500,y:330,r:440,a:.4},o:{pipe:false}},
+ {name:'Glow Lagoon',mid:'lagoon',isNew:1,d:'A still lagoon lit by glowing algae mats, with roots hanging from the ceiling and tiny spores on the water.',light:{x:480,y:420,r:420,a:.3},o:{stal:22}}
+];
+SCENES.forEach((s,i)=>{s.seed=101+i*977;s.o=Object.assign({},s.o||{},{light:s.light||{x:500,y:310,r:420,a:.45}})});
+function build(S){makeFrame(S,S.o);MID[S.mid].init(S);S.built=true;S.t=0}
+function draw(S,t,dt){backWall(S);stalactites(S,true);fog(t,240,.05,12);glow(S,t);MID[S.mid].draw(S,t);if(S.shafts)shafts(t,S.shafts);rightArch(S,t);leftColumn(S);stalactites(S,false);
+ water(S,t);if(MID[S.mid].post)MID[S.mid].post(S,t);drips(S,dt);floor(S);weeds(S,t);fog(t,440,.07,-18);particles(S,t,dt);vignette()}
+
+/* =================== page =================== */
+let cur=0,paused=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=id=>document.getElementById(id),strip=$('strip');
+SCENES.forEach((s,i)=>{const b=document.createElement('button');b.type='button';b.className='thumb'+(s.isNew?' n':'');b.setAttribute('aria-label',(i+1)+'. '+s.name);
+ const cv=document.createElement('canvas');cv.width=320;cv.height=180;b.appendChild(cv);const sp=document.createElement('span');sp.innerHTML=s.name+'<i>'+(s.isNew?'new':String(i+1).padStart(2,'0'))+'</i>';b.appendChild(sp);
+ b.onclick=()=>show(i);strip.appendChild(b);s.thumb=cv});
+function thumbs(){const keep=c;for(const s of SCENES){if(!s.built)build(s);c=s.thumb.getContext('2d');c.setTransform(320/W,0,0,320/W,0,0);draw(s,1.5,0)}c=keep}
+function show(i){cur=(i+SCENES.length)%SCENES.length;const s=SCENES[cur];if(!s.built)build(s);
+ $('num').textContent=String(cur+1).padStart(2,'0')+' / '+SCENES.length;$('title').textContent=s.name;$('tag').hidden=!s.isNew;$('desc').textContent=s.d;
+ main.setAttribute('aria-label',s.name+'. '+s.d);[...strip.children].forEach((b,k)=>b.setAttribute('aria-current',k===cur?'true':'false'))}
+$('prev').onclick=()=>show(cur-1);$('next').onclick=()=>show(cur+1);
+const pb=$('pause');const setP=v=>{paused=v;pb.textContent=v?'Play':'Pause';pb.setAttribute('aria-pressed',String(v))};setP(paused);pb.onclick=()=>setP(!paused);
+addEventListener('keydown',e=>{if(e.key==='ArrowRight'){show(cur+1);e.preventDefault()}else if(e.key==='ArrowLeft'){show(cur-1);e.preventDefault()}});
+thumbs();show(0);
+let last=0;function frame(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;const s=SCENES[cur];if(!paused)s.t+=dt;c=main.getContext('2d');c.setTransform(DPR,0,0,DPR,0,0);draw(s,s.t,paused?0:dt);requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+})();
+</script>
