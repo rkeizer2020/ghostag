@@ -779,7 +779,7 @@ function tile(c,shift,fn){const s=((shift%WW)+WW)%WW;c.save();c.translate(-s,0);
 function drawFg(c,t,i,cam){c.save();c.globalAlpha=.92;
  const P=1600,items=[[200,150,12,1],[900,110,10,-1],[1350,60,8,1]];
  for(const [wx,rp,n,d] of items){const x=((wx-cam*1.55)%P+P)%P-250;gearAt(c,x,HH+rp*.64,rp,n,t*.12*d,{c:['#1d1226','#120a1a'],st:null},6)}
- if(i!==FORGE_ROOM){const px=(((700-cam*1.55)%P)+P)%P-250;c.fillStyle='#160d1e';c.fillRect(px,0,28,120+((i*37)%60));c.fillRect(px-20,0,70,26);}
+ if(i!==FORGE_ROOM&&PUZ_ROOMS[i]===undefined){const px=(((700-cam*1.55)%P)+P)%P-250;c.fillStyle='#160d1e';c.fillRect(px,0,28,120+((i*37)%60));c.fillRect(px-20,0,70,26);}
  c.restore()}
 function drawScene(c,sc,t,cam){
  const fog='rgba(58,38,66,';
@@ -1706,13 +1706,13 @@ const PUZ={
  /* room 4: remember the colour sequence on the board and strike the crystals in that order */
  simon:{init(P){P.seq=Array.from({length:7},()=>Math.floor(Math.random()*5));P.pos=0;P.show=-1;P.st=0;P.err=0;P.btn={x:330};P.lev=[0,1,2,3,4].map(i=>({x:620+i*190,lit:0}))},
   step(P){if(P.solved)return;const G=GY(),dt=1/60;P.err=Math.max(0,P.err-dt);for(const L of P.lev)L.lit=Math.max(0,L.lit-dt);
-   if(slashHit(P.btn,P.btn.x,G-40,18)){P.show=0;P.st=0;P.pos=0}
+   if(slashHit(P.btn,P.btn.x,G-44,22)){P.show=0;P.st=0;P.pos=0;P.lastI=-1;P.btn.lit=.5}P.btn.lit=Math.max(0,(P.btn.lit||0)-dt);
    if(P.show>=0){P.st+=dt;const i=Math.floor(P.st/.8);if(i>=P.seq.length)P.show=-1;else if(i!==P.lastI){P.lastI=i;tone(P.seq[i])}}
    else for(let i=0;i<5;i++){const L=P.lev[i];if(slashHit(L,L.x,G-44,20)){L.lit=.35;tone(i);if(P.seq[P.pos]===i){P.pos++;if(P.pos>=P.seq.length)solvePuzzle()}else{P.pos=0;P.err=.8;buzz()}}}},
-  draw(c,cam,t,P){const G=GY(),bx=960-cam,by=G-270;pzPanel(c,bx,by,330,110);
+  draw(c,cam,t,P){const G=GY(),bx=600-cam,by=G-250;pzPost(c,bx,G,250);pzPanel(c,bx,by,330,110);
    for(let i=0;i<5;i++){const on=P.solved||(P.show>=0&&P.seq[Math.floor(P.st/.8)]===i&&(P.st%.8)<.55);pzLamp(c,bx-120+i*60,by-14,15,PCOL[i],on)}
    for(let k=0;k<P.seq.length;k++){c.beginPath();c.arc(bx-90+k*30,by+32,6,0,TAU);c.fillStyle=P.solved||k<P.pos?'#ffe27a':(P.err>0?'#ff6a5a':'#1c1226');c.fill();c.strokeStyle=OUT;c.lineWidth=2;c.stroke()}
-   const x=P.btn.x-cam;pzPost(c,x,G,40);c.beginPath();c.arc(x,G-44,15,0,TAU);fillOut(c,'#d98348',2.5);c.beginPath();c.moveTo(x-5,G-51);c.lineTo(x+7,G-44);c.lineTo(x-5,G-37);c.closePath();c.fillStyle='#fff3cf';c.fill();
+   const x=P.btn.x-cam,pr=P.btn.lit>0||P.show>=0;pzPost(c,x,G,40);if(pr){c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,x,G-44,2,40,['rgba(255,220,140,.7)','rgba(255,200,100,0)']);c.beginPath();c.arc(x,G-44,40,0,TAU);c.fill();c.restore()}c.beginPath();c.arc(x,G-44+(P.btn.lit>0?2:0),15,0,TAU);fillOut(c,pr?'#ffd84a':'#d98348',2.5);c.beginPath();c.moveTo(x-5,G-51);c.lineTo(x+7,G-44);c.lineTo(x-5,G-37);c.closePath();c.fillStyle='#fff3cf';c.fill();
    for(let i=0;i<5;i++){const L=P.lev[i],lx=L.x-cam;pzPost(c,lx,G,30);c.save();c.beginPath();c.moveTo(lx,G-68);c.lineTo(lx+13,G-46);c.lineTo(lx,G-26);c.lineTo(lx-13,G-46);c.closePath();
     if(L.lit>0||P.solved){c.shadowColor=PCOL[i];c.shadowBlur=20}c.fillStyle=PCOL[i];c.globalAlpha=L.lit>0||P.solved?1:.55;c.fill();c.globalAlpha=1;c.shadowBlur=0;c.strokeStyle=OUT;c.lineWidth=2.5;c.stroke();c.restore()}}},
  /* rooms 9 and 26: survive three waves; both doors lock while the waves run */
