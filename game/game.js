@@ -200,7 +200,7 @@ function loadSave(raw) {
   applyCharacter();
 }
 // accounts that always have everything unlocked: every upgrade now, and every character once they exist
-const OWNER_ACCOUNTS = ['merlinos24maker'];
+const OWNER_ACCOUNTS = ['merlinos24maker', 'azarios88'];
 const isOwner = () => !!user && OWNER_ACCOUNTS.includes(user.toLowerCase());
 // the playable characters: 0005 is always there; the others are unlocked for the owner account for now
 const CHARACTERS = [{ id: '0005', name: 'SUBJECT 0005', unlockLevel: 1 }, { id: '0300', name: 'SUBJECT 0300', unlockLevel: 2 }];
