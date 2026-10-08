@@ -37,7 +37,7 @@ h2{font-family:var(--display);font-size:12px;font-weight:400;margin:6px 0 0}
 <div class="stage"><canvas id="game" tabindex="0" aria-label="Game: use arrow keys to move, space to jump, Z or Shift to hit and hold X to heal"></canvas></div>
 <div class="pad"><div class="dir"><button id="bl" type="button" aria-label="Walk left">◀</button><button id="br" type="button" aria-label="Walk right">▶</button></div><div class="dir"><button id="bh" type="button">Hit</button><button id="bj" type="button">Jump</button></div></div>
 <div class="pad dev"><div class="dir"><button id="bhurt" type="button">Take damage</button><button id="bheal" type="button">Heal</button><button id="bunlock" type="button">Unlock everything</button></div></div>
-<p class="hint">Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to run, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>Z</kbd> or <kbd>Shift</kbd> to swing the sword, hold <kbd>X</kbd> for 1.5 seconds to heal one head (costs 2/6 of the yellow bar; every 3 hits fill 1/6), <kbd>S</kbd> or <kbd>↓</kbd> to drop through a platform, <kbd>Z</kbd> or <kbd>E</kbd> at the forge in the last room to upgrade with parts (5% drop chance), <kbd>Tab</kbd>, <kbd>Esc</kbd> or the gear top right to pause<span class="dev">, <kbd>H</kbd> to take damage, <kbd>J</kbd> to heal, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</span></p>
+<p class="hint">Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to run, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>Z</kbd> or <kbd>Shift</kbd> to swing the sword, hold <kbd>X</kbd> for 1.5 seconds to heal one head (costs 2/6 of the yellow bar; every 3 hits fill 1/6), <kbd>S</kbd> or <kbd>↓</kbd> to drop through a platform, <kbd>Z</kbd> or <kbd>E</kbd> at the forge in the last room to upgrade with parts (5% drop chance), <kbd>Tab</kbd>, <kbd>Esc</kbd> or the gear top right to pause, <kbd>1</kbd> slow/stop time and <kbd>C</kbd> dash (chips from the shop in room 30)<span class="dev">, <kbd>H</kbd> to take damage, <kbd>J</kbd> to heal, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</span></p>
 <h2 class="dev">Animations</h2>
 <section class="previews dev">
 <div class="card"><canvas id="p-idle"></canvas><span>Standing still</span></div>
@@ -835,11 +835,12 @@ function tryAttack(){if(me.atk<0&&!me.dead&&!CUT.on){me.atk=0;me.atkId++;me.atkF
 function onKey(e,v){const k=e.key;let h=true;
  if(SCENE!=='play'){if(v)menuKey(e);return}
  if(paused){if(v)pauseKey(e);return}
+ if(shopOpen){if(v)shopKey(e);return}
  if(forgeOpen){if(v)forgeKey(e);return}
  if(v&&k==='Tab'){if(!me.dead)setPause(true);e.preventDefault();return}
  if(v&&k==='Escape'){if(!me.dead)setPause(true);e.preventDefault();return}
  if(k=='ArrowLeft'||k=='a'||k=='A')key.l=v;else if(k=='ArrowRight'||k=='d'||k=='D')key.r=v;
- else if(k==' '||k=='ArrowUp'||k=='w'||k=='W')key.j=v;else if(k=='ArrowDown'||k=='s'||k=='S')key.d=v;else if(v&&(k=='z'||k=='Z'||k==='Shift')){if(k!=='Shift'&&nearForge())openForge();else if(k!=='Shift'&&nearAltar())takeChip();else tryAttack()}else if(v&&(k=='e'||k=='E'||k==='Enter')&&nearForge())openForge();else if(v&&(k=='e'||k=='E'||k==='Enter')&&nearAltar())takeChip();else if(k=='x'||k=='X')key.x=v;else if(DEV&&v&&(k=='h'||k=='H'))hurt();else if(DEV&&v&&(k=='j'||k=='J'))heal();
+ else if(k==' '||k=='ArrowUp'||k=='w'||k=='W')key.j=v;else if(k=='ArrowDown'||k=='s'||k=='S')key.d=v;else if(v&&(k=='z'||k=='Z'||k==='Shift')){if(k!=='Shift'&&nearForge())openForge();else if(k!=='Shift'&&nearAltar())takeChip();else if(k!=='Shift'&&nearHouse())openShop();else tryAttack()}else if(v&&(k=='e'||k=='E'||k==='Enter')&&nearForge())openForge();else if(v&&(k=='e'||k=='E'||k==='Enter')&&nearAltar())takeChip();else if(v&&(k=='e'||k=='E'||k==='Enter')&&nearHouse())openShop();else if(v&&k==='1')useTime();else if(v&&(k=='c'||k=='C'))tryDash();else if(k=='x'||k=='X')key.x=v;else if(DEV&&v&&(k=='h'||k=='H'))hurt();else if(DEV&&v&&(k=='j'||k=='J'))heal();
  else if(DEV&&v&&k=='[')setRoom(room-1);else if(DEV&&v&&k==']')setRoom(room+1);else h=false;if(h)e.preventDefault()}
 addEventListener('keydown',e=>onKey(e,1));addEventListener('keyup',e=>onKey(e,0));
 game.addEventListener('pointerdown',()=>game.focus());
@@ -854,14 +855,15 @@ function step(){clock+=1/60;
  if(key.x&&SOUL.v>=2/6-1e-6&&HP.hp<HP.max){me.healT+=1/60;if(Math.random()<.6){const a=Math.random()*TAU,r=40+Math.random()*30,hx=me.x,hy=me.y-48*SC_;parts.push({x:hx+Math.cos(a)*r,y:hy+Math.sin(a)*r,vx:-Math.cos(a)*r/30,vy:-Math.sin(a)*r/30,life:0,max:.5,r:1.6+Math.random()*1.6})}
   if(me.healT>=1.5){me.healT=0;SOUL.v=Math.max(0,SOUL.v-2/6);heal();burst(me.x,me.y-48*SC_,10)}}else me.healT=0;
  const dir=key.r-key.l;
- if(me.kb>0){me.kb--;me.vx*=.93}else{me.vx+=(dir*MAXV-me.vx)*.2;if(Math.abs(me.vx)<.05)me.vx=0;if(dir)me.face=dir}
+ if(DASH.t>0){DASH.t--;me.vx=DASH.dir*12.5;me.vy=0;me.inv=Math.max(me.inv,3)}else if(me.kb>0){me.kb--;me.vx*=.93}else{me.vx+=(dir*MAXV-me.vx)*.2;if(Math.abs(me.vx)<.05)me.vx=0;if(dir)me.face=dir}
  if(me.ignT>0){me.ignT--;if(me.ignT===0)me.ign=null}
  if(me.kb<=0&&key.j&&me.ground&&!jumpHeld&&me.land<=0){me.vy=-6.6;me.ground=false;jumpHeld=true}
  if(!key.j)jumpHeld=false;
  if(me.ground&&key.d&&me.kb<=0){const pl=PLAT.find(p=>Math.abs(p.y-me.y)<2&&me.x>=p.x0-5&&me.x<=p.x1+5);if(pl){me.ign=pl;me.ignT=16;me.ground=false;me.vy=1}}
  let nx=me.x+me.vx;if(me.vx){const gn=groundAt(nx+Math.sign(me.vx)*6);if(gn<me.y-8){nx=me.x;if(me.kb<=0)me.vx=0}}me.x=nx;
  if(me.ground){const sy=supportY(me.x,me.y-3,me.ign);if(sy>me.y+1.5)me.ground=false;else me.y=sy}
- if(!me.ground){const gg=(key.j&&me.vy<0&&me.kb<=0)?.136:.5;me.vy=Math.min(me.wet?4.5:11,me.vy+gg*(me.wet?.55:1));const py=me.y;me.y+=me.vy;if(me.vy>=0){const sy=supportY(me.x,py,me.ign);if(me.y>=sy){me.y=sy;if(me.vy>1.0)play('land',{gain:.07});if(me.vy>9)me.land=8;me.vy=0;me.ground=true}}}
+ if(me.ground)DASH.air=true;
+ if(!me.ground&&DASH.t<=0){const gg=(key.j&&me.vy<0&&me.kb<=0)?.136:.5;me.vy=Math.min(me.wet?4.5:11,me.vy+gg*(me.wet?.55:1));const py=me.y;me.y+=me.vy;if(me.vy>=0){const sy=supportY(me.x,py,me.ign);if(me.y>=sy){me.y=sy;if(me.vy>1.0)play('land',{gain:.07});if(me.vy>9)me.land=8;me.vy=0;me.ground=true}}}
  if(me.land>0)me.land--;
  if(me.atk>=0){me.atk++;if(me.atk===8)fxs.push({x:me.x,y:me.y-44*SC_,f:me.atkFace,t0:clock,seed:(Math.random()*9999)|0});if(me.atk>=26)me.atk=-1}
  me.speed=Math.min(1,Math.abs(me.vx)/MAXV);
@@ -869,8 +871,8 @@ function step(){clock+=1/60;
  /* combat: the slash hurts enemies, enemies hurt you */
  if(me.atk>=8&&me.atk<=20){for(const e of ENM){if(e.dead||e.hitId===me.atkId||e.state==='intro'||e.sub||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e),sx=me.x+me.atkFace*44,sy=me.y-36;
   let hit;if(e.type==='boss'){const hy=clamp(sy,e.y-80,e.y+85);hit=Math.hypot(e.x-sx,hy-sy)<=51+74&&(e.x-me.x)*me.atkFace>-70}else hit=Math.hypot(ec[0]-sx,ec[1]-sy)<=51+e.r*.9&&(ec[0]-me.x)*me.atkFace>-14;
-  if(hit){e.hitId=me.atkId;damageEnemy(e,slashDmg())}}}
- updateEnemies();updateBullets();updateDrops();puzStep();
+  if(hit){e.hitId=me.atkId;damageEnemy(e,critDamage(slashDmg()))}}}
+ {const tm=timeMode();FRAMEN++;if(!tm||(tm==='slow'&&FRAMEN%3===0)){updateEnemies();updateBullets()}}updateDrops();if(timeMode()!=='stop')puzStep();
  if(me.inv<=0)for(const e of ENM){if(e.dead||e.sub||e.bg||(e.type==='boss'&&e.state!=='dash')||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e);if(Math.hypot(ec[0]-me.x,ec[1]-(me.y-30))<16+e.r*.85){playerHit(e,ec);break}}
  if((room===0||(isSewer()&&SWI&&SWI.blockL)||puzLockL())&&me.x<WALLW+16){me.x=WALLW+16;me.vx=Math.max(0,me.vx)}if((room===FORGE_ROOM||(isSewer()&&SWI&&SWI.blockR)||puzLockR())&&me.x>WORLD-WALLW-16){me.x=WORLD-WALLW-16;me.vx=Math.min(0,me.vx)}if(EV.on&&room===0)me.x=clamp(me.x,WALLW+16,WORLD-60);
  if(bossAlive()||CUT.on){me.x=clamp(me.x,14,WORLD-14)}else if(me.x>WORLD-8){me.x=40;setRoom(room+1);if(!CUT.on)cam=0}else if(me.x<8){me.x=WORLD-40;setRoom(room-1);cam=WORLD-WW}
@@ -953,8 +955,9 @@ function burst(x,y,n){for(let i=0;i<n;i++){const a=Math.random()*TAU,s=2+Math.ra
 const SOUL={v:0};
 function damageEnemy(e,d){if(e.type==='boss'&&(e.state==='enter'||e.state==='intro'||e.dying))return;SOUL.v=Math.min(1,SOUL.v+soulGain());play('impact',{gain:.32,rate:.95+Math.random()*.15});e.hp-=d;e.flash=.15;
  if(e.type==='boss'){burst(e.x,e.y,4);if(e.hp<=0){e.hp=0;e.dying=true;e.dieT=2.4;e.state='dying';BUL.length=0;for(const q of ENM)if(q.type==='imp'&&!q.dead){q.dead=true;impFlee(q)}}return}
- e.kb=10;e.vx=me.atkFace*5;burst(e.x,enemyCenter(e)[1],e.hp<=0?16:5);if(e.hp<=0){e.dead=true;if(e.type==='imp')impFlee(e);if(e.type==='sludge'&&e.big)sludgeSplit(e);if(Math.random()<.05)dropPart(e.x,enemyCenter(e)[1])}}
-function playerHit(e,ec){me.healT=0;play('impact',{gain:.36,rate:.8});hurt();if(SEWT[e.type]||e.slime)hurt();me.inv=80;me.kb=14;me.vx=(me.x>=ec[0]?1:-1)*6.5;me.vy=-6.5;me.ground=false;e.cool=70;if(e.type=='drone')e.vy=-3;if(HP.hp<=0){me.dead=true;me.deadT=110;me.vx=0}}
+ e.kb=10;e.vx=me.atkFace*5;burst(e.x,enemyCenter(e)[1],e.hp<=0?16:5);if(e.hp<=0){e.dead=true;if(e.type==='imp')impFlee(e);if(e.type==='sludge'&&e.big)sludgeSplit(e);if(Math.random()<.9)dropPart(e.x,enemyCenter(e)[1])}}
+let FRAMEN=0;
+function playerHit(e,ec){if(timeMode()==='stop')return;me.healT=0;play('impact',{gain:.36,rate:.8});hurt();if(SEWT[e.type]||e.slime)hurt();me.inv=80;me.kb=14;me.vx=(me.x>=ec[0]?1:-1)*6.5;me.vy=-6.5;me.ground=false;e.cool=70;if(e.type=='drone')e.vy=-3;if(HP.hp<=0){me.dead=true;me.deadT=110;me.vx=0}}
 function respawn(){SOUL.v=0;me.healT=0;HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0});me.dead=false;me.inv=90;me.vx=0;me.vy=0;me.y=FLOOR;me.ground=true;me.atk=-1;me.kb=0;me.face=1;DROPS.length=0;
  const r=room>=CORR?Math.max(CORR,room-1):Math.max(0,room-1);me.x=(r===0||r===CORR)?WALLW+60:80;cam=0;setRoom(r);if(!CUT.on){me.x=r===0?WALLW+60:80;cam=0}}
 let FLOW0=null;
@@ -1115,7 +1118,7 @@ function drawBossBar(c,t){const e=ENM.find(q=>q.type==='boss'&&!q.dead);if(!e||e
  c.textAlign='center';c.font='600 16px '+SERIF;c.fillStyle='#fff3cf';c.shadowColor='rgba(0,0,0,.7)';c.shadowBlur=4;c.fillText('THE LAST GUARD',WW/2,y-23);c.restore()}
 
 /* ---- upgrades, walls, the forge, the boss intro, possessed mini robots and music ---- */
-const UPG={sword:0,heart:0,bat:false,harness:false,chip:false};
+const UPG={sword:0,heart:0,bat:false,harness:false,chip:false,slow:false,stop:false,crit:false,dash:false};
 const WALLW=64,FORGE_ROOM=FACT_N-1,FX=WORLD-WALLW-250;
 let bossBeaten=false,shakeT=0,darkV=0,darkX=480,darkY=300,titleT=-1,barK=0,forgeOpen=false,forgeSel=0,forgeFlash=0;
 const CUT={on:false,t:0,f:{}},HUSK={on:false,x:0,eye:0,open:0,slump:0,shake:0,jaw:0},DARK=[],FLEE=[];
@@ -1460,7 +1463,7 @@ function genSewer(safeX){TER=[];PLAT=[];ENM=[];BUL.length=0;debris.length=0;WL=n
  let sd=(room*7919+101)%2147483647||1;const sr=()=>{sd=(sd*16807)%2147483647;return (sd-1)/2147483646},srr=(a,b)=>a+sr()*(b-a);
  let segs=[];let x=0,y=srr(430,600);
  while(x<WORLD-1){let w=srr(210,380);if(WORLD-x<w+170)w=WORLD-x;segs.push({x0:x,x1:x+w,y:Math.round(y)});x+=w;y=clamp(y+srr(-170,190),300,820)}
- if(PUZ_ROOMS[room]!==undefined)segs=[{x0:0,x1:WORLD,y:560}];
+ if(PUZ_ROOMS[room]!==undefined||room===SHOP_ROOM)segs=[{x0:0,x1:WORLD,y:560}];
  for(const h of SWI.holes){const X=h.x,s0=segs.find(s=>X>=s.x0&&X<s.x1);h.gy=s0.y;const out=[];
   for(const q of segs){if(q.x1<=X-60||q.x0>=X+60){out.push(q);continue}if(q.x0<X-60)out.push({x0:q.x0,x1:X-60,y:q.y});if(q.x1>X+60)out.push({x0:X+60,x1:q.x1,y:q.y})}
   out.push({x0:X-60,x1:X+60,y:4000,hole:true});out.sort((a,b)=>a.x0-b.x0);segs=out}
@@ -1868,7 +1871,7 @@ SEWT.fishgod={up(e){const dt=1/60,G=560;e.t+=dt;e.flash=Math.max(0,e.flash-dt);e
   const sp=e.phase===2?1.3:1;e.hx=960+Math.sin(e.t*.45)*170;e.hy=280+Math.sin(e.t*.9)*22;e.x=e.hx;e.y=e.hy;
   if(e.state==='intro'){e.st+=dt;me.kb=Math.max(me.kb,2);me.vx=0;me.atk=-1;
    if(e.st>.7&&!e.roared){e.roared=true;e.roar=1.8;play('roar',{gain:.55});darkBurst(e.hx,e.hy,false);shakeT=1.6;titleT=-1;pzBanner('RUSTFIN THE IMMORTAL')}
-   if(e.st>3){e.state='idle';e.cd=1;PZ.started=true;me.kb=0}return}
+   if(e.st>3){e.state='idle';e.cd=1;PZ.started=true;me.kb=0;pzBanner('STRIKE THE GLOWING EYE')}return}
   if(e.state==='idle'){e.cd-=dt;if(e.cd<=0&&!me.dead){const o=['rain','spears','pillars','waves'];let k=o[Math.floor(Math.random()*4)];if(k===e.last)k=o[(o.indexOf(k)+1)%4];e.last=k;e.state=k;e.st=0;e.n=0;e.roar=.5;play('impact',{gain:.2,rate:.45})}return}
   e.st+=dt;
   if(e.state==='rain'){const per=e.phase===2?.15:.2;while(e.n*per<e.st-.5&&e.st<3){e.n++;spawnTri(e)}if(e.st>3.4){e.state='idle';e.cd=1.1/sp}}
@@ -1933,7 +1936,109 @@ PUZ.fishgod={init(P){camYmin=camYmax;PLAT=[[690,840,430],[1080,1230,430],[890,10
   if(clock-P.dyingT>2.6){solvePuzzle();pzBanner('RUSTFIN HAS FALLEN')}},
  draw(c,cam,t,P){drawGodFront(c,cam,t)}};
 
-function genRoom(safeX){genRoom0(safeX);if(PUZ_ROOMS[room]!==undefined){if(!isSewer())TER=[{x0:0,x1:WORLD,y:FLOOR}];initPuzzle()}else PZ=null}
+/* =====================================================================
+   CHIP SHOP in room 30: a scrap-metal hut with a friendly but very scared
+   robot. Press Z at the door to go inside. Chips:
+   SLOW (key 1, 3 s, everything slows) -> upgrade STOP (everything stops,
+   nothing can hurt you); CRIT (after 5 hits the next hit does double damage);
+   DASH (key C).
+   ===================================================================== */
+const SHOP_ROOM=SEW_LAST,HX=1460;let shopOpen=false,shopSel=0,shopMsg=0,shopLine=0,shopDeny=0;
+const TFX={mode:null,until:0,cdUntil:0},CRIT={n:0,ready:false,pop:0},DASH={t:0,cd:0,air:true};
+const SHOP_LINES=['W-welcome... please don’t hit me!','I-I only sell chips. Very good chips!','Th-those parts... are they for me?','Eek! Sorry. Take your time...'];
+const SHOP_ITEMS=[
+ {k:'time',name:()=>UPG.slow?'STOP':'SLOW',cost:()=>UPG.slow?600:300,done:()=>UPG.stop,d:()=>UPG.slow?['Press 1: everything stops for 3 s.','Nothing can hurt you.']:['Press 1: everything slows','down for 3 seconds.']},
+ {k:'crit',name:()=>'CRIT',cost:()=>150,done:()=>UPG.crit,d:()=>['After 5 hits, your next hit','does double damage.']},
+ {k:'dash',name:()=>'DASH',cost:()=>50,done:()=>UPG.dash,d:()=>['Press C to dash.','']}];
+function nearHouse(){return room===SHOP_ROOM&&!me.dead&&Math.abs(me.x-HX)<100&&me.ground}
+function openShop(){shopOpen=true;key.l=key.r=key.j=key.d=key.x=0;me.vx=0;me.atk=-1;shopSel=Math.max(0,SHOP_ITEMS.findIndex(it=>!it.done()));shopLine=0;shopMsg=0;play('impact',{gain:.12,rate:1.4})}
+function shopBuy(i){const it=SHOP_ITEMS[i];if(it.done()){shopDeny=.4;play('impact',{gain:.1,rate:.7});return}
+ if(PARTS.n<it.cost()){shopDeny=.4;shopLine=-1;shopMsg=clock;buzz();return}
+ PARTS.n-=it.cost();if(it.k==='time'){if(UPG.slow)UPG.stop=true;else UPG.slow=true}else UPG[it.k]=true;shopLine=-2;shopMsg=clock;chime()}
+function shopHit(x,y){for(let i=0;i<3;i++){const cx=480+(i-1)*230;if(Math.abs(x-cx)<102&&y>300&&y<500)return i}return -1}
+function shopKey(e){const k=e.key;
+ if(k==='ArrowLeft'||k==='a'||k==='A')shopSel=(shopSel+2)%3;else if(k==='ArrowRight'||k==='d'||k==='D')shopSel=(shopSel+1)%3;
+ else if(k==='z'||k==='Z'||k==='Enter'||k===' '){const i=MOUSE.in&&(k==='z'||k==='Z')?shopHit(MOUSE.x,MOUSE.y):-1;if(i>=0)shopSel=i;shopBuy(shopSel)}
+ else if(k==='Escape'||k==='e'||k==='E'||k==='x'||k==='X'||k==='Tab')shopOpen=false;else return;e.preventDefault()}
+/* abilities */
+function useTime(){if(!UPG.slow||me.dead||shopOpen)return;if(clock<TFX.cdUntil){buzz();return}TFX.mode=UPG.stop?'stop':'slow';TFX.until=clock+3;TFX.cdUntil=clock+18;play('laser',{gain:.15,rate:.35});shakeT=.15}
+function timeMode(){if(TFX.mode&&clock>TFX.until)TFX.mode=null;return TFX.mode}
+function tryDash(){if(!UPG.dash||me.dead||DASH.t>0||clock<DASH.cd||me.kb>0)return;if(!me.ground&&!DASH.air)return;if(!me.ground)DASH.air=false;
+ DASH.t=11;DASH.cd=clock+.55;DASH.dir=me.face;me.vy=0;play('slash',{gain:.18,rate:1.6});for(let i=0;i<8;i++)parts.push({x:me.x,y:me.y-40+rnd(-20,20),vx:-me.face*rnd(1,3),vy:rnd(-.5,.5),life:0,max:.4,r:2})}
+function critDamage(d){if(!UPG.crit)return d;if(CRIT.ready){CRIT.ready=false;CRIT.n=0;CRIT.pop=clock;shakeT=.2;play('impact',{gain:.4,rate:.6});return d*2}CRIT.n++;if(CRIT.n>=5)CRIT.ready=true;return d}
+/* the hut */
+function drawHouse(c,cam,t){if(room!==SHOP_ROOM)return;const x=HX-cam,G=560;if(x<-300||x>WW+300)return;
+ c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,x,G-80,10,260,['rgba(255,190,110,.28)','rgba(255,160,80,0)']);c.fillRect(x-300,G-360,600,380);c.restore();
+ /* chimney pipe with smoke */
+ c.fillStyle=lgrad(c,x+60,0,x+92,0,['#2c5048','#4f7a6a','#16302c']);c.fillRect(x+60,G-262,32,90);c.strokeStyle=OUT;c.lineWidth=2.5;c.strokeRect(x+60,G-262,32,90);
+ for(let i=0;i<4;i++){const k=((t*.35+i/4)%1);c.fillStyle='rgba(180,220,210,'+(.25*(1-k))+')';c.beginPath();c.arc(x+76+Math.sin(t+i)*8+k*20,G-270-k*90,8+k*16,0,TAU);c.fill()}
+ /* walls: patched scrap sheets */
+ const sheets=[['#7a3e3e',-130,-180,90,180],['#3c6468',-40,-190,100,190],['#6e5a3a',60,-176,74,176]];
+ for(const [col,sx,sy,w,h] of sheets){c.fillStyle=col;c.fillRect(x+sx,G+sy,w,h);c.strokeStyle=OUT;c.lineWidth=2.5;c.strokeRect(x+sx,G+sy,w,h);c.fillStyle='rgba(255,220,180,.5)';for(let k=8;k<h;k+=26){c.beginPath();c.arc(x+sx+6,G+sy+k,1.8,0,TAU);c.arc(x+sx+w-6,G+sy+k,1.8,0,TAU);c.fill()}}
+ /* roof */
+ c.beginPath();c.moveTo(x-150,G-176);c.lineTo(x-10,G-250);c.lineTo(x+150,G-172);c.closePath();fillOut(c,lgrad(c,0,G-250,0,G-172,['#b8613a','#6e3426']),3);
+ c.strokeStyle='rgba(42,24,48,.5)';c.lineWidth=1.5;for(let k=-120;k<140;k+=26){c.beginPath();c.moveTo(x+k,G-176+Math.abs(k)*.05);c.lineTo(x-10+(k+10)*.4,G-238);c.stroke()}
+ /* round window with warm light, and the robot peeking out of it */
+ const shy=nearHouse()?1:.4,sh=Math.sin(t*40)*1.4*shy;c.beginPath();c.arc(x-72,G-110,28,0,TAU);c.fillStyle='#ffcf7a';c.fill();c.save();c.clip();
+ const py=G-104+(nearHouse()?10:0);c.beginPath();c.arc(x-72+sh,py,17,0,TAU);fillOut(c,'#8aa6c4',2);for(const s of[-1,1]){c.beginPath();c.arc(x-72+sh+s*7,py-3,5,0,TAU);c.fillStyle='#fff';c.fill();c.fillStyle='#1c1226';c.beginPath();c.arc(x-72+sh+s*7+(me.x>HX?1.5:-1.5),py-2,2.2,0,TAU);c.fill()}
+ c.restore();c.beginPath();c.arc(x-72,G-110,28,0,TAU);c.strokeStyle=OUT;c.lineWidth=5;c.stroke();c.strokeStyle='#d98348';c.lineWidth=2.5;c.stroke();
+ /* door */
+ rrect(c,x+4,G-120,64,120,8);fillOut(c,lgrad(c,0,G-120,0,G,['#4a3050','#2b1d33']),3);c.beginPath();c.arc(x+56,G-58,4,0,TAU);c.fillStyle='#ffd84a';c.fill();
+ /* sign: CHIPS */
+ rrect(c,x-60,G-232,110,30,6);fillOut(c,'#14343a',2.5);drawChip(c,x-40,G-217,t,.45);c.save();c.textAlign='left';c.textBaseline='middle';c.font='700 15px '+SERIF;c.fillStyle='#bfe8ff';c.fillText('CHIPS',x-26,G-216);c.restore();
+ if(nearHouse()&&!shopOpen){const yy=G-300+Math.sin(t*3)*3;c.save();rrect(c,x-70,yy-18,140,34,10);c.fillStyle='rgba(8,24,30,.9)';c.fill();c.strokeStyle='#ffcf7a';c.lineWidth=2;c.stroke();c.textAlign='center';c.textBaseline='middle';c.font='600 16px '+SERIF;c.fillStyle='#fff3cf';c.fillText('Z  ·  ENTER',x,yy);c.restore()}}
+/* the shop screen */
+function drawShopKeeper(c,x,y,t,s){const sh=Math.sin(t*38)*1.6;c.save();c.translate(x+sh,y);c.scale(s,s);
+ c.fillStyle='rgba(0,0,0,.25)';c.beginPath();c.ellipse(0,92,60,10,0,0,TAU);c.fill();
+ rrect(c,-46,10,92,80,24);fillOut(c,lgrad(c,0,10,0,90,['#9ab6d2','#5b7aa0']),3);rrect(c,-24,34,48,30,8);fillOut(c,'#1c1226',2.5);
+ c.fillStyle='#7fe08a';for(let i=0;i<3;i++)c.fillRect(-16+i*12,44+Math.sin(t*8+i)*4,6,10);
+ for(const s2 of[-1,1]){c.save();c.translate(s2*50,30);c.rotate(s2*(.5+Math.sin(t*30)*.08));rrect(c,-8,-6,16,40,7);fillOut(c,'#8aa6c4',2.5);c.restore()}
+ c.beginPath();c.ellipse(0,-26,50,40,0,0,TAU);fillOut(c,lgrad(c,0,-66,0,14,['#c4d6e8','#8aa6c4']),3);
+ for(const s2 of[-1,1]){c.beginPath();c.arc(s2*20,-30,14,0,TAU);c.fillStyle='#fff';c.fill();c.strokeStyle=OUT;c.lineWidth=2;c.stroke();c.fillStyle='#1c1226';c.beginPath();c.arc(s2*20+Math.sin(t*3)*4,-27,6,0,TAU);c.fill();c.fillStyle='#fff';c.beginPath();c.arc(s2*20+Math.sin(t*3)*4-2,-30,2,0,TAU);c.fill()}
+ c.strokeStyle=OUT;c.lineWidth=3;c.beginPath();for(let k=0;k<6;k++)c.lineTo(-14+k*6,-4+(k%2?-3:3));c.stroke();
+ c.strokeStyle=OUT;c.lineWidth=3;c.beginPath();c.moveTo(0,-66);c.lineTo(0,-84);c.stroke();c.beginPath();c.arc(0,-88,6,0,TAU);fillOut(c,'#ff8a6a',2);
+ for(let i=0;i<2;i++){const k=((t*1.3+i*.5)%1);c.fillStyle='rgba(140,210,255,'+(1-k)+')';c.beginPath();c.ellipse(46+i*8,-40+k*30,3,5,0,0,TAU);c.fill()}
+ c.restore()}
+function drawShop(c,t){if(!shopOpen)return;shopDeny=Math.max(0,shopDeny-1/60);
+ c.fillStyle=lgrad(c,0,0,0,HH,['#3a2418','#24160f','#120b08']);c.fillRect(0,0,WW,HH);
+ c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,480,40,10,420,['rgba(255,200,120,.45)','rgba(255,160,80,0)']);c.fillRect(0,0,WW,HH);c.restore();
+ c.strokeStyle='#14100c';c.lineWidth=3;c.beginPath();c.moveTo(480,0);c.lineTo(480,26);c.stroke();c.beginPath();c.arc(480,34,10,0,TAU);c.fillStyle='#ffe9a0';c.fill();
+ /* shelves with chip jars */
+ for(const sx of[60,700]){c.fillStyle='#4a2c1c';c.fillRect(sx,90,200,10);c.fillRect(sx,170,200,10);for(let i=0;i<4;i++)for(const sy of[60,140]){rrect(c,sx+12+i*48,sy,30,30,6);c.fillStyle='rgba(200,240,255,.25)';c.fill();c.strokeStyle='rgba(255,255,255,.4)';c.lineWidth=1.5;c.stroke();drawChip(c,sx+27+i*48,sy+15,t+i,.4)}}
+ drawShopKeeper(c,480,150,t,1);
+ /* counter */
+ c.fillStyle=lgrad(c,0,250,0,290,['#6e3426','#4a2418']);c.fillRect(120,250,720,40);c.strokeStyle=OUT;c.lineWidth=3;c.strokeRect(120,250,720,40);
+ /* speech */
+ const line=shopLine===-1?'I-I’m so sorry... that’s not enough parts.':(shopLine===-2?'Th-thank you! You’re very kind!':SHOP_LINES[Math.floor(t/3.2)%SHOP_LINES.length]);
+ c.save();c.font='italic 600 19px '+SERIF2;const w=c.measureText(line).width+36;rrect(c,600,120,w,40,12);c.fillStyle='rgba(255,246,226,.95)';c.fill();c.strokeStyle=OUT;c.lineWidth=2.5;c.stroke();
+ c.beginPath();c.moveTo(604,146);c.lineTo(560,160);c.lineTo(612,134);c.fill();c.fillStyle='#2b1d33';c.textAlign='left';c.textBaseline='middle';c.fillText(line,618,141);c.restore();
+ if(shopLine<0&&clock-shopMsg>2.6)shopLine=0;
+ /* cards */
+ SHOP_ITEMS.forEach((it,i)=>{const cx=480+(i-1)*230,on=i===shopSel,done=it.done(),cost=it.cost(),can=!done&&PARTS.n>=cost,y0=305;c.save();if(on&&shopDeny>0)c.translate(Math.sin(t*70)*4*shopDeny/.4,0);
+  rrect(c,cx-100,y0,200,190,12);c.fillStyle=on?'rgba(70,44,30,.97)':'rgba(36,24,18,.95)';c.fill();c.strokeStyle=on?'#ffcf7a':'#6e3426';c.lineWidth=on?3.5:2;c.stroke();
+  drawChip(c,cx,y0+42,t+i*2,1.05);c.textAlign='center';c.textBaseline='middle';c.font='700 17px '+SERIF;c.fillStyle='#fff3cf';c.fillText(it.name()+(it.k==='time'&&UPG.slow&&!UPG.stop?'  (upgrade)':''),cx,y0+88);
+  const d=it.d();c.font='italic 600 15px '+SERIF2;c.fillStyle='#f0c898';c.fillText(d[0],cx,y0+114);c.fillText(d[1],cx,y0+134);
+  if(done){c.font='600 14px '+SERIF;c.fillStyle='#9fe8a0';c.fillText('OWNED',cx,y0+166)}else{partIcon(c,cx-30,y0+166,9,t);c.textAlign='left';c.font='700 17px '+SERIF;c.fillStyle=can?'#ffe27a':'#c07a6a';c.fillText(cost,cx-16,y0+167)}c.restore()});
+ c.save();partIcon(c,850,40,11,t);c.textAlign='left';c.textBaseline='middle';c.font='700 19px '+SERIF;c.fillStyle=shopDeny>0?'#ff8a6a':'#fff3cf';c.fillText(PARTS.n,868,41);
+ c.textAlign='center';c.font='500 14px '+SERIF;c.fillStyle='rgba(240,226,168,.75)';c.fillText('←  →  choose      Z  buy      Esc  leave',480,522);c.restore()}
+/* small HUD for abilities, under the parts counter */
+function drawAbilityHud(c,t){let x=26;const y=176;
+ const slot=(label,k,draw)=>{rrect(c,x,y,46,46,10);c.fillStyle='rgba(28,18,38,.88)';c.fill();c.strokeStyle=CL.copL;c.lineWidth=2;c.stroke();draw(x+23,y+23);
+  if(k<1){c.save();c.fillStyle='rgba(0,0,0,.55)';c.beginPath();c.moveTo(x+23,y+23);c.arc(x+23,y+23,22,-Math.PI/2,-Math.PI/2+TAU*(1-k));c.closePath();c.fill();c.restore()}
+  c.save();c.font='700 11px '+SERIF;c.fillStyle='#fff3cf';c.textAlign='right';c.fillText(label,x+43,y+44);c.restore();x+=54};
+ if(UPG.slow)slot('1',TFX.mode?1:clamp(1-(TFX.cdUntil-clock)/18,0,1),(cx,cy)=>{c.strokeStyle=UPG.stop?'#ff8a6a':'#7fd0ff';c.lineWidth=2.4;c.beginPath();c.moveTo(cx-8,cy-11);c.lineTo(cx+8,cy-11);c.lineTo(cx-8,cy+11);c.lineTo(cx+8,cy+11);c.closePath();c.stroke()});
+ if(UPG.dash)slot('C',clamp(1-(DASH.cd-clock)/.55,0,1),(cx,cy)=>{c.strokeStyle='#bfe8ff';c.lineWidth=2.6;c.lineCap='round';c.beginPath();c.moveTo(cx-10,cy-6);c.lineTo(cx+8,cy-6);c.moveTo(cx-12,cy+2);c.lineTo(cx+10,cy+2);c.moveTo(cx-8,cy+9);c.lineTo(cx+4,cy+9);c.stroke()});
+ if(UPG.crit)slot('',1,(cx,cy)=>{for(let i=0;i<5;i++){c.beginPath();c.arc(cx-14+i*7,cy+8,2.6,0,TAU);c.fillStyle=CRIT.ready||i<CRIT.n?'#ffd84a':'#3a2342';c.fill()}c.font='700 13px '+SERIF;c.textAlign='center';c.fillStyle=CRIT.ready?'#ffe27a':'#c8b890';c.fillText('CRIT',cx,cy-6)});
+ if(TFX.mode){c.fillStyle=TFX.mode==='stop'?'rgba(210,210,230,.16)':'rgba(80,160,255,.12)';c.fillRect(0,0,WW,HH);const k=clamp((TFX.until-clock)/3,0,1);c.save();c.strokeStyle=TFX.mode==='stop'?'rgba(255,200,180,.7)':'rgba(140,210,255,.7)';c.lineWidth=4;c.beginPath();c.arc(WW/2,170,18,-Math.PI/2,-Math.PI/2+TAU*k);c.stroke();c.font='700 14px '+SERIF;c.textAlign='center';c.fillStyle='#fff3cf';c.fillText(TFX.mode.toUpperCase(),WW/2,175);c.restore()}
+ if(CRIT.pop&&clock-CRIT.pop<.6){const k=(clock-CRIT.pop)/.6;c.save();c.globalAlpha=1-k;c.font='700 30px '+SERIF;c.textAlign='center';c.fillStyle='#ffe27a';c.shadowColor='#ff9a3a';c.shadowBlur=14;c.fillText('CRIT!',me.x-cam,me.y-viewY()-110-k*30);c.restore()}}
+/* make the weak spot of Rustfin the Immortal obvious */
+function drawGodTarget(c,cam,t){if(room!==GOD_ROOM)return;const e=ENM.find(q=>q.type==='fishgod');if(!e||e.state==='intro')return;const x=e.hx+36-cam,y=e.hy-30,p=1+.12*Math.sin(t*5);
+ c.save();c.strokeStyle='rgba(255,230,120,.9)';c.lineWidth=3;c.setLineDash([10,7]);c.lineDashOffset=-t*30;c.beginPath();c.arc(x,y,44*p,0,TAU);c.stroke();c.setLineDash([]);
+ for(let i=0;i<4;i++){const a=i*Math.PI/2+t*.6;c.beginPath();c.moveTo(x+Math.cos(a)*52*p,y+Math.sin(a)*52*p);c.lineTo(x+Math.cos(a)*64*p,y+Math.sin(a)*64*p);c.stroke()}
+ const ay=y-82+Math.sin(t*4)*6;c.fillStyle='#ffe27a';c.beginPath();c.moveTo(x-12,ay-10);c.lineTo(x+12,ay-10);c.lineTo(x,ay+6);c.closePath();c.fill();c.strokeStyle=OUT;c.lineWidth=2;c.stroke();
+ c.font='700 15px '+SERIF;c.textAlign='center';c.fillStyle='#fff3cf';c.shadowColor='rgba(0,0,0,.9)';c.shadowBlur=6;c.fillText('HIT THE EYE',x,ay-18);c.restore()}
+
+function genRoom(safeX){genRoom0(safeX);if(room===SHOP_ROOM)ENM=[];if(PUZ_ROOMS[room]!==undefined){if(!isSewer())TER=[{x0:0,x1:WORLD,y:FLOOR}];initPuzzle()}else PZ=null}
 function genRoom0(safeX){CORPSES.length=0;if(SC[room].sewer){HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;genSewer(safeX);return}genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
  if(room===0&&bossBeaten&&!EV.done&&!CUT.on)startAlarm();
  if(room===BOSS_ROOM){TER=[{x0:0,x1:WORLD,y:FLOOR}];const pl=(x,w,k)=>({x0:x,x1:x+w,y:FLOOR-[96,172][k],cx:x+w/2});PLAT=[pl(360,190,0),pl(1370,190,0),pl(780,200,1)];BUL.length=0;debris.length=0;
@@ -1949,7 +2054,7 @@ const MENU_GEARS=[[70,618,150,14,1],[300,648,122,11,-1],[540,632,160,13,1],[790,
 const TOP_GEARS=[[170,36,64,12,1],[286,-6,46,9,-1],[672,-8,48,9,1],[790,34,66,12,-1],[900,-4,44,8,1]];
 function menuItems(){return optMode?['SOUND: '+(soundOn?'ON':'OFF'),'BACK']:[SAVE.room===null?'START GAME':'CONTINUE','OPTIONS']}
 function menuSelNow(){return optMode?optSel:menuSel}
-function startGame(){EV.on=false;sirenStop();if(SAVE.room===null){UPG.sword=0;UPG.heart=0;UPG.bat=false;UPG.harness=false;UPG.chip=false;EV.done=false;for(const k in PUZDONE)delete PUZDONE[k];PUZCODE=null;HP.max=5;bossBeaten=false;PARTS.n=0}CUT.on=false;HUSK.on=false;forgeOpen=false;DARK.length=0;FLEE.length=0;titleT=-1;darkV=0;shakeT=0;if(SAVE.room===null)SOUL.v=0;me.healT=0;HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0;s.pop=0});me.dead=false;me.inv=0;me.kb=0;me.vx=0;me.vy=0;me.x=960;me.y=FLOOR;me.ground=true;me.atk=-1;cam=0;ENM.length=0;BUL.length=0;const r=SAVE.room===null?0:SAVE.room;me.x=r===0?(SAVE.room===null?960:WALLW+60):80;setRoom(r);if(!CUT.on){me.x=r===0?(SAVE.room===null?960:WALLW+60):80;cam=0}SAVE.room=r;paused=false;DROPS.length=0;SCENE='play';game.focus()}
+function startGame(){EV.on=false;sirenStop();if(SAVE.room===null){UPG.sword=0;UPG.heart=0;UPG.bat=false;UPG.harness=false;UPG.chip=false;UPG.slow=UPG.stop=UPG.crit=UPG.dash=false;CRIT.n=0;CRIT.ready=false;TFX.mode=null;TFX.cdUntil=0;EV.done=false;for(const k in PUZDONE)delete PUZDONE[k];PUZCODE=null;HP.max=5;bossBeaten=false;PARTS.n=0}CUT.on=false;HUSK.on=false;forgeOpen=false;DARK.length=0;FLEE.length=0;titleT=-1;darkV=0;shakeT=0;if(SAVE.room===null)SOUL.v=0;me.healT=0;HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0;s.pop=0});me.dead=false;me.inv=0;me.kb=0;me.vx=0;me.vy=0;me.x=960;me.y=FLOOR;me.ground=true;me.atk=-1;cam=0;ENM.length=0;BUL.length=0;const r=SAVE.room===null?0:SAVE.room;me.x=r===0?(SAVE.room===null?960:WALLW+60):80;setRoom(r);if(!CUT.on){me.x=r===0?(SAVE.room===null?960:WALLW+60):80;cam=0}SAVE.room=r;paused=false;DROPS.length=0;SCENE='play';game.focus()}
 function menuAct(i){if(!optMode){if(i===0){startFade=flowT}else{optMode=true;optSel=0}}else{if(i===0)document.getElementById('snd').click();else{optMode=false}}}
 function menuKey(e){const k=e.key;let h=true;
  if(SCENE==='logo'){if(flowT>.4)introSkip=flowT;else h=false}
@@ -1966,10 +2071,10 @@ function menuHit(x,y){if(x<300||x>660)return -1;for(let i=0;i<2;i++){const cy=ME
 const MENU_Y=352;
 const MOUSE={x:-1,y:-1,in:false};
 game.addEventListener('pointerleave',()=>{MOUSE.in=false});
-game.addEventListener('pointermove',e=>{if(SCENE==='play'&&paused){const i=pauseHit(MOUSE.x,MOUSE.y);if(i>=0)pauseSel=i}if(SCENE==='play'&&forgeOpen){const i=forgeHit(MOUSE.x,MOUSE.y);if(i>=0)forgeSel=i}});
+game.addEventListener('pointermove',e=>{if(SCENE==='play'&&paused){const i=pauseHit(MOUSE.x,MOUSE.y);if(i>=0)pauseSel=i}if(SCENE==='play'&&forgeOpen){const i=forgeHit(MOUSE.x,MOUSE.y);if(i>=0)forgeSel=i}if(SCENE==='play'&&shopOpen){const i=shopHit(MOUSE.x,MOUSE.y);if(i>=0)shopSel=i}});
 game.addEventListener('click',e=>{if(SCENE!=='play')return;const [px,py]=menuPoint(e);if(paused){const i=pauseHit(px,py);if(i>=0){pauseSel=i;pauseAct(i)}else if(Math.hypot(px-PAUSE_BTN.x,py-PAUSE_BTN.y)<PAUSE_BTN.r+6)setPause(false);return}
- if(!forgeOpen&&!me.dead&&Math.hypot(px-PAUSE_BTN.x,py-PAUSE_BTN.y)<PAUSE_BTN.r+6){setPause(true);return}
- if(forgeOpen){const [x,y]=menuPoint(e),i=forgeHit(x,y);if(i>=0){forgeSel=i;forgeAct(i)}}});
+ if(!forgeOpen&&!shopOpen&&!me.dead&&Math.hypot(px-PAUSE_BTN.x,py-PAUSE_BTN.y)<PAUSE_BTN.r+6){setPause(true);return}
+ if(forgeOpen){const [x,y]=menuPoint(e),i=forgeHit(x,y);if(i>=0){forgeSel=i;forgeAct(i)}}if(shopOpen){const i=shopHit(px,py);if(i>=0){shopSel=i;shopBuy(i)}}});
 game.addEventListener('pointermove',e=>{const [mx,my]=menuPoint(e);MOUSE.x=mx;MOUSE.y=my;MOUSE.in=true;if(SCENE!=='menu'||startFade>=0)return;const [x,y]=[mx,my],i=menuHit(x,y);if(i>=0){optMode?optSel=i:menuSel=i}});
 game.addEventListener('click',e=>{if(SCENE==='logo'){if(flowT>.4)introSkip=flowT;return}if(SCENE!=='menu'||startFade>=0)return;const [x,y]=menuPoint(e),i=menuHit(x,y);if(i>=0){optMode?optSel=i:menuSel=i;menuAct(i)}});
 function ornament(c,cx,y,s){c.save();c.translate(cx,y);c.scale(s,s);c.lineCap='round';c.shadowColor='rgba(255,226,160,.9)';c.shadowBlur=14;c.strokeStyle='rgba(255,246,226,.95)';c.lineWidth=2.6;
@@ -2040,13 +2145,13 @@ function drawSoul(c,t){const x0=26,y0=98,W=HP.max*56+34,Hh=30,ix=x0+12,iw=W-24,i
 let last=0,acc=0;
 function loop(ts){if(FLOW0===null)FLOW0=ts;
  if(SCENE!=='play'){last=ts;acc=0;g.setTransform(Q,0,0,Q,0,0);for(const n in loops)loopGain(n,0);drawFlow(g,(ts-FLOW0)/1000);requestAnimationFrame(loop);return}
- const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=1000/60){if(!forgeOpen&&!paused)step();acc-=1000/60}
+ const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=1000/60){if(!forgeOpen&&!paused&&!shopOpen)step();acc-=1000/60}
  g.setTransform(Q,0,0,Q,0,0);const sc=SC[room];
- const fdt=forgeOpen||paused?0:dtms/1000;shakeT=Math.max(0,shakeT-fdt);darkV=Math.max(0,darkV-fdt*.55);const shk=shakeT*7;
+ const fdt=forgeOpen||paused||shopOpen?0:dtms/1000;shakeT=Math.max(0,shakeT-fdt);darkV=Math.max(0,darkV-fdt*.55);const shk=shakeT*7;
  const SW=!!sc.sewer;if(SW)drawSewerBack(g,clock,fdt);HC.glow=UPG.chip?'#6ac8ff':'#ffd84a';
  g.save();g.translate(shk?rnd(-shk,shk):0,-viewY()+(shk?rnd(-shk,shk):0));
  if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawGodBack(g,cam,clock);drawSewerTerrain(g,cam);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
- for(const p of PLAT)(SW?drawSewerPlat:drawPlat)(g,p,cam);drawWalls(g,cam);drawAltar(g,cam,clock);if(PZ){PUZ[PZ.type].draw(g,cam,clock,PZ);drawPuzGates(g,cam,clock)}drawCorpses(g,cam,clock);drawForge(g,cam,clock);drawHusk(g,cam,clock);
+ for(const p of PLAT)(SW?drawSewerPlat:drawPlat)(g,p,cam);drawWalls(g,cam);drawAltar(g,cam,clock);drawHouse(g,cam,clock);if(PZ){PUZ[PZ.type].draw(g,cam,clock,PZ);drawPuzGates(g,cam,clock)}drawCorpses(g,cam,clock);drawForge(g,cam,clock);drawHusk(g,cam,clock);
  for(const e of ENM)drawEnemy(g,e,cam,clock);drawFlee(g,cam,clock);drawDrops(g,cam,clock);updateLoops();musicUpdate();
  const st=stateNow(),atkP=me.atk>=0?me.atk/26:-1,P=poseFor(st,{ph:me.ph,t:clock,speed:me.speed,atk:atkP,heal:me.healT/1.5,hurt:me.inv>56&&!me.dead?(me.inv-56)/24:0,ko:me.dead?clamp((110-me.deadT)/40,0,1):0,fill:HP.max?HP.hp/HP.max:1});
  const sx=me.x-cam,sq=P.squash;
@@ -2056,13 +2161,13 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  drawDebris(g,dtms/1000);drawLasers(g,cam,clock);
  if(me.healT>0){const k=me.healT/1.5,hx=me.x-cam,hy=me.y-59*SC_;g.save();g.lineCap='round';g.strokeStyle='rgba(42,24,48,.6)';g.lineWidth=6;g.beginPath();g.arc(hx,hy,24,0,TAU);g.stroke();g.shadowColor='#ffd84a';g.shadowBlur=12;g.strokeStyle='#ffe27a';g.lineWidth=4;g.beginPath();g.arc(hx,hy,24,-Math.PI/2,-Math.PI/2+TAU*k);g.stroke();g.restore()}
  for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}slashFx(g,me.x-cam,me.y-44*SC_,f.f,k,f.seed,SC_*1.15)}
- if(SW){drawWBub(g,cam);drawSewerWaterFront(g,cam,clock);if(me.wet&&!UPG.chip&&!me.dead)zap(g,me.x-cam,me.y-40,46)}drawEventWater(g,cam,clock);
+ if(SW){drawWBub(g,cam);drawSewerWaterFront(g,cam,clock);if(me.wet&&!UPG.chip&&!me.dead)zap(g,me.x-cam,me.y-40,46)}drawEventWater(g,cam,clock);drawGodTarget(g,cam,clock);
  drawDark(g,cam,clock);if(CUT.on||ENM.some(q=>q.type==='fishgod'&&q.state==='intro'))stunStars(g,me.x-cam,me.y-100*SC_,clock);
  g.restore();if(!SW){drawCeiling(g,clock,cam);drawFront(g,sc,clock,cam,room)}else{const vg=g.createRadialGradient(WW/2,HH*.55,HH*.3,WW/2,HH*.55,WW*.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(1,8,10,.6)');g.fillStyle=vg;g.fillRect(0,0,WW,HH)}
- drawAlarmScreen(g,clock);hudUpdate(dtms/1000);drawHud(g,clock);drawSoul(g,clock);drawParts2(g,clock);drawBossBar(g,clock);drawDarkness(g,clock);
+ drawAlarmScreen(g,clock);hudUpdate(dtms/1000);drawHud(g,clock);drawSoul(g,clock);drawParts2(g,clock);drawAbilityHud(g,clock);drawBossBar(g,clock);drawDarkness(g,clock);
  barK+=((CUT.on?1:0)-barK)*.08;if(barK>.005){g.fillStyle='#000';g.fillRect(0,0,WW,48*barK);g.fillRect(0,HH-48*barK,WW,48*barK)}
  if(CUT.on&&CUT.t<.7){g.fillStyle='rgba(0,0,0,'+(1-CUT.t/.7)+')';g.fillRect(0,0,WW,HH)}
- drawTitle(g);drawChipBanner(g);drawPuzScreen(g);drawPauseBtn(g,ts/1000);drawForgeMenu(g,ts/1000);drawPause(g,ts/1000);
+ drawTitle(g);drawChipBanner(g);drawPuzScreen(g);drawPauseBtn(g,ts/1000);drawForgeMenu(g,ts/1000);drawShop(g,ts/1000);drawPause(g,ts/1000);
  if(me.dead){g.fillStyle='rgba(10,4,16,.55)';g.fillRect(0,0,WW,HH);g.fillStyle='#fff3cf';g.textAlign='center';g.font='bold 30px "Press Start 2P","Courier New",monospace';g.fillText('Knocked out',WW/2,HH/2-6);g.font='16px "Space Mono","Courier New",monospace';g.fillStyle='#f0a868';g.fillText('Refilling your head...',WW/2,HH/2+28);g.textAlign='left'}
  requestAnimationFrame(loop)}
 /* ---- animation previews ---- */
@@ -2080,9 +2185,9 @@ function previews(ts){const t=ts/1000;
   if(k>=0.3){const c=pv.hit.getContext('2d'),q=pv.hit.width/300;c.setTransform(q,0,0,q,0,0);slashFx(c,150,222-44*1.75,1,(k-.3)/.7*.9,7,1.75*.8)}}
  requestAnimationFrame(previews)}
 setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimationFrame(previews);
-function unlockAll(){UPG.chip=true;UPG.sword=4;UPG.heart=5;UPG.bat=true;UPG.harness=true;HP.max=10;HP.hp=10;HP.slots.forEach(s=>{s.fill=1;s.pop=1})}
+function unlockAll(){UPG.chip=true;UPG.slow=UPG.stop=UPG.crit=UPG.dash=true;UPG.sword=4;UPG.heart=5;UPG.bat=true;UPG.harness=true;HP.max=10;HP.hp=10;HP.slots.forEach(s=>{s.fill=1;s.pop=1})}
 document.getElementById('bunlock').onclick=()=>{unlockAll();game.focus()};
 document.getElementById('bhurt').onclick=()=>{hurt();game.focus()};document.getElementById('bheal').onclick=()=>{heal();game.focus()};
-window.__demo={GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
+window.__demo={get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
 
 </script>
