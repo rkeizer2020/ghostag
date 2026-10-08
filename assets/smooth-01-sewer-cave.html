@@ -1,0 +1,151 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Sewer Cave</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap">
+<style>
+/* Layout: one wide living painting, a quiet caption under it. Single dark look on purpose: the scene is a dark sewer cave. */
+:root{
+ --bg:#04100f;--panel:#071a19;--fg:#d6ece6;--muted:#86aaa4;--line:#163633;--accent:#7fe0c4;
+ --display:'Cinzel',Georgia,'Times New Roman',serif;--body:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+ color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:18px;line-height:1.5;padding-inline:16px;padding-block:24px 40px}
+main{max-width:1100px;margin-inline:auto;display:flex;flex-direction:column;gap:14px}
+.frame{border:1px solid var(--line);background:#000;line-height:0;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+canvas{width:100%;max-width:100%;aspect-ratio:16/9;display:block}
+.cap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:baseline;justify-content:space-between}
+h1{font-family:var(--display);font-weight:700;letter-spacing:.08em;font-size:clamp(22px,4vw,34px);margin:0;text-wrap:balance}
+p{margin:0;color:var(--muted);max-width:62ch}
+button{font-family:var(--display);font-size:13px;letter-spacing:.1em;background:transparent;color:var(--accent);border:1px solid var(--line);padding:8px 14px;cursor:pointer;min-height:38px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,canvas:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+</style>
+<main>
+ <div class="frame"><canvas id="cv" aria-label="A dark sea cave that has become an old sewer: dripping stalactites, a round brick tunnel glowing blue-green, a rusty pipe trickling into a murky channel, swaying seaweed and slow rising bubbles."></canvas></div>
+ <div class="cap">
+  <h1>Sewer Cave</h1>
+  <button id="pause" type="button" aria-pressed="false">Pause</button>
+ </div>
+ <p>The sea cave from the first pixel-art scene in the gallery, repainted smooth. Same stalactites, boulder column, rock arch, stone floor and soft light in the middle, but the light now comes out of an old brick sewer tunnel. Green slime drips from the rocks, a rusty pipe trickles into the channel, and the sea is still there in the seaweed and the bubbles.</p>
+</main>
+<script>
+(()=>{
+const W=960,H=540,TAU=Math.PI*2,cv=document.getElementById('cv'),c=cv.getContext('2d');
+const DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;let paused=RM;
+const pb=document.getElementById('pause');const setP=v=>{paused=v;pb.textContent=v?'Play':'Pause';pb.setAttribute('aria-pressed',String(v))};setP(paused);pb.onclick=()=>setP(!paused);
+/* seeded random so the cave keeps the same shape every visit */
+let seed=7;const R=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646};const rr=(a,b)=>a+R()*(b-a);
+const lg=(x0,y0,x1,y1,st)=>{const g=c.createLinearGradient(x0,y0,x1,y1);st.forEach((s,i)=>g.addColorStop(i/(st.length-1),s));return g};
+const rg=(x,y,r0,r1,st)=>{const g=c.createRadialGradient(x,y,r0,x,y,r1);st.forEach((s,i)=>g.addColorStop(i/(st.length-1),s));return g};
+const blob=(pts)=>{c.beginPath();const n=pts.length;for(let i=0;i<=n;i++){const p=pts[i%n],q=pts[(i+1)%n],mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2;i?c.quadraticCurveTo(p[0],p[1],mx,my):c.moveTo(mx,my)}c.closePath()};
+const rock=(cx,cy,rx,ry,j)=>{const pts=[];const n=11;for(let i=0;i<n;i++){const a=i/n*TAU,k=1+rr(-j,j);pts.push([cx+Math.cos(a)*rx*k,cy+Math.sin(a)*ry*k])}return pts};
+
+/* ---------- fixed scene data ---------- */
+const TX=500,TY=300,TR=118; /* the sewer tunnel mouth: centre and radius */
+const stal=[];for(let i=0;i<34;i++){const x=rr(-20,W+20),far=R()<.45;stal.push({x,w:far?rr(10,22):rr(16,38),h:far?rr(50,130):rr(70,210),far,slime:R()<.35,ph:rr(0,TAU)})}
+stal.sort((a,b)=>a.far===b.far?0:a.far?-1:1);
+const drips=stal.filter(s=>s.slime&&!s.far).map(s=>({s,t:rr(0,3),per:rr(2.2,4.2)}));
+const left=[];{let y=490;for(let i=0;i<7;i++){const rx=rr(52,74),ry=rr(26,36);left.push({x:rr(70,120)-i*4,y:y-ry,rx,ry,pts:rock(0,0,rx,ry,.12)});y-=ry*1.55}}
+const floorStones=[];for(let x=-30;x<W+40;){const w=rr(46,86);floorStones.push({x:x+w/2,w,h:rr(18,30),pts:rock(0,0,w/2,rr(13,20),.14)});x+=w*.82}
+const weeds=[];for(const [bx,n] of[[150,8],[210,5],[640,3],[790,7],[850,5]])for(let i=0;i<n;i++)weeds.push({x:bx+rr(-30,30),h:rr(55,130),w:rr(9,15),ph:rr(0,TAU),sp:rr(.6,1.1),hue:R()});
+const motes=[];for(let i=0;i<70;i++)motes.push({x:rr(0,W),y:rr(0,H),r:rr(.8,2.6),s:rr(.15,.6),ph:rr(0,TAU),g:R()<.5});
+const bubbles=[];for(let i=0;i<26;i++)bubbles.push({x:rr(60,W-60),y:rr(330,540),r:rr(1.5,5),s:rr(.25,.7),ph:rr(0,TAU)});
+const bricks=[];for(let ring=0;ring<3;ring++){const r0=TR+ring*14,n=26+ring*3;for(let i=0;i<n;i++){const a0=Math.PI+i/n*Math.PI,a1=Math.PI+(i+1)/n*Math.PI;bricks.push({r0,r1:r0+13,a0:a0+(ring%2?.5:0)/n*Math.PI,a1:a1+(ring%2?.5:0)/n*Math.PI,s:rr(.75,1.05)})}}
+
+/* ---------- painters ---------- */
+function backWall(t){
+ c.fillStyle=lg(0,0,0,H,['#03090f','#052028','#06302c','#041612']);c.fillRect(0,0,W,H);
+ /* far rock masses */
+ seed=99;for(let i=0;i<9;i++){const x=i*120+rr(-30,30),y=rr(120,260);blob(rock(x,y,rr(90,150),rr(70,120),.25));c.fillStyle='rgba(8,40,48,'+rr(.35,.6)+')';c.fill()}
+ seed=7}
+function tunnel(t){
+ /* glow pouring out of the tunnel: the soft light from the middle of the original scene */
+ const fl=.9+.06*Math.sin(t*1.3)+.04*Math.sin(t*3.7);
+ c.save();c.globalCompositeOperation='lighter';
+ c.fillStyle=rg(TX,TY+20,20,420,['rgba(150,255,225,'+.48*fl+')','rgba(80,200,190,'+.28*fl+')','rgba(40,120,150,'+.12*fl+')','rgba(20,60,90,0)']);c.fillRect(0,0,W,H);c.restore();
+ /* tunnel depth: rings getting smaller and brighter */
+ for(let k=6;k>=0;k--){const r=TR*(.28+k*.12),y=TY+18-k*3;c.beginPath();c.arc(TX,y,r,Math.PI,0);c.lineTo(TX+r,y+r*.55);c.lineTo(TX-r,y+r*.55);c.closePath();
+  const a=.9-k*.11;c.fillStyle='rgba('+(120+k*6)+','+(240-k*18)+','+(215-k*14)+','+a*.55+')';c.fill()}
+ c.fillStyle=rg(TX,TY+10,4,TR*.5,['rgba(235,255,245,.95)','rgba(170,255,225,.5)','rgba(120,230,210,0)']);c.beginPath();c.arc(TX,TY+10,TR*.5,0,TAU);c.fill();
+ /* brick arch */
+ for(const b of bricks){c.beginPath();c.arc(TX,TY+40,b.r1,b.a0,b.a1);c.arc(TX,TY+40,b.r0,b.a1,b.a0,true);c.closePath();
+  const lit=.55+.45*Math.cos((b.a0+b.a1)/2+Math.PI/2);c.fillStyle='rgba('+Math.round(20+30*lit*b.s)+','+Math.round(70+60*lit*b.s)+','+Math.round(80+50*lit*b.s)+',1)';c.fill();
+  c.strokeStyle='rgba(2,14,16,.85)';c.lineWidth=1.6;c.stroke()}
+ /* side walls of the arch */
+ for(const s of[-1,1]){const x0=TX+s*(TR+21);c.fillStyle=lg(x0-21,0,x0+21,0,s<0?['#123c44','#1d5a5a','#0d2c34']:['#0d2c34','#1d5a5a','#123c44']);c.fillRect(x0-21,TY+40,42,150);
+  c.strokeStyle='rgba(2,14,16,.85)';c.lineWidth=1.6;for(let y=TY+52;y<TY+190;y+=13){c.beginPath();c.moveTo(x0-21,y);c.lineTo(x0+21,y);c.stroke();const off=((y/13)|0)%2?0:10;c.beginPath();c.moveTo(x0-11+off,y);c.lineTo(x0-11+off,y-13);c.stroke()}}
+ /* slime on the keystone and moss along the top of the arch */
+ c.save();c.globalAlpha=.85;for(let i=0;i<22;i++){const a=Math.PI+.15+i/21*(Math.PI-.3),r=TR+43;const x=TX+Math.cos(a)*r,y=TY+40+Math.sin(a)*r;c.fillStyle=i%3?'#2f8f5a':'#4fbf74';c.beginPath();c.ellipse(x,y,9,4.5,a+Math.PI/2,0,TAU);c.fill()}c.restore();
+ /* iron grate inside the mouth */
+ c.save();c.beginPath();c.arc(TX,TY+40,TR,Math.PI,0);c.lineTo(TX+TR,TY+190);c.lineTo(TX-TR,TY+190);c.closePath();c.clip();
+ c.strokeStyle='rgba(6,28,32,.75)';c.lineWidth=6;for(let x=TX-TR+20;x<TX+TR;x+=30){c.beginPath();c.moveTo(x,TY-80);
+  /* two bars in the middle are bent apart near the water */
+  const d=x-TX;if(Math.abs(d)<35){c.lineTo(x,TY+70);c.quadraticCurveTo(x,TY+120,x+Math.sign(d||1)*26,TY+150);c.lineTo(x+Math.sign(d||1)*30,TY+190)}else c.lineTo(x,TY+190);c.stroke()}
+ c.lineWidth=7;c.beginPath();c.moveTo(TX-TR,TY+20);c.lineTo(TX+TR,TY+20);c.stroke();
+ c.restore();
+}
+function fogLayer(t,y,a,sp){c.save();c.globalCompositeOperation='lighter';for(let i=0;i<5;i++){const x=((i*260+t*sp)%(W+400))-200;c.fillStyle=rg(x,y,10,220,['rgba(110,220,200,'+a+')','rgba(60,150,160,0)']);c.beginPath();c.ellipse(x,y,260,70,0,0,TAU);c.fill()}c.restore()}
+function stalactites(t,far){for(const s of stal){if(s.far!==far)continue;const sway=0;c.beginPath();c.moveTo(s.x-s.w,-10);c.quadraticCurveTo(s.x-s.w*.4,s.h*.55,s.x+sway,s.h);c.quadraticCurveTo(s.x+s.w*.4,s.h*.55,s.x+s.w,-10);c.closePath();
+  if(far){c.fillStyle='rgba(10,48,58,.75)';c.fill()}else{c.fillStyle=lg(s.x-s.w,0,s.x+s.w,0,['#05161c','#0d3338','#06191f']);c.fill();
+   c.strokeStyle='rgba(120,220,200,.18)';c.lineWidth=1.5;c.beginPath();c.moveTo(s.x+s.w*.55,0);c.quadraticCurveTo(s.x+s.w*.25,s.h*.55,s.x,s.h-2);c.stroke();
+   if(s.slime){c.fillStyle='rgba(70,200,110,.55)';c.beginPath();c.moveTo(s.x-s.w*.5,s.h*.35);c.quadraticCurveTo(s.x,s.h*.5,s.x+s.w*.45,s.h*.32);c.quadraticCurveTo(s.x+s.w*.2,s.h*.8,s.x,s.h+3);c.quadraticCurveTo(s.x-s.w*.2,s.h*.8,s.x-s.w*.5,s.h*.35);c.fill()}}}
+ if(!far){c.fillStyle=lg(0,0,0,70,['#020a0d','rgba(4,20,24,0)']);c.fillRect(0,0,W,70)}}
+function dripsDraw(t,dt){for(const d of drips){d.t+=dt;const k=(d.t%d.per)/d.per,s=d.s,x=s.x,y0=s.h+3;
+  if(k<.55){const g=k/.55,r=1.5+2.2*g;c.fillStyle='rgba(120,240,150,.85)';c.beginPath();c.ellipse(x,y0+r*.6,r*.8,r,0,0,TAU);c.fill()}
+  else{const f=(k-.55)/.45,y=y0+f*f*(470-y0);if(y<470){c.fillStyle='rgba(140,250,170,.9)';c.beginPath();c.ellipse(x,y,2,3.6,0,0,TAU);c.fill()}
+   else{const sp=Math.min(1,(y-470)/40);c.strokeStyle='rgba(140,250,170,'+(1-sp)+')';c.lineWidth=1.4;c.beginPath();c.ellipse(x,470,4+sp*18,1.5+sp*4,0,0,TAU);c.stroke()}}}}
+function leftColumn(t){for(const b of left){c.save();c.translate(b.x,b.y);blob(b.pts);c.fillStyle=lg(-b.rx,-b.ry,b.rx,b.ry,['#1b4c5a','#0e2c38','#061820']);c.fill();
+  c.strokeStyle='rgba(2,10,14,.8)';c.lineWidth=2;c.stroke();
+  c.strokeStyle='rgba(140,230,215,.25)';c.lineWidth=2;c.beginPath();c.ellipse(0,0,b.rx*.82,b.ry*.75,0,-2.6,-1.1);c.stroke();
+  c.fillStyle='rgba(60,170,100,.55)';for(let i=0;i<5;i++){c.beginPath();c.ellipse(-b.rx*.6+i*b.rx*.3,-b.ry*.82,7,3,0,0,TAU);c.fill()}c.restore()}
+ c.fillStyle=lg(0,0,180,0,['#020c10','rgba(2,12,16,0)']);c.fillRect(0,0,180,H)}
+function rightArch(t){
+ const P=[[760,-20],[930,-20],[985,40],[985,520],[930,520],[925,300],[900,230],[860,215],[830,240],[815,300],[815,330],[770,330],[760,200]];
+ blob(P);c.fillStyle=lg(760,0,990,0,['#0a2a34','#06161d','#03090d']);c.fill();c.strokeStyle='rgba(120,220,200,.12)';c.lineWidth=2;c.stroke();
+ /* rough texture and moss */
+ seed=314;for(let i=0;i<24;i++){const x=rr(780,960),y=rr(20,320);if(x>815&&x<925&&y>210)continue;c.fillStyle='rgba(30,80,90,'+rr(.2,.45)+')';c.beginPath();c.ellipse(x,y,rr(6,16),rr(4,10),rr(0,3),0,TAU);c.fill()}seed=7;
+ /* rusty sewer pipe out of the arch, trickling into the channel */
+ const px=812,py=250;c.save();c.fillStyle=lg(0,py-16,0,py+16,['#4f7a6a','#2c5048','#16302c']);c.fillRect(px-70,py-16,72,32);c.strokeStyle='rgba(2,10,12,.9)';c.lineWidth=2;c.strokeRect(px-70,py-16,72,32);
+ c.beginPath();c.ellipse(px-70,py,8,18,0,0,TAU);c.fillStyle='#0d2422';c.fill();c.stroke();c.beginPath();c.ellipse(px-70,py,4.6,12,0,0,TAU);c.fillStyle='#03100e';c.fill();
+ c.fillStyle='#3f6e5c';c.fillRect(px-46,py-19,10,38);c.strokeRect(px-46,py-19,10,38);c.fillStyle='rgba(80,190,120,.6)';c.beginPath();c.ellipse(px-30,py+16,12,4,0,0,TAU);c.fill();c.restore();
+ /* the trickle */
+ c.save();c.globalCompositeOperation='lighter';const sx=px-74;for(let i=0;i<3;i++){c.strokeStyle='rgba(120,240,170,'+(.35-i*.1)+')';c.lineWidth=5-i*1.5;c.beginPath();c.moveTo(sx,py+6);
+  for(let y=py+6;y<=470;y+=10){c.lineTo(sx-((y-py)/220)**2*26+Math.sin(y*.08-t*9+i)*1.2,y)}c.stroke()}
+ const sp=(t*3)%1;c.strokeStyle='rgba(150,250,190,'+(1-sp)*.7+')';c.lineWidth=1.4;c.beginPath();c.ellipse(sx-26,470,6+sp*22,2+sp*5,0,0,TAU);c.stroke();c.restore();
+ c.fillStyle=lg(W-160,0,W,0,['rgba(2,12,16,0)','#020c10']);c.fillRect(W-160,0,160,H)}
+function water(t){
+ const y0=462;c.fillStyle=lg(0,y0,0,H,['rgba(30,110,100,.85)','rgba(10,60,60,.95)','#041a1c']);c.fillRect(0,y0,W,H-y0);
+ /* reflection of the tunnel light */
+ c.save();c.globalCompositeOperation='lighter';for(let i=0;i<14;i++){const y=y0+6+i*5,w=150-i*6+Math.sin(t*1.6+i)*12;c.fillStyle='rgba(150,255,220,'+(.22-i*.013)+')';c.fillRect(TX-w/2+Math.sin(t*2+i*1.7)*8,y,w,2)}c.restore();
+ /* surface ripples */
+ c.strokeStyle='rgba(160,255,225,.28)';c.lineWidth=1.2;for(let i=0;i<9;i++){const x=((i*137+t*22)%(W+200))-100,y=y0+8+(i%4)*9;c.beginPath();c.moveTo(x-30,y);c.quadraticCurveTo(x,y-2.5,x+30,y);c.stroke()}
+ c.strokeStyle='rgba(120,240,200,.5)';c.lineWidth=1.6;c.beginPath();c.moveTo(0,y0);for(let x=0;x<=W;x+=12)c.lineTo(x,y0+Math.sin(x*.05+t*1.8)*1.4);c.stroke()}
+function floor(t){for(const s of floorStones){c.save();c.translate(s.x,500);blob(s.pts);c.fillStyle=lg(0,-20,0,20,['#174752','#0b2a33','#05141a']);c.fill();c.strokeStyle='rgba(2,10,14,.9)';c.lineWidth=2;c.stroke();
+  c.strokeStyle='rgba(140,230,215,.22)';c.lineWidth=1.6;c.beginPath();c.ellipse(0,0,s.w*.38,10,0,-2.7,-.6);c.stroke();
+  c.fillStyle='rgba(70,190,110,.5)';c.beginPath();c.ellipse(-s.w*.1,-13,s.w*.22,3.2,0,0,TAU);c.fill();c.restore()}
+ c.fillStyle=lg(0,505,0,H,['rgba(2,10,12,0)','#020a0c']);c.fillRect(0,505,W,H-505)}
+function weedsDraw(t){for(const w of weeds){const base=496;c.beginPath();const seg=10;let x=w.x,y=base;c.moveTo(x-w.w/2,y);const pts=[];
+  for(let i=1;i<=seg;i++){const u=i/seg,sw=Math.sin(t*w.sp+w.ph+u*2.4)*12*u*u;pts.push([w.x+sw,base-w.h*u,w.w*(1-u*.85)])}
+  for(const p of pts)c.lineTo(p[0]-p[2]/2,p[1]);for(let i=pts.length-1;i>=0;i--)c.lineTo(pts[i][0]+pts[i][2]/2,pts[i][1]);c.lineTo(w.x+w.w/2,base);c.closePath();
+  c.fillStyle=lg(0,base,0,base-w.h,w.hue<.5?['#0c3b3a','#1f7a5c','#58c98e']:['#0b2f3c','#1c6470','#5fbfb0']);c.fill()}}
+function particles(t,dt){c.save();c.globalCompositeOperation='lighter';
+ for(const m of motes){m.y-=m.s*dt*20;m.x+=Math.sin(t*.4+m.ph)*.15;if(m.y<-5){m.y=H+5;m.x=Math.random()*W}const a=.35+.35*Math.sin(t*1.5+m.ph);
+  c.fillStyle=rg(m.x,m.y,0,m.r*3,[m.g?'rgba(150,255,170,'+a+')':'rgba(160,230,255,'+a+')','rgba(100,200,200,0)']);c.beginPath();c.arc(m.x,m.y,m.r*3,0,TAU);c.fill()}
+ c.restore();
+ for(const b of bubbles){b.y-=b.s*dt*40;b.x+=Math.sin(t*2+b.ph)*.25;if(b.y<330){b.y=rr(480,540);b.x=Math.random()*(W-120)+60}const a=Math.min(1,(480-b.y)/40)*Math.min(1,(b.y-330)/40);
+  if(a<=0)continue;c.strokeStyle='rgba(190,250,240,'+.6*a+')';c.lineWidth=1;c.beginPath();c.arc(b.x,b.y,b.r,0,TAU);c.stroke();c.fillStyle='rgba(230,255,250,'+.7*a+')';c.beginPath();c.arc(b.x-b.r*.35,b.y-b.r*.35,b.r*.3,0,TAU);c.fill()}}
+function shafts(t){c.save();c.globalCompositeOperation='lighter';
+ for(const [x0,w,ph] of[[330,40,0],[610,55,1.7],[460,30,3.1]]){const a=.07+.04*Math.sin(t*.6+ph),sw=Math.sin(t*.25+ph)*20;c.fillStyle=lg(0,0,0,470,['rgba(150,255,220,'+a*1.6+')','rgba(100,220,200,'+a*.6+')','rgba(80,200,190,0)']);
+  c.beginPath();c.moveTo(x0-w*.4,0);c.lineTo(x0+w*.4,0);c.lineTo(x0+w*1.6+sw,470);c.lineTo(x0-w*1.4+sw,470);c.closePath();c.fill()}
+ /* ceiling drain grates where the light comes in */
+ c.restore();for(const x of[330,610]){c.fillStyle='#03100f';c.fillRect(x-24,0,48,10);c.strokeStyle='rgba(150,240,210,.45)';c.lineWidth=2;for(let i=-18;i<=18;i+=9){c.beginPath();c.moveTo(x+i,0);c.lineTo(x+i,9);c.stroke()}}}
+function vignette(){c.fillStyle=rg(W/2,H*.55,H*.35,W*.75,['rgba(0,0,0,0)','rgba(1,8,10,.65)']);c.fillRect(0,0,W,H)}
+
+let t=0,last=0;
+function frame(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;if(!paused)t+=dt;const d=paused?0:dt;
+ c.setTransform(DPR,0,0,DPR,0,0);
+ backWall(t);stalactites(t,true);fogLayer(t,240,.05,12);tunnel(t);shafts(t);rightArch(t);leftColumn(t);stalactites(t,false);
+ water(t);dripsDraw(t,d);floor(t);weedsDraw(t);fogLayer(t,440,.07,-18);particles(t,d);vignette();
+ requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+})();
+</script>
