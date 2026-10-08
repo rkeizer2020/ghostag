@@ -870,9 +870,9 @@ function step(){clock+=1/60;
  if(me.atk>=8&&me.atk<=20){for(const e of ENM){if(e.dead||e.hitId===me.atkId||e.state==='intro'||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e),sx=me.x+me.atkFace*44,sy=me.y-36;
   let hit;if(e.type==='boss'){const hy=clamp(sy,e.y-80,e.y+85);hit=Math.hypot(e.x-sx,hy-sy)<=51+74&&(e.x-me.x)*me.atkFace>-70}else hit=Math.hypot(ec[0]-sx,ec[1]-sy)<=51+e.r*.9&&(ec[0]-me.x)*me.atkFace>-14;
   if(hit){e.hitId=me.atkId;damageEnemy(e,slashDmg())}}}
- updateEnemies();updateBullets();updateDrops();
+ updateEnemies();updateBullets();updateDrops();puzStep();
  if(me.inv<=0)for(const e of ENM){if(e.dead||(e.type==='boss'&&e.state!=='dash')||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e);if(Math.hypot(ec[0]-me.x,ec[1]-(me.y-30))<16+e.r*.85){playerHit(e,ec);break}}
- if((room===0||(isSewer()&&SWI&&SWI.blockL))&&me.x<WALLW+16){me.x=WALLW+16;me.vx=Math.max(0,me.vx)}if((room===FORGE_ROOM||(isSewer()&&SWI&&SWI.blockR))&&me.x>WORLD-WALLW-16){me.x=WORLD-WALLW-16;me.vx=Math.min(0,me.vx)}if(EV.on&&room===0)me.x=clamp(me.x,WALLW+16,WORLD-60);
+ if((room===0||(isSewer()&&SWI&&SWI.blockL)||puzLockL())&&me.x<WALLW+16){me.x=WALLW+16;me.vx=Math.max(0,me.vx)}if((room===FORGE_ROOM||(isSewer()&&SWI&&SWI.blockR)||puzLockR())&&me.x>WORLD-WALLW-16){me.x=WORLD-WALLW-16;me.vx=Math.min(0,me.vx)}if(EV.on&&room===0)me.x=clamp(me.x,WALLW+16,WORLD-60);
  if(bossAlive()||CUT.on){me.x=clamp(me.x,14,WORLD-14)}else if(me.x>WORLD-8){me.x=40;setRoom(room+1);if(!CUT.on)cam=0}else if(me.x<8){me.x=WORLD-40;setRoom(room-1);cam=WORLD-WW}
  sewVertical();
  const tc=clamp(me.x-WW/2,0,WORLD-WW);cam+=(tc-cam)*.12;if(isSewer()){const ty=clamp(me.y-330,camYmin,camYmax);camY+=(ty-camY)*.12}}
@@ -1459,6 +1459,7 @@ function genSewer(safeX){TER=[];PLAT=[];ENM=[];BUL.length=0;debris.length=0;WL=n
  let sd=(room*7919+101)%2147483647||1;const sr=()=>{sd=(sd*16807)%2147483647;return (sd-1)/2147483646},srr=(a,b)=>a+sr()*(b-a);
  let segs=[];let x=0,y=srr(430,600);
  while(x<WORLD-1){let w=srr(210,380);if(WORLD-x<w+170)w=WORLD-x;segs.push({x0:x,x1:x+w,y:Math.round(y)});x+=w;y=clamp(y+srr(-170,190),300,820)}
+ if(PUZ_ROOMS[room]!==undefined)segs=[{x0:0,x1:WORLD,y:560}];
  for(const h of SWI.holes){const X=h.x,s0=segs.find(s=>X>=s.x0&&X<s.x1);h.gy=s0.y;const out=[];
   for(const q of segs){if(q.x1<=X-60||q.x0>=X+60){out.push(q);continue}if(q.x0<X-60)out.push({x0:q.x0,x1:X-60,y:q.y});if(q.x1>X+60)out.push({x0:X+60,x1:q.x1,y:q.y})}
   out.push({x0:X-60,x1:X+60,y:4000,hole:true});out.sort((a,b)=>a.x0-b.x0);segs=out}
@@ -1481,9 +1482,10 @@ function genSewer(safeX){TER=[];PLAT=[];ENM=[];BUL.length=0;debris.length=0;WL=n
 
 /* ---------- drawing the sewer rooms ---------- */
 function sewVertical(){if(!isSewer()||!SWI||me.dead)return;
- if(SWI.tops.length&&me.y<SWTOP+12&&!SWI.tops.some(tp=>Math.abs(me.x-tp.x)<120)){me.y=SWTOP+12;if(me.vy<0)me.vy=0}
+ const topLock=puzzleLocked()&&PZ.fwd==='top';
+ if(SWI.tops.length&&me.y<SWTOP+12&&(topLock||!SWI.tops.some(tp=>Math.abs(me.x-tp.x)<120))){me.y=SWTOP+12;if(me.vy<0)me.vy=0}
  for(const h of SWI.holes)if(me.y>h.gy+260&&Math.abs(me.x-h.x)<90){enterFrom(h.to,'top',h.x);return}
- for(const tp of SWI.tops)if(me.y<SWTOP-10&&Math.abs(me.x-tp.x)<120){enterFrom(tp.to,'below',tp.x);return}}
+ if(!topLock)for(const tp of SWI.tops)if(me.y<SWTOP-10&&Math.abs(me.x-tp.x)<120){enterFrom(tp.to,'below',tp.x);return}}
 function enterFrom(r,mode,x){me.x=x;setRoom(r);me.x=x;me.atk=-1;
  if(mode==='top'){me.y=SWTOP+20;me.vy=3;me.ground=false;me.kb=0;camY=camYmin}
  else{const h=SWI.holes.reduce((a,b)=>Math.abs(b.x-x)<Math.abs(a.x-x)?b:a);me.x=h.x;me.y=h.gy+70;me.vy=-14.5;me.vx=(h.x<WORLD/2?1:-1)*7;me.kb=24;me.ground=false;camY=clamp(me.y-330,camYmin,camYmax)}
@@ -1664,7 +1666,115 @@ function drawChipBanner(c){if(CHIPT<0)return;const k=clock-CHIPT;if(k>4.5){CHIPT
 function drawCorridorHole(c,cam,t){if(room!==CORR)return;const x=230-cam;if(x<-150||x>WW+150)return;
  c.save();c.globalCompositeOperation='lighter';c.fillStyle=lgrad(c,0,0,0,560,['rgba(150,255,220,.28)','rgba(120,230,210,0)']);c.beginPath();c.moveTo(x-50,-200);c.lineTo(x+50,-200);c.lineTo(x+120,560);c.lineTo(x-120,560);c.closePath();c.fill();c.restore()}
 
-function genRoom(safeX){CORPSES.length=0;if(SC[room].sewer){HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;genSewer(safeX);return}genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
+/* =====================================================================
+   PUZZLE ROOMS: 4, 9, 13 (factory) and 17, 20, 26, 28 (sewer).
+   The way forward stays locked until the puzzle is solved. No normal enemies,
+   except the two wave arenas. A solved room stays solved for this game.
+   ===================================================================== */
+const PUZ_ROOMS={3:'simon',8:'waves',12:'timer',16:'mirror',19:'lights',25:'waves',27:'dial'};
+const PUZDONE={};let PZ=null,PZB=null,PUZCODE=null;
+const PCOL=['#ff6a5a','#ffd84a','#7fe08a','#6ac8ff','#c88aff'];
+function GY(){return isSewer()?560:FLOOR}
+function puzzleLocked(){return !!(PZ&&!PZ.solved)}
+function puzLockR(){return puzzleLocked()&&PZ.fwd==='side'}
+function puzLockL(){return puzzleLocked()&&PZ.type==='waves'&&PZ.active}
+function pzBanner(s){PZB={s,t0:clock}}
+function slashHit(o,x,y,r){if(me.atk<8||me.atk>20||o.hid===me.atkId||me.dead)return false;const sx=me.x+me.atkFace*44,sy=me.y-36;
+ if(Math.hypot(x-sx,y-sy)<=51+r&&(x-me.x)*me.atkFace>-24){o.hid=me.atkId;burst(x,y,4);play('impact',{gain:.18,rate:1.7});return true}return false}
+function tone(i){if(!ac||!soundOn)return;const t0=ac.currentTime,o=ac.createOscillator();o.type='triangle';o.frequency.value=[392,494,587,698,880][i%5];const g2=ac.createGain();g2.gain.setValueAtTime(.09,t0);g2.gain.exponentialRampToValueAtTime(.001,t0+.5);o.connect(g2);g2.connect(ac.destination);o.start(t0);o.stop(t0+.55)}
+function buzz(){if(!ac||!soundOn)return;const t0=ac.currentTime,o=ac.createOscillator();o.type='square';o.frequency.value=110;const g2=ac.createGain();g2.gain.setValueAtTime(.06,t0);g2.gain.exponentialRampToValueAtTime(.001,t0+.45);o.connect(g2);g2.connect(ac.destination);o.start(t0);o.stop(t0+.5)}
+function solvePuzzle(){if(!PZ||PZ.solved)return;PZ.solved=true;PZ.openT=clock;PUZDONE[room]=true;chime();shakeT=.3;pzBanner('PUZZLE SOLVED');
+ if(isSewer()&&SWI)for(const h of SWI.holes){const s=TER.find(q=>q.hole);if(s)s.y=4000}}
+function initPuzzle(){PZ=null;const k=PUZ_ROOMS[room];if(!k)return;
+ const fwd=isSewer()&&SWI?(SWI.holes.some(h=>h.to===room+1)?'hole':(SWI.tops.some(t2=>t2.to===room+1)?'top':'side')):'side';
+ PZ={type:k,solved:!!PUZDONE[room],fwd,t:0,openT:PUZDONE[room]?-9:null};ENM=[];BUL.length=0;
+ if(!PZ.solved&&fwd==='hole')for(const s of TER)if(s.hole){const h=SWI.holes.find(q=>q.x>s.x0&&q.x<s.x1);if(h)s.y=h.gy}
+ PUZ[k].init(PZ)}
+
+/* small drawing helpers */
+function pzSymbol(c,k,x,y,s,col){c.save();c.translate(x,y);c.strokeStyle=col;c.fillStyle=col;c.lineWidth=2.4;c.lineJoin='round';c.beginPath();
+ if(k===0)c.arc(0,0,s,0,TAU);else if(k===1){c.moveTo(0,-s);c.lineTo(s*.9,s*.7);c.lineTo(-s*.9,s*.7);c.closePath()}else if(k===2)c.rect(-s*.8,-s*.8,s*1.6,s*1.6);
+ else if(k===3){c.moveTo(0,-s);c.lineTo(s,0);c.lineTo(0,s);c.lineTo(-s,0);c.closePath()}else if(k===4){c.moveTo(-s*.8,-s*.8);c.lineTo(s*.8,s*.8);c.moveTo(s*.8,-s*.8);c.lineTo(-s*.8,s*.8)}
+ else{for(let i=0;i<8;i++){const a=i*Math.PI/4,r=i%2?s*.35:s;c.lineTo(Math.cos(a)*r,Math.sin(a)*r)}c.closePath()}c.stroke();c.restore()}
+function pzPanel(c,x,y,w,h){rrect(c,x-w/2,y-h/2,w,h,8);c.fillStyle=lgrad(c,0,y-h/2,0,y+h/2,isSewer()?['#2c5a5e','#14343a']:['#5a3a62','#2b1d33']);c.fill();c.strokeStyle=OUT;c.lineWidth=3;c.stroke();
+ rrect(c,x-w/2+4,y-h/2+4,w-8,h-8,6);c.strokeStyle=isSewer()?'rgba(150,230,210,.35)':CL.copL;c.lineWidth=1.5;c.stroke()}
+function pzPost(c,x,g,h){c.fillStyle=isSewer()?'#24484e':CL.copD;c.fillRect(x-5,g-h,10,h);c.strokeStyle=OUT;c.lineWidth=2;c.strokeRect(x-5,g-h,10,h)}
+function pzLamp(c,x,y,r,col,on){if(on){c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,x,y,1,r*3,[col,'rgba(0,0,0,0)']);c.beginPath();c.arc(x,y,r*3,0,TAU);c.fill();c.restore()}
+ c.beginPath();c.arc(x,y,r,0,TAU);c.fillStyle=on?col:'#1c1226';c.fill();c.strokeStyle=OUT;c.lineWidth=2.5;c.stroke();if(!on){c.beginPath();c.arc(x,y,r*.55,0,TAU);c.strokeStyle=col;c.globalAlpha=.45;c.lineWidth=2;c.stroke();c.globalAlpha=1}}
+
+const PUZ={
+ /* room 4: remember the colour sequence on the board and strike the crystals in that order */
+ simon:{init(P){P.seq=Array.from({length:7},()=>Math.floor(Math.random()*5));P.pos=0;P.show=-1;P.st=0;P.err=0;P.btn={x:330};P.lev=[0,1,2,3,4].map(i=>({x:620+i*190,lit:0}))},
+  step(P){if(P.solved)return;const G=GY(),dt=1/60;P.err=Math.max(0,P.err-dt);for(const L of P.lev)L.lit=Math.max(0,L.lit-dt);
+   if(slashHit(P.btn,P.btn.x,G-40,18)){P.show=0;P.st=0;P.pos=0}
+   if(P.show>=0){P.st+=dt;const i=Math.floor(P.st/.8);if(i>=P.seq.length)P.show=-1;else if(i!==P.lastI){P.lastI=i;tone(P.seq[i])}}
+   else for(let i=0;i<5;i++){const L=P.lev[i];if(slashHit(L,L.x,G-44,20)){L.lit=.35;tone(i);if(P.seq[P.pos]===i){P.pos++;if(P.pos>=P.seq.length)solvePuzzle()}else{P.pos=0;P.err=.8;buzz()}}}},
+  draw(c,cam,t,P){const G=GY(),bx=960-cam,by=G-270;pzPanel(c,bx,by,330,110);
+   for(let i=0;i<5;i++){const on=P.solved||(P.show>=0&&P.seq[Math.floor(P.st/.8)]===i&&(P.st%.8)<.55);pzLamp(c,bx-120+i*60,by-14,15,PCOL[i],on)}
+   for(let k=0;k<P.seq.length;k++){c.beginPath();c.arc(bx-90+k*30,by+32,6,0,TAU);c.fillStyle=P.solved||k<P.pos?'#ffe27a':(P.err>0?'#ff6a5a':'#1c1226');c.fill();c.strokeStyle=OUT;c.lineWidth=2;c.stroke()}
+   const x=P.btn.x-cam;pzPost(c,x,G,40);c.beginPath();c.arc(x,G-44,15,0,TAU);fillOut(c,'#d98348',2.5);c.beginPath();c.moveTo(x-5,G-51);c.lineTo(x+7,G-44);c.lineTo(x-5,G-37);c.closePath();c.fillStyle='#fff3cf';c.fill();
+   for(let i=0;i<5;i++){const L=P.lev[i],lx=L.x-cam;pzPost(c,lx,G,30);c.save();c.beginPath();c.moveTo(lx,G-68);c.lineTo(lx+13,G-46);c.lineTo(lx,G-26);c.lineTo(lx-13,G-46);c.closePath();
+    if(L.lit>0||P.solved){c.shadowColor=PCOL[i];c.shadowBlur=20}c.fillStyle=PCOL[i];c.globalAlpha=L.lit>0||P.solved?1:.55;c.fill();c.globalAlpha=1;c.shadowBlur=0;c.strokeStyle=OUT;c.lineWidth=2.5;c.stroke();c.restore()}}},
+ /* rooms 9 and 26: survive three waves; both doors lock while the waves run */
+ waves:{init(P){P.wave=0;P.active=false;P.spawnT=0;P.sewer=isSewer()},
+  step(P){if(P.solved)return;const dt=1/60;
+   if(!P.active){if(me.x>560&&me.x<WORLD-360&&!me.dead){P.active=true;P.wave=0;P.spawnT=1.4;pzBanner('WAVE 1 / 3');play('impact',{gain:.35,rate:.5})}return}
+   if(me.dead){P.active=false;return}
+   if(P.spawnT>0){P.spawnT-=dt;if(P.spawnT<=0)PUZ.waves.spawn(P)}else if(!ENM.some(e=>!e.dead)){P.wave++;if(P.wave>=3)solvePuzzle();else{P.spawnT=1.6;pzBanner('WAVE '+(P.wave+1)+' / 3')}}},
+  spawn(P){const G=GY(),W=P.sewer?[['rat','rat','sludge'],['sludge','sludge','rat','rat'],['spitter','spitter','rat','rat','sludge']]:[['saw','saw','spring','spring'],['drone','drone','spring','saw','saw'],['spring','spring','spring','drone','drone','saw','saw']];
+   for(const k of W[P.wave]){let x=0;for(let n=0;n<30;n++){x=rnd(220,WORLD-220);if(Math.abs(x-me.x)>320)break}let e;
+    if(k==='drone')e=mkEnemy('drone',x,G-rnd(150,240),0,0);else if(k==='saw'||k==='spring')e=mkEnemy(k,x,G,200,WORLD-200);else if(k==='rat')e=mkRat(x,G,200,WORLD-200);else if(k==='sludge')e=mkSludge(x,G,200,WORLD-200,true);else e=mkSpitter(x,G);
+    e.flash=.4;ENM.push(e);burst(x,G-40,10);DARK.push({x,y:G-40,t0:clock,dur:.7,R:120,col:'30,10,40',seed:Math.random()*9})}},
+  draw(c,cam,t,P){}},
+ /* room 13: five switches; the first hit starts an 8 second clock, hit all five before it runs out */
+ timer:{init(P){const G=FLOOR;PLAT=[{x0:470,x1:630},{x0:700,x1:860},{x0:990,x1:1180},{x0:1270,x1:1430},{x0:1510,x1:1660}].map((p,i)=>({x0:p.x0,x1:p.x1,y:G-[96,172,236,172,96][i],cx:(p.x0+p.x1)/2}));
+   P.sw=[[230,G],[780,G-172],[1085,G-236],[1585,G-96],[1790,G]].map(([x,y])=>({x,y,on:false}));P.run=false;P.left=0},
+  step(P){if(P.solved)return;const dt=1/60;for(const s of P.sw)if(!s.on&&slashHit(s,s.x,s.y-34,16)){s.on=true;tone(P.sw.filter(q=>q.on).length);if(!P.run){P.run=true;P.left=8}}
+   if(P.run){P.left-=dt;if(P.sw.every(s=>s.on)){P.run=false;solvePuzzle()}else if(P.left<=0){P.run=false;for(const s of P.sw)s.on=false;buzz()}}},
+  draw(c,cam,t,P){for(const s of P.sw){const x=s.x-cam;pzPost(c,x,s.y,22);c.beginPath();c.arc(x,s.y-34,13,0,TAU);fillOut(c,s.on||P.solved?'#7fe08a':'#ff6a5a',2.5);c.beginPath();c.arc(x-4,s.y-38,3.5,0,TAU);c.fillStyle='rgba(255,255,255,.6)';c.fill()}}},
+ /* room 17: turn the mirrors so the beam from the emitter reaches the sensor */
+ mirror:{init(P){const G=560;P.gx=c2=>420+c2*120;P.gy=r=>[250,370,490][r];
+   P.m=[[3,2],[3,0],[6,0],[6,2],[8,2],[8,0],[1,1],[4,1],[9,1],[5,2],[2,0]].map(([c2,r])=>({c:c2,r,s:Math.random()<.5?0:1}));
+   PLAT=[[620,820,340],[1080,1200,340],[1320,1440,340],[480,600,455],[840,960,455],[1440,1560,455]].map(([a,b,y])=>({x0:a,x1:b,y,cx:(a+b)/2}));
+   if(PUZ.mirror.trace(P).hit)P.m[0].s^=1},
+  trace(P){let c2=0,r=2,dc=1,dr=0;const pts=[[0,2]];for(let n=0;n<60;n++){c2+=dc;r+=dr;if(c2<0||c2>10||r<0||r>2){pts.push([c2,r]);return{pts,hit:false}}
+    if(c2===10&&r===0){pts.push([c2,r]);return{pts,hit:true}}const m=P.m.find(q=>q.c===c2&&q.r===r);if(m){pts.push([c2,r]);const ndc=m.s===0?-dr:dr,ndr=m.s===0?-dc:dc;dc=ndc;dr=ndr}}return{pts,hit:false}},
+  step(P){if(P.solved)return;for(const m of P.m)if(slashHit(m,P.gx(m.c),P.gy(m.r),16)){m.s^=1;tone(m.s?2:3)}if(PUZ.mirror.trace(P).hit)solvePuzzle()},
+  draw(c,cam,t,P){const tr=PUZ.mirror.trace(P),X=k=>P.gx(clamp(k,-.5,10.5))-cam,Y=k=>P.gy(clamp(k,-.4,2.4));
+   const sx=P.gx(0)-cam,sy=P.gy(2);rrect(c,sx-34,sy-16,40,32,6);fillOut(c,'#2c5a5e',2.5);c.beginPath();c.arc(sx+6,sy,7,0,TAU);c.fillStyle='#bfe8ff';c.fill();
+   const rx=P.gx(10)-cam,ry=P.gy(0);pzPost(c,rx+20,ry+300,300);rrect(c,rx-8,ry-20,40,40,6);fillOut(c,'#2c5a5e',2.5);pzLamp(c,rx+12,ry,10,'#7fd0ff',P.solved||tr.hit);
+   c.save();c.globalCompositeOperation='lighter';c.lineCap='round';c.lineJoin='round';for(const [w,a] of[[9,.25],[3,.9]]){c.strokeStyle='rgba(140,220,255,'+a*(.8+.2*Math.sin(t*12))+')';c.lineWidth=w;c.beginPath();tr.pts.forEach((p,i)=>i?c.lineTo(X(p[0]),Y(p[1])):c.moveTo(X(p[0]),Y(p[1])));c.stroke()}c.restore();
+   for(const m of P.m){const x=P.gx(m.c)-cam,y=P.gy(m.r);c.beginPath();c.arc(x,y,17,0,TAU);c.fillStyle='rgba(20,52,58,.85)';c.fill();c.strokeStyle=OUT;c.lineWidth=2;c.stroke();
+    c.save();c.translate(x,y);c.rotate(m.s===0?-Math.PI/4:Math.PI/4);rrect(c,-15,-3,30,6,2);fillOut(c,lgrad(c,0,-3,0,3,['#e6f7ff','#8fb8d0']),1.8);c.restore()}}},
+ /* room 20: each lamp switches itself and its two neighbours; light all six */
+ lights:{init(P){const G=560;P.l=[0,1,2,3,4,5].map(i=>({x:430+i*200,on:true}));const press=i=>{for(const j of[i-1,i,i+1])if(P.l[j])P.l[j].on=!P.l[j].on};
+   const picks=[0,1,2,3,4,5].sort(()=>Math.random()-.5).slice(0,4);picks.forEach(press);if(P.l.every(q=>q.on))press(0);P.press=press},
+  step(P){if(P.solved)return;const G=GY();P.l.forEach((L,i)=>{if(slashHit(L,L.x,G-52,18)){P.press(i);tone(i)}});if(P.l.every(q=>q.on))solvePuzzle()},
+  draw(c,cam,t,P){const G=GY();for(const L of P.l){const x=L.x-cam;pzPost(c,x,G,34);pzLamp(c,x,G-52,15,'#9cf0a8',L.on||P.solved)}}},
+ /* room 28: four dials; the code is written on four plaques hidden around the room */
+ dial:{init(P){if(!PUZCODE)PUZCODE=[0,1,2,3].map(()=>Math.floor(Math.random()*6));P.v=[0,0,0,0].map(()=>Math.floor(Math.random()*6));if(P.v.join()===PUZCODE.join())P.v[0]=(P.v[0]+1)%6;
+   P.d=[600,680,760,840].map(x=>({x}));PLAT.push(...[[1500,1620,455],[1640,1780,340],[380,500,455],[220,340,340]].map(([a,b,y])=>({x0:a,x1:b,y,cx:(a+b)/2})));
+   const top=SWI.tops[0]?SWI.tops[0].x:1100;P.pl=[{x:150,y:470,k:2},{x:280,y:290,k:0},{x:1710,y:290,k:3},{x:top+150,y:SWTOP+60,k:1}]},
+  step(P){if(P.solved)return;const G=GY();P.d.forEach((D,i)=>{if(slashHit(D,D.x,G-60,16)){P.v[i]=(P.v[i]+1)%6;tone(P.v[i])}});if(P.v.join()===PUZCODE.join())solvePuzzle()},
+  draw(c,cam,t,P){const G=GY();pzPanel(c,720-cam,G-62,360,70);P.d.forEach((D,i)=>{const x=D.x-cam;c.beginPath();c.arc(x,G-60,20,0,TAU);fillOut(c,'#14343a',2.5);pzSymbol(c,P.v[i],x,G-60,9,P.solved?'#9cf0a8':'#bfe8ff')});
+   for(const q of P.pl){const x=q.x-cam;pzPanel(c,x,q.y,70,56);for(let k=0;k<=q.k;k++){c.beginPath();c.arc(x-24+k*8,q.y-16,2.6,0,TAU);c.fillStyle='#ffe27a';c.fill()}pzSymbol(c,PUZCODE[q.k],x+4,q.y+6,11,'#bfe8ff')}}}
+};
+function puzStep(){if(PZ)PUZ[PZ.type].step(PZ)}
+/* gates on the locked exits */
+function drawPuzGates(c,cam,t){if(!PZ)return;const open=PZ.solved?clamp((clock-(PZ.openT||-9))/1.2,0,1):0,top=viewY()-40,G=GY();
+ const gate=(x)=>{const sx=x-cam;if(sx<-60||sx>WW+60)return;c.fillStyle=isSewer()?'#14343a':CL.copD;c.fillRect(sx-14,top,28,40+10);const lift=open*(G-top);
+  c.save();c.beginPath();c.rect(sx-40,top,80,G-top);c.clip();c.strokeStyle=OUT;c.lineWidth=7;for(let k=-2;k<=2;k++){c.beginPath();c.moveTo(sx+k*9,top-lift);c.lineTo(sx+k*9,G-lift);c.stroke()}
+  c.strokeStyle=isSewer()?'#5f8f8c':CL.slL;c.lineWidth=4;for(let k=-2;k<=2;k++){c.beginPath();c.moveTo(sx+k*9,top-lift);c.lineTo(sx+k*9,G-lift);c.stroke()}c.restore();
+  pzLamp(c,sx,G-180,8,PZ.solved?'#7fe08a':'#ff5a4a',true)};
+ if(PZ.fwd==='side'&&open<1)gate(WORLD-WALLW-30);if(puzLockL())gate(WALLW+30);
+ if(PZ.fwd==='hole'&&!PZ.solved)for(const h of SWI.holes){const x=h.x-cam;c.fillStyle=OUT;c.fillRect(x-62,h.gy-4,124,10);c.strokeStyle='#5f8f8c';c.lineWidth=3;for(let k=-50;k<=50;k+=14){c.beginPath();c.moveTo(x+k,h.gy-3);c.lineTo(x+k,h.gy+5);c.stroke()}pzLamp(c,x,h.gy-14,6,'#ff5a4a',true)}
+ if(PZ.fwd==='top'&&!PZ.solved)for(const tp of SWI.tops){const x=tp.x-cam;c.fillStyle=OUT;c.fillRect(x-112,SWTOP-6,224,12);c.strokeStyle='#5f8f8c';c.lineWidth=3;for(let k=-100;k<=100;k+=14){c.beginPath();c.moveTo(x+k,SWTOP-5);c.lineTo(x+k,SWTOP+5);c.stroke()}pzLamp(c,x,SWTOP+18,6,'#ff5a4a',true)}}
+function drawPuzScreen(c){if(PZ&&PZ.type==='timer'&&PZ.run){c.save();c.textAlign='center';c.font='700 34px '+SERIF;c.fillStyle=PZ.left<3?'#ff8a6a':'#fff3cf';c.shadowColor='rgba(0,0,0,.8)';c.shadowBlur=8;c.fillText(PZ.left.toFixed(1),WW/2,96);c.restore()}
+ if(PZ&&PZ.type==='waves'&&PZ.active&&!PZ.solved){c.save();c.textAlign='right';c.font='600 18px '+SERIF;c.fillStyle='rgba(255,243,207,.9)';c.shadowColor='rgba(0,0,0,.8)';c.shadowBlur=6;c.fillText('WAVE '+Math.min(3,PZ.wave+1)+' / 3',WW-24,112);c.restore()}
+ if(PZB){const k=clock-PZB.t0;if(k>2.4){PZB=null;return}const a=k<.3?k/.3:(k>1.8?1-(k-1.8)/.6:1);c.save();c.globalAlpha=clamp(a,0,1);c.textAlign='center';c.font='700 40px '+SERIF;c.fillStyle='#fff3cf';c.shadowColor='rgba(255,200,120,.8)';c.shadowBlur=16;c.fillText(PZB.s,WW/2,170);c.restore()}}
+
+function genRoom(safeX){genRoom0(safeX);if(PUZ_ROOMS[room]!==undefined){if(!isSewer())TER=[{x0:0,x1:WORLD,y:FLOOR}];initPuzzle()}else PZ=null}
+function genRoom0(safeX){CORPSES.length=0;if(SC[room].sewer){HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;genSewer(safeX);return}genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
  if(room===0&&bossBeaten&&!EV.done&&!CUT.on)startAlarm();
  if(room===BOSS_ROOM){TER=[{x0:0,x1:WORLD,y:FLOOR}];const pl=(x,w,k)=>({x0:x,x1:x+w,y:FLOOR-[96,172][k],cx:x+w/2});PLAT=[pl(360,190,0),pl(1370,190,0),pl(780,200,1)];BUL.length=0;debris.length=0;
   if(bossBeaten){ENM=[];Object.assign(HUSK,{on:true,x:WORLD/2+190,eye:0,open:1,slump:1,shake:0,jaw:0})}else (HUSK.seen?startFight(safeX):startCut())}
@@ -1679,7 +1789,7 @@ const MENU_GEARS=[[70,618,150,14,1],[300,648,122,11,-1],[540,632,160,13,1],[790,
 const TOP_GEARS=[[170,36,64,12,1],[286,-6,46,9,-1],[672,-8,48,9,1],[790,34,66,12,-1],[900,-4,44,8,1]];
 function menuItems(){return optMode?['SOUND: '+(soundOn?'ON':'OFF'),'BACK']:[SAVE.room===null?'START GAME':'CONTINUE','OPTIONS']}
 function menuSelNow(){return optMode?optSel:menuSel}
-function startGame(){EV.on=false;sirenStop();if(SAVE.room===null){UPG.sword=0;UPG.heart=0;UPG.bat=false;UPG.harness=false;UPG.chip=false;EV.done=false;HP.max=5;bossBeaten=false;PARTS.n=0}CUT.on=false;HUSK.on=false;forgeOpen=false;DARK.length=0;FLEE.length=0;titleT=-1;darkV=0;shakeT=0;if(SAVE.room===null)SOUL.v=0;me.healT=0;HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0;s.pop=0});me.dead=false;me.inv=0;me.kb=0;me.vx=0;me.vy=0;me.x=960;me.y=FLOOR;me.ground=true;me.atk=-1;cam=0;ENM.length=0;BUL.length=0;const r=SAVE.room===null?0:SAVE.room;me.x=r===0?(SAVE.room===null?960:WALLW+60):80;setRoom(r);if(!CUT.on){me.x=r===0?(SAVE.room===null?960:WALLW+60):80;cam=0}SAVE.room=r;paused=false;DROPS.length=0;SCENE='play';game.focus()}
+function startGame(){EV.on=false;sirenStop();if(SAVE.room===null){UPG.sword=0;UPG.heart=0;UPG.bat=false;UPG.harness=false;UPG.chip=false;EV.done=false;for(const k in PUZDONE)delete PUZDONE[k];PUZCODE=null;HP.max=5;bossBeaten=false;PARTS.n=0}CUT.on=false;HUSK.on=false;forgeOpen=false;DARK.length=0;FLEE.length=0;titleT=-1;darkV=0;shakeT=0;if(SAVE.room===null)SOUL.v=0;me.healT=0;HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0;s.pop=0});me.dead=false;me.inv=0;me.kb=0;me.vx=0;me.vy=0;me.x=960;me.y=FLOOR;me.ground=true;me.atk=-1;cam=0;ENM.length=0;BUL.length=0;const r=SAVE.room===null?0:SAVE.room;me.x=r===0?(SAVE.room===null?960:WALLW+60):80;setRoom(r);if(!CUT.on){me.x=r===0?(SAVE.room===null?960:WALLW+60):80;cam=0}SAVE.room=r;paused=false;DROPS.length=0;SCENE='play';game.focus()}
 function menuAct(i){if(!optMode){if(i===0){startFade=flowT}else{optMode=true;optSel=0}}else{if(i===0)document.getElementById('snd').click();else{optMode=false}}}
 function menuKey(e){const k=e.key;let h=true;
  if(SCENE==='logo'){if(flowT>.4)introSkip=flowT;else h=false}
@@ -1776,7 +1886,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  const SW=!!sc.sewer;if(SW)drawSewerBack(g,clock,fdt);HC.glow=UPG.chip?'#6ac8ff':'#ffd84a';
  g.save();g.translate(shk?rnd(-shk,shk):0,-viewY()+(shk?rnd(-shk,shk):0));
  if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawSewerTerrain(g,cam);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
- for(const p of PLAT)(SW?drawSewerPlat:drawPlat)(g,p,cam);drawWalls(g,cam);drawAltar(g,cam,clock);drawCorpses(g,cam,clock);drawForge(g,cam,clock);drawHusk(g,cam,clock);
+ for(const p of PLAT)(SW?drawSewerPlat:drawPlat)(g,p,cam);drawWalls(g,cam);drawAltar(g,cam,clock);if(PZ){PUZ[PZ.type].draw(g,cam,clock,PZ);drawPuzGates(g,cam,clock)}drawCorpses(g,cam,clock);drawForge(g,cam,clock);drawHusk(g,cam,clock);
  for(const e of ENM)drawEnemy(g,e,cam,clock);drawFlee(g,cam,clock);drawDrops(g,cam,clock);updateLoops();musicUpdate();
  const st=stateNow(),atkP=me.atk>=0?me.atk/26:-1,P=poseFor(st,{ph:me.ph,t:clock,speed:me.speed,atk:atkP,heal:me.healT/1.5,hurt:me.inv>56&&!me.dead?(me.inv-56)/24:0,ko:me.dead?clamp((110-me.deadT)/40,0,1):0,fill:HP.max?HP.hp/HP.max:1});
  const sx=me.x-cam,sq=P.squash;
@@ -1792,7 +1902,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  drawAlarmScreen(g,clock);hudUpdate(dtms/1000);drawHud(g,clock);drawSoul(g,clock);drawParts2(g,clock);drawBossBar(g,clock);drawDarkness(g,clock);
  barK+=((CUT.on?1:0)-barK)*.08;if(barK>.005){g.fillStyle='#000';g.fillRect(0,0,WW,48*barK);g.fillRect(0,HH-48*barK,WW,48*barK)}
  if(CUT.on&&CUT.t<.7){g.fillStyle='rgba(0,0,0,'+(1-CUT.t/.7)+')';g.fillRect(0,0,WW,HH)}
- drawTitle(g);drawChipBanner(g);drawPauseBtn(g,ts/1000);drawForgeMenu(g,ts/1000);drawPause(g,ts/1000);
+ drawTitle(g);drawChipBanner(g);drawPuzScreen(g);drawPauseBtn(g,ts/1000);drawForgeMenu(g,ts/1000);drawPause(g,ts/1000);
  if(me.dead){g.fillStyle='rgba(10,4,16,.55)';g.fillRect(0,0,WW,HH);g.fillStyle='#fff3cf';g.textAlign='center';g.font='bold 30px "Press Start 2P","Courier New",monospace';g.fillText('Knocked out',WW/2,HH/2-6);g.font='16px "Space Mono","Courier New",monospace';g.fillStyle='#f0a868';g.fillText('Refilling your head...',WW/2,HH/2+28);g.textAlign='left'}
  requestAnimationFrame(loop)}
 /* ---- animation previews ---- */
@@ -1813,6 +1923,6 @@ setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimat
 function unlockAll(){UPG.chip=true;UPG.sword=4;UPG.heart=5;UPG.bat=true;UPG.harness=true;HP.max=10;HP.hp=10;HP.slots.forEach(s=>{s.fill=1;s.pop=1})}
 document.getElementById('bunlock').onclick=()=>{unlockAll();game.focus()};
 document.getElementById('bhurt').onclick=()=>{hurt();game.focus()};document.getElementById('bheal').onclick=()=>{heal();game.focus()};
-window.__demo={get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
+window.__demo={get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
 
 </script>
