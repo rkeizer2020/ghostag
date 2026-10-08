@@ -825,7 +825,7 @@ function whoosh(){if(!ac||!soundOn)return;const len=Math.floor(ac.sampleRate*.22
 const sel=document.getElementById('sel'),nameEl=document.getElementById('name');
 SC.forEach((s,i)=>{const op=document.createElement('option');op.value=i;op.textContent=(i+1)+'. '+s.name;sel.appendChild(op)});
 let room=0,cam=0;
-function setRoom(i){room=clamp(i,0,SC.length-1);prepScene(SC[room],Q);genRoom(me.x);if(isSewer()){me.y=groundAt(me.x);me.vy=0;me.ground=true;camY=clamp(me.y-330,0,camYmax)}else me.y=Math.min(me.y,FLOOR);sel.value=room;nameEl.innerHTML='<b>Room '+(room+1)+' / '+SC.length+'</b> &nbsp; '+SC[room].name}
+function setRoom(i){room=clamp(i,0,SC.length-1);prepScene(SC[room],Q);genRoom(me.x);if(isSewer()){if(groundAt(me.x)>3000)me.x+=140;me.y=groundAt(me.x);me.vy=0;me.ground=true;camY=clamp(me.y-330,camYmin,camYmax)}else me.y=Math.min(me.y,FLOOR);sel.value=room;nameEl.innerHTML='<b>Room '+(room+1)+' / '+SC.length+'</b> &nbsp; '+SC[room].name}
 sel.onchange=()=>{setRoom(+sel.value);game.focus()};
 document.getElementById('prev').onclick=()=>setRoom(room-1);document.getElementById('next').onclick=()=>setRoom(room+1);
 const key={l:0,r:0,j:0,d:0,x:0};let jumpHeld=false;
@@ -872,9 +872,10 @@ function step(){clock+=1/60;
   if(hit){e.hitId=me.atkId;damageEnemy(e,slashDmg())}}}
  updateEnemies();updateBullets();updateDrops();
  if(me.inv<=0)for(const e of ENM){if(e.dead||(e.type==='boss'&&e.state!=='dash')||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e);if(Math.hypot(ec[0]-me.x,ec[1]-(me.y-30))<16+e.r*.85){playerHit(e,ec);break}}
- if((room===0||room===CORR)&&me.x<WALLW+16){me.x=WALLW+16;me.vx=Math.max(0,me.vx)}if((room===FORGE_ROOM||room===SEW_LAST)&&me.x>WORLD-WALLW-16){me.x=WORLD-WALLW-16;me.vx=Math.min(0,me.vx)}if(EV.on&&room===0)me.x=clamp(me.x,WALLW+16,WORLD-60);
+ if((room===0||(isSewer()&&SWI&&SWI.blockL))&&me.x<WALLW+16){me.x=WALLW+16;me.vx=Math.max(0,me.vx)}if((room===FORGE_ROOM||(isSewer()&&SWI&&SWI.blockR))&&me.x>WORLD-WALLW-16){me.x=WORLD-WALLW-16;me.vx=Math.min(0,me.vx)}if(EV.on&&room===0)me.x=clamp(me.x,WALLW+16,WORLD-60);
  if(bossAlive()||CUT.on){me.x=clamp(me.x,14,WORLD-14)}else if(me.x>WORLD-8){me.x=40;setRoom(room+1);if(!CUT.on)cam=0}else if(me.x<8){me.x=WORLD-40;setRoom(room-1);cam=WORLD-WW}
- const tc=clamp(me.x-WW/2,0,WORLD-WW);cam+=(tc-cam)*.12;if(isSewer()){const ty=clamp(me.y-330,0,camYmax);camY+=(ty-camY)*.12}}
+ sewVertical();
+ const tc=clamp(me.x-WW/2,0,WORLD-WW);cam+=(tc-cam)*.12;if(isSewer()){const ty=clamp(me.y-330,camYmin,camYmax);camY+=(ty-camY)*.12}}
 function stateNow(){if(!me.ground)return me.vy<-3?'up':(me.vy>3?'fall':'mid');if(me.land>0)return 'land';return Math.abs(me.vx)>.3?'walk':'idle'}
 function toScreen(P,lx,ly){return [me.x-cam+me.face*SC_*(lx+(P.lunge||0)),me.y-SC_*ly]}
 const fxs=[];
@@ -1218,7 +1219,7 @@ function drawBulk(c,x0,cam){const x=x0-cam;if(x<-WALLW-60||x>WW+60)return;
  c.strokeStyle=OUT;c.lineWidth=3;c.strokeRect(x,FLOOR-34,WALLW,34)}
 function sewWall(c,x0,cam){const x=x0-cam;if(x<-WALLW-60||x>WW+60)return;c.fillStyle=lgrad(c,x,0,x+WALLW,0,['#071a20','#14404a','#071a20']);c.fillRect(x,camY-30,WALLW,HH+80);c.strokeStyle='rgba(2,10,14,.9)';c.lineWidth=3;c.strokeRect(x,camY-30,WALLW,HH+80);
  c.strokeStyle='rgba(2,12,16,.5)';c.lineWidth=1.3;for(let y=Math.floor((camY-30)/22)*22;y<camY+HH+50;y+=22){c.beginPath();c.moveTo(x,y);c.lineTo(x+WALLW,y);c.stroke()}}
-function drawWalls(c,cam){if(isSewer()){if(room===CORR)sewWall(c,0,cam);if(room===SEW_LAST)sewWall(c,WORLD-WALLW,cam);return}if(room===0)drawBulk(c,0,cam);if(room===FORGE_ROOM)drawBulk(c,WORLD-WALLW,cam)}
+function drawWalls(c,cam){if(isSewer()){if(SWI&&SWI.blockL)sewWall(c,0,cam);if(SWI&&SWI.blockR)sewWall(c,WORLD-WALLW,cam);return}if(room===0)drawBulk(c,0,cam);if(room===FORGE_ROOM)drawBulk(c,WORLD-WALLW,cam)}
 /* ---- the forge at the end of the last room ---- */
 function nearForge(){return room===FORGE_ROOM&&!me.dead&&Math.abs(me.x-FX)<210}
 /* =====================================================================
@@ -1445,16 +1446,32 @@ function isSewer(){return !!(SC[room]&&SC[room].sewer)}
 function viewY(){return isSewer()?camY:YS}
 
 /* ---------- room layout: segments of ground at different heights, steps where a climb is too high ---------- */
-function genSewer(safeX){TER=[];PLAT=[];ENM=[];BUL.length=0;debris.length=0;WL=null;
+/* how the sewer rooms connect: link k joins room CORR+k to CORR+k+1, sideways, down a hole in the floor or up through an opening in the ceiling */
+const SEW_LINK=['side','side','down','side','up','down','side','down','up','side','down','side','up','down'],SWTOP=-540;
+let SWI=null,camYmin=0;
+function linkX(k){return 560+((k*577)%800)}
+function sewInfo(r){const k=r-CORR,o={holes:[],tops:[],blockL:r===CORR,blockR:r===SEW_LAST};const nx=SEW_LINK[k],pv=k>0?SEW_LINK[k-1]:null;
+ if(r<SEW_LAST&&nx&&nx!=='side'){o.blockR=true;(nx==='down'?o.holes:o.tops).push({x:linkX(k),to:r+1})}
+ if(pv&&pv!=='side'){o.blockL=true;(pv==='down'?o.tops:o.holes).push({x:linkX(k-1),to:r-1})}return o}
+function genSewer(safeX){TER=[];PLAT=[];ENM=[];BUL.length=0;debris.length=0;WL=null;SWI=sewInfo(room);camYmin=0;
  if(room===CORR){TER=[{x0:0,x1:WORLD,y:560}];camYmax=560+90-HH;return}
- const segs=[];let x=0,y=rnd(430,600);
- while(x<WORLD-1){let w=rnd(210,380);if(WORLD-x<w+170)w=WORLD-x;segs.push({x0:x,x1:x+w,y:Math.round(y)});x+=w;y=clamp(y+rnd(-170,190),300,820)}
+ /* the layout is seeded per room, so a room looks the same every visit and the holes and ladders always line up */
+ let sd=(room*7919+101)%2147483647||1;const sr=()=>{sd=(sd*16807)%2147483647;return (sd-1)/2147483646},srr=(a,b)=>a+sr()*(b-a);
+ let segs=[];let x=0,y=srr(430,600);
+ while(x<WORLD-1){let w=srr(210,380);if(WORLD-x<w+170)w=WORLD-x;segs.push({x0:x,x1:x+w,y:Math.round(y)});x+=w;y=clamp(y+srr(-170,190),300,820)}
+ for(const h of SWI.holes){const X=h.x,s0=segs.find(s=>X>=s.x0&&X<s.x1);h.gy=s0.y;const out=[];
+  for(const q of segs){if(q.x1<=X-60||q.x0>=X+60){out.push(q);continue}if(q.x0<X-60)out.push({x0:q.x0,x1:X-60,y:q.y});if(q.x1>X+60)out.push({x0:X+60,x1:q.x1,y:q.y})}
+  out.push({x0:X-60,x1:X+60,y:4000,hole:true});out.sort((a,b)=>a.x0-b.x0);segs=out}
  TER=segs;
  const steps=(edge,dir,low,high,seg)=>{const n=Math.ceil((low-high)/92);for(let k=1;k<n;k++){const py=Math.round(low-k*(low-high)/n),off=(k%2?36:150),x0=dir<0?edge-off-120:edge+off,x1=x0+120;
    PLAT.push({x0:clamp(x0,seg.x0+8,seg.x1-40),x1:clamp(x1,seg.x0+40,seg.x1-8),y:py,cx:(x0+x1)/2})}};
- for(let i=0;i<segs.length-1;i++){const a=segs[i],b=segs[i+1];if(a.y-b.y>100)steps(a.x1,-1,a.y,b.y,a);else if(b.y-a.y>100)steps(b.x0,1,b.y,a.y,b)}
- const maxY=Math.max(...segs.map(s=>s.y)),minY=Math.min(...segs.map(s=>s.y));
- if(maxY-minY>120&&Math.random()<.8)WL=Math.round(maxY-rnd(50,95));
+ for(let i=0;i<segs.length-1;i++){const a=segs[i],b=segs[i+1];if(a.hole||b.hole)continue;if(a.y-b.y>100)steps(a.x1,-1,a.y,b.y,a);else if(b.y-a.y>100)steps(b.x0,1,b.y,a.y,b)}
+ const solid=segs.filter(s=>!s.hole),maxY=Math.max(...solid.map(s=>s.y)),minY=Math.min(...solid.map(s=>s.y));
+ if(maxY-minY>120&&sr()<.8)WL=Math.round(maxY-srr(50,95));
+ for(const h of SWI.holes)PLAT=PLAT.filter(p=>p.x1<h.x-70||p.x0>h.x+70);
+ /* a ladder of platforms up to the opening in the ceiling */
+ for(const tp of SWI.tops){let g=groundAt(tp.x);if(g>3000)g=minY;let py=g-92,i=0;while(py>SWTOP+50){const off=(i%2?1:-1)*78,cx=clamp(tp.x+off,WALLW+90,WORLD-WALLW-90);PLAT.push({x0:cx-66,x1:cx+66,y:py,cx});py-=92;i++}}
+ if(SWI.tops.length)camYmin=SWTOP-40;
  camYmax=Math.max(0,maxY+90-HH);
  const far=x=>Math.abs(x-safeX)>380;
  for(const s of segs){const w=s.x1-s.x0,cx=(s.x0+s.x1)/2;if(w<200||!far(cx))continue;
@@ -1463,9 +1480,24 @@ function genSewer(safeX){TER=[];PLAT=[];ENM=[];BUL.length=0;debris.length=0;WL=n
  for(let i=0,n=1+(Math.random()<.5?1:0);i<n;i++)for(let k=0;k<20;k++){const x=rnd(220,WORLD-220);if(far(x)){ENM.push(mkSpider(x,groundAt(x)));break}}}
 
 /* ---------- drawing the sewer rooms ---------- */
+function sewVertical(){if(!isSewer()||!SWI||me.dead)return;
+ if(SWI.tops.length&&me.y<SWTOP+12&&!SWI.tops.some(tp=>Math.abs(me.x-tp.x)<120)){me.y=SWTOP+12;if(me.vy<0)me.vy=0}
+ for(const h of SWI.holes)if(me.y>h.gy+260&&Math.abs(me.x-h.x)<90){enterFrom(h.to,'top',h.x);return}
+ for(const tp of SWI.tops)if(me.y<SWTOP-10&&Math.abs(me.x-tp.x)<120){enterFrom(tp.to,'below',tp.x);return}}
+function enterFrom(r,mode,x){me.x=x;setRoom(r);me.x=x;me.atk=-1;
+ if(mode==='top'){me.y=SWTOP+20;me.vy=3;me.ground=false;me.kb=0;camY=camYmin}
+ else{const h=SWI.holes.reduce((a,b)=>Math.abs(b.x-x)<Math.abs(a.x-x)?b:a);me.x=h.x;me.y=h.gy+70;me.vy=-14.5;me.vx=(h.x<WORLD/2?1:-1)*7;me.kb=24;me.ground=false;camY=clamp(me.y-330,camYmin,camYmax)}
+ cam=clamp(me.x-WW/2,0,WORLD-WW)}
 function drawSewerBack(c,t,dt){const px=(cam/(WORLD-WW))*48,py=(camYmax?camY/camYmax:0)*40;c.save();c.translate(-px,-py);c.scale(1.1,1.1);SEWER.draw(SC[room].paint,c,t,dt);c.restore();
  c.fillStyle='rgba(2,10,12,.28)';c.fillRect(0,0,WW,HH)}
 function drawSewerWaterBack(c,cam){if(WL===null)return;c.fillStyle=lgrad(c,0,WL,0,WL+260,['rgba(40,130,115,.6)','rgba(14,70,66,.75)','rgba(6,30,30,.9)']);c.fillRect(0,WL,WW,camY+HH+80-WL)}
+function drawSewerShafts(c,cam,t){if(!SWI)return;const bot=camY+HH+80;
+ for(const h of SWI.holes){const x=h.x-cam;if(x<-120||x>WW+120)continue;c.fillStyle=lgrad(c,0,h.gy,0,h.gy+260,['rgba(2,10,12,.2)','rgba(1,4,6,.95)']);c.fillRect(x-60,h.gy,120,bot-h.gy);
+  c.fillStyle='rgba(150,255,200,.5)';for(let i=0;i<3;i++){const k=((t*.8+i/3)%1);c.fillRect(x-40+i*38,h.gy-4+k*200,2,10)}}
+ if(SWI.tops.length){const y0=camY-30;if(y0<SWTOP){const xs=[0];for(const tp of SWI.tops.slice().sort((a,b)=>a.x-b.x)){xs.push(tp.x-110-cam,tp.x+110-cam)}xs.push(WW);
+  for(let i=0;i<xs.length;i+=2){const a=Math.max(xs[i],-10),b=Math.min(xs[i+1],WW+10);if(b<=a)continue;c.fillStyle=lgrad(c,0,SWTOP-200,0,SWTOP,['#05121a','#14404a']);c.fillRect(a,y0,b-a,SWTOP-y0);
+   c.fillStyle='#4a8f86';c.fillRect(a,SWTOP-6,b-a,8);c.strokeStyle='rgba(2,10,14,.9)';c.lineWidth=2;c.strokeRect(a,SWTOP-6,b-a,8)}}
+  for(const tp of SWI.tops){const x=tp.x-cam;if(x<-200||x>WW+200)continue;c.save();c.globalCompositeOperation='lighter';c.fillStyle=lgrad(c,0,SWTOP,0,SWTOP+700,['rgba(160,255,220,.3)','rgba(120,230,210,0)']);c.beginPath();c.moveTo(x-100,SWTOP);c.lineTo(x+100,SWTOP);c.lineTo(x+170,SWTOP+700);c.lineTo(x-170,SWTOP+700);c.closePath();c.fill();c.restore()}}}
 function drawSewerTerrain(c,cam){const bot=camY+HH+80;
  for(const s of TER){const x0=s.x0-cam,x1=s.x1-cam;if(x1<-20||x0>WW+20)continue;
   c.fillStyle=lgrad(c,0,s.y,0,s.y+300,['#14404a','#0b252e','#05121a']);c.fillRect(x0,s.y,x1-x0,bot-s.y);
@@ -1743,7 +1775,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  const fdt=forgeOpen||paused?0:dtms/1000;shakeT=Math.max(0,shakeT-fdt);darkV=Math.max(0,darkV-fdt*.55);const shk=shakeT*7;
  const SW=!!sc.sewer;if(SW)drawSewerBack(g,clock,fdt);HC.glow=UPG.chip?'#6ac8ff':'#ffd84a';
  g.save();g.translate(shk?rnd(-shk,shk):0,-viewY()+(shk?rnd(-shk,shk):0));
- if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawSewerTerrain(g,cam)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
+ if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawSewerTerrain(g,cam);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
  for(const p of PLAT)(SW?drawSewerPlat:drawPlat)(g,p,cam);drawWalls(g,cam);drawAltar(g,cam,clock);drawCorpses(g,cam,clock);drawForge(g,cam,clock);drawHusk(g,cam,clock);
  for(const e of ENM)drawEnemy(g,e,cam,clock);drawFlee(g,cam,clock);drawDrops(g,cam,clock);updateLoops();musicUpdate();
  const st=stateNow(),atkP=me.atk>=0?me.atk/26:-1,P=poseFor(st,{ph:me.ph,t:clock,speed:me.speed,atk:atkP,heal:me.healT/1.5,hurt:me.inv>56&&!me.dead?(me.inv-56)/24:0,ko:me.dead?clamp((110-me.deadT)/40,0,1):0,fill:HP.max?HP.hp/HP.max:1});
@@ -1781,6 +1813,6 @@ setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimat
 function unlockAll(){UPG.chip=true;UPG.sword=4;UPG.heart=5;UPG.bat=true;UPG.harness=true;HP.max=10;HP.hp=10;HP.slots.forEach(s=>{s.fill=1;s.pop=1})}
 document.getElementById('bunlock').onclick=()=>{unlockAll();game.focus()};
 document.getElementById('bhurt').onclick=()=>{hurt();game.focus()};document.getElementById('bheal').onclick=()=>{heal();game.focus()};
-window.__demo={EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
+window.__demo={get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
 
 </script>
