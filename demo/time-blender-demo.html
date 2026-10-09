@@ -1322,8 +1322,8 @@ document.getElementById('prev').onclick=()=>setRoom(room-1);document.getElementB
 const key={l:0,r:0,j:0,d:0,x:0};let jumpHeld=false;
 const me={healT:0,atkFace:1,x:960,y:FLOOR,vx:0,vy:0,face:1,ground:true,land:0,ph:0,atk:-1,lastStep:0,speed:0,inv:0,kb:0,dead:false,deadT:0,atkId:0,ign:null,ignT:0};
 const parts=[],trail=[];let clock=0;
-/* a new swing may start from frame 15 of the last one; a press a bit earlier is remembered */
-const ATK_NEXT=15;function tryAttack(){if(me.atk>=0&&me.atk<ATK_NEXT){if(me.atk>=4)me.atkBuf=1;return}if(!me.dead&&!CUT.on){me.atkBuf=0;me.atk=0;me.atkId++;me.atkFace=me.face;me.slashLong=pickSlashLong();const sn=me.slashLong?'slashLong':'slashShort';if(buf[sn])play(sn,{gain:me.slashLong?.34:.3});else if(buf.slash)play('slash',{gain:.3});else whoosh()}}
+/* a new swing may start from frame 20 of the last one; a press a bit earlier is remembered */
+const ATK_NEXT=20;function tryAttack(){if(me.atk>=0&&me.atk<ATK_NEXT){if(me.atk>=4)me.atkBuf=1;return}if(!me.dead&&!CUT.on){me.atkBuf=0;me.atk=0;me.atkId++;me.atkFace=me.face;me.slashLong=pickSlashLong();const sn=me.slashLong?'slashLong':'slashShort';if(buf[sn])play(sn,{gain:me.slashLong?.34:.3});else if(buf.slash)play('slash',{gain:.3});else whoosh()}}
 function onKey(e,v){const k=e.key;let h=true;
  if(SCENE!=='play'){if(v)menuKey(e);return}
  if(paused){if(v)pauseKey(e);return}
