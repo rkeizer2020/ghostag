@@ -434,7 +434,7 @@ function poseFor(st,o){o=Object.assign({},o);const t=o.t,sp=o.speed||0,ph=o.ph||
  return P}
 
 /* ---------- the slash: two kinds, picked at random per swing (the hitbox is the same for both) ----------
-   short slash (most swings): a flat ">" crescent with comb streaks, then thin diagonal slivers (like the Nail Slash sheet)
+   short slash (most swings): a flat ">" crescent with comb streaks (like the Nail Slash sheet)
    long slash (SLASH_LONG_CHANCE of the swings): a big comet-like swoosh from behind the head around the front
    SLASH_TILT tilts the short slash a little downwards towards the front (0 = level)
    SLASH_BLADE shows the golden blade during the swing */
@@ -446,15 +446,15 @@ function slashSeed(long){let s;do{s=(Math.random()*9999)|0}while(slashIsLong(s)!
 function slashFx(c,hx,oy,f,k,seed,S,tilt,long){if(k<0||k>1)return;if(long==null)long=slashIsLong(seed);
  if(long)slashLongFx(c,hx,oy,f,k,seed,S);else slashShortFx(c,hx,oy,f,k,seed,S,tilt)}
 /* short slash, after the top row of the Nail Slash sheet:
-   1) a flat ">" crescent that snaps open from the front, thick at the point and thin at the ends, with comb streaks trailing behind
-   2) then two thin slivers that rise diagonally from low behind to high in front and fade */
-function slashShortFx(c,hx,oy,f,k0,seed,S,tilt){const k=k0/.8;if(k>1)return;const R=50*S,cx=hx+f*R*1.05,cy=oy-R*.02,rx=R*1.15,ry=R*.42,tm=2.2,N=48;
+   a flat ">" crescent that opens from the front, thick at the point and thin at the ends, with comb streaks trailing behind.
+   It opens and fades at the same speed as the long slash. */
+function slashShortFx(c,hx,oy,f,k,seed,S,tilt){const R=50*S,cx=hx+f*R*1.05,cy=oy-R*.02,rx=R*1.15,ry=R*.42,tm=2.2,N=48;
  let s=seed;const rnd=()=>{s=(s*9301+49297)%233280;return s/233280};
  c.save();c.globalCompositeOperation='lighter';
  {const tl=(tilt==null?SLASH_TILT:tilt)*.22;c.translate(hx,oy);c.rotate(-f*tl);c.translate(-hx,-oy)}
  const pt=(a,d)=>{const nx=Math.cos(a)/rx,ny=Math.sin(a)/ry,l=Math.hypot(nx,ny);return [cx+f*(Math.cos(a)*rx+nx/l*d),cy+Math.sin(a)*ry+ny/l*d]};
  /* 1) the crescent */
- if(k<.6){const kA=k/.6,p=1-Math.pow(1-Math.min(1,kA/.22),2),fade=kA<.55?1:Math.pow(1-(kA-.55)/.45,.8),thin=1-.45*clamp((kA-.4)/.6,0,1);
+ {const p=1-Math.pow(1-Math.min(1,k/.4),2.2),fade=Math.pow(1-k,.6),thin=1-.45*clamp((k-.4)/.6,0,1);
   const w=a=>28*S*thin*Math.pow(Math.max(0,1-Math.abs(a)/tm),1.15);
   const band=(sc,off)=>{c.beginPath();for(let i=0;i<=N;i++){const a=lerp(-tm*p,tm*p,i/N),q=pt(a,off*S+w(a)*sc*.5);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}
    for(let i=N;i>=0;i--){const a=lerp(-tm*p,tm*p,i/N),q=pt(a,off*S-w(a)*sc*.5);c.lineTo(q[0],q[1])}c.closePath()};
@@ -465,13 +465,6 @@ function slashShortFx(c,hx,oy,f,k0,seed,S,tilt){const k=k0/.8;if(k>1)return;cons
   /* comb streaks: three thin parallel lines that carry each end on behind the hero */
   if(p>.85){c.lineCap='round';for(const sg of[-1,1])for(let j=0;j<3;j++){const off=(j-1)*5.5*S,len=.55+.25*j+rnd()*.15,a0=sg*tm*.72;c.strokeStyle='rgba(255,250,220,'+.8*fade*(1-j*.18)+')';c.lineWidth=(2.2-j*.5)*S*thin;
    c.beginPath();for(let i=0;i<=10;i++){const a=a0+sg*len*i/10,q=pt(a,off*(1-i/14));i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}c.stroke()}}}
- /* 2) the afterimage: two long thin slivers rising from low behind to high in front */
- if(k>.42){const kB=(k-.42)/.58,fade=Math.pow(1-kB,.8)*Math.min(1,kB/.12),sh=f*R*.35*kB;
-  for(let j=0;j<2;j++){const x0=hx-f*R*.35+sh+f*j*R*.3,y0=oy+R*.72-j*R*.06,x1=hx+f*R*2.1+sh,y1=oy-R*.2-j*R*.14,mx=(x0+x1)/2+f*R*.08,my=(y0+y1)/2+R*.14,
-    w=(j?2:3.4)*S*(1-.4*kB),dx=x1-x0,dy=y1-y0,l=Math.hypot(dx,dy),nx=-dy/l,ny=dx/l;
-   c.beginPath();c.moveTo(x0,y0);c.quadraticCurveTo(mx+nx*w,my+ny*w,x1,y1);c.quadraticCurveTo(mx-nx*w,my-ny*w,x0,y0);c.closePath();
-   c.shadowColor='#ffd84a';c.shadowBlur=10*S;c.fillStyle='rgba(255,250,225,'+fade*(j?.7:1)+')';c.fill()}
-  c.shadowBlur=0}
  c.restore()}
 function slashLongFx(c,hx,oy,f,k,seed,S){const R=64*S,cx=hx+f*R*.55,cy=oy-R*.12,rx=R*1.32,ry=R*.62,a0=-Math.PI*.95,a1=Math.PI*.7,N=64;
  const head=lerp(a0,a1,1-Math.pow(1-Math.min(1,k/.4),2.2)),tail=lerp(a0,a1-.5,Math.pow(clamp((k-.28)/.72,0,1),1.2)),fade=Math.pow(1-k,.6);if(head-tail<.03)return;
