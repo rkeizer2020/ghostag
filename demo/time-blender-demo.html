@@ -37,7 +37,7 @@ h2{font-family:var(--display);font-size:12px;font-weight:400;margin:6px 0 0}
 <div class="stage"><canvas id="game" tabindex="0" aria-label="Game: use arrow keys to move, space to jump, Z or Shift to hit and hold X to heal"></canvas></div>
 <div class="pad"><div class="dir"><button id="bl" type="button" aria-label="Walk left">◀</button><button id="br" type="button" aria-label="Walk right">▶</button></div><div class="dir"><button id="bh" type="button">Hit</button><button id="bj" type="button">Jump</button></div></div>
 <div class="pad dev"><div class="dir"><button id="bhurt" type="button">Take damage</button><button id="bheal" type="button">Heal</button><button id="bunlock" type="button">Unlock everything</button></div></div>
-<p class="hint">Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to run, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>Shift</kbd> to swing the sword (<kbd>Z</kbd> too, until you own the FAR SHOT chip: then <kbd>Z</kbd> fires a far attack), hold <kbd>X</kbd> for 1.5 seconds to heal one head (costs 2/6 of the yellow bar; every 3 hits fill 1/6), <kbd>S</kbd> or <kbd>↓</kbd> to drop through a platform, <kbd>Z</kbd> or <kbd>E</kbd> at the forge in the last room to upgrade with parts (5% drop chance), <kbd>Tab</kbd>, <kbd>Esc</kbd> or the gear top right to pause, <kbd>1</kbd> slow/stop time and <kbd>C</kbd> dash (chips from the shop in room 30)<span class="dev">, <kbd>H</kbd> to take damage, <kbd>J</kbd> to heal, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</span></p>
+<p class="hint">Switch controller: stick to run, stick down to drop, stick up to talk/read/open, <kbd>B</kbd> jump, <kbd>Y</kbd> slash, <kbd>X</kbd> = Z, <kbd>ZR</kbd> dash, tap <kbd>A</kbd> = 1, hold <kbd>A</kbd> to heal, <kbd>−</kbd> pause.<br>Keys: <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> to run, <kbd>Space</kbd> <kbd>↑</kbd> or <kbd>W</kbd> to jump, <kbd>Shift</kbd> to swing the sword (<kbd>Z</kbd> too, until you own the FAR SHOT chip: then <kbd>Z</kbd> fires a far attack), hold <kbd>X</kbd> for 1.5 seconds to heal one head (costs 2/6 of the yellow bar; every 3 hits fill 1/6), <kbd>S</kbd> or <kbd>↓</kbd> to drop through a platform, <kbd>Z</kbd> or <kbd>E</kbd> at the forge in the last room to upgrade with parts (5% drop chance), <kbd>Tab</kbd>, <kbd>Esc</kbd> or the gear top right to pause, <kbd>1</kbd> slow/stop time and <kbd>C</kbd> dash (chips from the shop in room 30)<span class="dev">, <kbd>H</kbd> to take damage, <kbd>J</kbd> to heal, <kbd>[</kbd> <kbd>]</kbd> to change room. Click the game first so it can read your keys.</span></p>
 <h2 class="dev">Animations</h2>
 <section class="previews dev">
 <div class="card"><canvas id="p-idle"></canvas><span>Standing still</span></div>
@@ -2969,6 +2969,44 @@ function drawSignPanel(c){if(!signOpen)return;const s=signOpen,w=560,h=96+s.line
  c.font='600 19px '+SERIF2;s.lines.forEach((l,i)=>c.fillText(l,WW/2,y+74+i*30));
  c.font='600 11px '+SERIF;c.fillStyle='rgba(42,26,16,.55)';c.textAlign='right';c.fillText('Z  CLOSE',x+w-22,y+h-20);c.restore()}
 
+/* ===== Nintendo Switch (Pro) controller via the Gamepad API =====
+   The pad presses the same keys the keyboard does, so everything else just works.
+   A = 1 (tap) / X heal (hold) · B = jump · Y = slash (Shift) · X = Z · ZR = dash (C) · − = Esc
+   stick left/right = run · stick down = drop · stick up = interact only (talk, read, shop, forge, altar) */
+const PAD={on:false,id:'',prev:[],held:{},aT:0,aHeld:false,upPrev:false,dirPrev:{},toast:-9,menu:false};
+const PB={B:0,A:1,Y:2,X:3,ZR:7,MINUS:8,UP:12,DOWN:13,LEFT:14,RIGHT:15};
+function padKey(k,down){window.dispatchEvent(new KeyboardEvent(down?'keydown':'keyup',{key:k,bubbles:true,cancelable:true}))}
+function padHold(k,v){v=!!v;if(!!PAD.held[k]!==v){PAD.held[k]=v;padKey(k,v)}}
+function padTap(k){padKey(k,true);padKey(k,false)}
+function padRelease(){for(const k in PAD.held)if(PAD.held[k])padHold(k,false)}
+function padMenu(){return SCENE!=='play'||paused||shopOpen||forgeOpen}
+function padInteract(){if(me.dead)return;if(nearForge())openForge();else if(nearAltar())takeChip();else if(nearHouse())openShop();else if(nearNpc())talkNpc();else if(nearSign()||signOpen)readSign()}
+function padPoll(){requestAnimationFrame(padPoll);let gp=null;try{for(const g of(navigator.getGamepads?navigator.getGamepads():[]))if(g&&g.connected){gp=g;break}}catch(e){}
+ if(!gp){if(PAD.on){PAD.on=false;padRelease()}return}
+ if(!PAD.on){PAD.on=true;PAD.id=gp.id;PAD.toast=performance.now();PAD.prev=[];PAD.aHeld=false}
+ const btn=i=>!!(gp.buttons[i]&&(gp.buttons[i].pressed||gp.buttons[i].value>.5)),was=i=>!!PAD.prev[i],hit=i=>btn(i)&&!was(i);
+ const ax=gp.axes[0]||0,ay=gp.axes[1]||0,L=ax<-.45||btn(PB.LEFT),R=ax>.45||btn(PB.RIGHT),D=ay>.55||btn(PB.DOWN),U=ay<-.6||btn(PB.UP);
+ const menu=padMenu();if(menu!==PAD.menu){PAD.menu=menu;padRelease();PAD.aHeld=false;PAD.aT=btn(PB.A)?-1:0}
+ if(menu){/* menus, pause, shop and forge: stick or d-pad to choose, A or X to pick, − to go back */
+  for(const [n,v,k] of[['l',L,'ArrowLeft'],['r',R,'ArrowRight'],['u',U,'ArrowUp'],['d',D,'ArrowDown']]){if(v&&!PAD.dirPrev[n])padTap(k);PAD.dirPrev[n]=v}
+  if(hit(PB.A))padTap('Enter');if(hit(PB.X))padTap('z');if(hit(PB.MINUS))padTap('Escape')}
+ else{
+  padHold('ArrowLeft',L);padHold('ArrowRight',R);padHold('ArrowDown',D);
+  if(U&&!PAD.upPrev)padInteract();PAD.upPrev=U;
+  padHold('ArrowUp',btn(PB.B));
+  if(hit(PB.Y))padTap('Shift');if(hit(PB.X))padTap('z');if(hit(PB.ZR))padTap('c');if(hit(PB.MINUS))padTap('Escape');
+  /* A: a quick tap uses the time chip (1), holding it heals like holding X */
+  if(btn(PB.A)){if(PAD.aT===0)PAD.aT=performance.now();if(PAD.aT>0&&!PAD.aHeld&&performance.now()-PAD.aT>280){PAD.aHeld=true;padHold('x',true)}}
+  else{if(PAD.aHeld)padHold('x',false);else if(PAD.aT>0)padTap('1');PAD.aHeld=false;PAD.aT=0}
+  PAD.dirPrev={}}
+ PAD.prev=gp.buttons.map((b,i)=>btn(i))}
+requestAnimationFrame(padPoll);
+addEventListener('gamepaddisconnected',()=>{padRelease()});
+function drawPadToast(c){const k=(performance.now()-PAD.toast)/1000;if(k<0||k>3)return;const a=Math.min(1,k*4,(3-k)*2);c.save();c.setTransform(Q,0,0,Q,0,0);c.globalAlpha=a;
+ const s='CONTROLLER CONNECTED';c.font='600 15px '+SERIF;const w=c.measureText(s).width+64,x=(WW-w)/2,y=22;rrect(c,x,y,w,36,10);c.fillStyle='rgba(20,14,28,.9)';c.fill();c.strokeStyle='#e0b070';c.lineWidth=2;c.stroke();
+ c.fillStyle='#fff3cf';c.textAlign='center';c.textBaseline='middle';c.fillText(s,WW/2+12,y+18);
+ c.strokeStyle='#fff3cf';c.lineWidth=2;rrect(c,x+14,y+11,26,15,6);c.stroke();c.beginPath();c.arc(x+21,y+18.5,2.4,0,TAU);c.arc(x+33,y+18.5,2.4,0,TAU);c.fill();c.restore()}
+
 function genRoom(safeX){genRoom0(safeX);if(room===SHOP_ROOM)ENM=[];if(PUZ_ROOMS[room]!==undefined){if(!isSewer())TER=[{x0:0,x1:WORLD,y:FLOOR}];initPuzzle()}else PZ=null}
 function genRoom0(safeX){CORPSES.length=0;if(SC[room].sewer){HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;genSewer(safeX);return}genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
  if(room===0&&bossBeaten&&!EV.done&&!CUT.on)startAlarm();
@@ -3075,7 +3113,7 @@ function drawSoul(c,t){const x0=26,y0=98,W=HP.max*56+34,Hh=30,ix=x0+12,iw=W-24,i
  rrect(c,ix,iy,iw,ih,6);c.strokeStyle=SOUL.v>=2/6-1e-6&&HP.hp<HP.max?'#ffe27a':CL.copL;c.lineWidth=2;c.stroke()}
 let last=0,acc=0;
 function loop(ts){if(FLOW0===null)FLOW0=ts;
- if(SCENE!=='play'){last=ts;acc=0;g.setTransform(Q,0,0,Q,0,0);if(SCENE==='menu'&&ac&&ac.state==='running')loopStart('mmenu');for(const n in loops)loopGain(n,n==='mmenu'&&SCENE==='menu'?MUS.menu:0);drawFlow(g,(ts-FLOW0)/1000);requestAnimationFrame(loop);return}
+ if(SCENE!=='play'){last=ts;acc=0;g.setTransform(Q,0,0,Q,0,0);if(SCENE==='menu'&&ac&&ac.state==='running')loopStart('mmenu');for(const n in loops)loopGain(n,n==='mmenu'&&SCENE==='menu'?MUS.menu:0);drawFlow(g,(ts-FLOW0)/1000);drawPadToast(g);requestAnimationFrame(loop);return}
  const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=1000/60){if(TALK.on&&!paused)talkStep(1/60);else if(!forgeOpen&&!paused&&!shopOpen)step();acc-=1000/60}
  g.setTransform(Q,0,0,Q,0,0);const sc=SC[room];
  const fdt=forgeOpen||paused||shopOpen?0:dtms/1000;shakeT=Math.max(0,shakeT-fdt);darkV=Math.max(0,darkV-fdt*.55);const shk=shakeT*7;
@@ -3098,7 +3136,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  drawAlarmScreen(g,clock);hudUpdate(dtms/1000);drawHud(g,clock);drawSoul(g,clock);drawParts2(g,clock);drawAbilityHud(g,clock);drawQuestHud(g,clock);drawBossBar(g,clock);drawDarkness(g,clock);
  barK+=((CUT.on?1:0)-barK)*.08;if(barK>.005){g.fillStyle='#000';g.fillRect(0,0,WW,48*barK);g.fillRect(0,HH-48*barK,WW,48*barK)}
  if(CUT.on&&CUT.t<.7){g.fillStyle='rgba(0,0,0,'+(1-CUT.t/.7)+')';g.fillRect(0,0,WW,HH)}
- drawTitle(g);drawChipBanner(g);drawPuzScreen(g);drawSignPanel(g);drawPauseBtn(g,ts/1000);drawForgeMenu(g,ts/1000);drawShop(g,ts/1000);drawTalk(g);drawPause(g,ts/1000);
+ drawTitle(g);drawChipBanner(g);drawPuzScreen(g);drawSignPanel(g);drawPauseBtn(g,ts/1000);drawForgeMenu(g,ts/1000);drawShop(g,ts/1000);drawTalk(g);drawPause(g,ts/1000);drawPadToast(g);
  if(me.dead){g.fillStyle='rgba(10,4,16,.55)';g.fillRect(0,0,WW,HH);g.fillStyle='#fff3cf';g.textAlign='center';g.font='bold 30px "Press Start 2P","Courier New",monospace';g.fillText('Knocked out',WW/2,HH/2-6);g.font='16px "Space Mono","Courier New",monospace';g.fillStyle='#f0a868';g.fillText('Refilling your head...',WW/2,HH/2+28);g.textAlign='left'}
  requestAnimationFrame(loop)}
 /* ---- animation previews ---- */
@@ -3119,6 +3157,6 @@ setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimat
 function unlockAll(){UPG.far=true;UPG.chip=true;UPG.slow=UPG.stop=UPG.crit=UPG.dash=true;UPG.sword=4;UPG.heart=5;UPG.bat=true;UPG.harness=true;HP.max=10;HP.hp=10;HP.slots.forEach(s=>{s.fill=1;s.pop=1})}
 document.getElementById('bunlock').onclick=()=>{unlockAll();game.focus()};
 document.getElementById('bhurt').onclick=()=>{hurt();game.focus()};document.getElementById('bheal').onclick=()=>{heal();game.focus()};
-window.__demo={get signOpen(){return signOpen},nearSign,QUEST,NEED,NPCS,KEYS,PR0,PR_BOSS,PR_GATE,talkNpc,get TALKN(){return TALKN},SHOTS,tryShoot,questReset,get wardenTalked(){return wardenTalked},set wardenTalked(v){wardenTalked=v},WWAVE,PIPE_A,PIPE_B,PRISON_A,TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
+window.__demo={PAD,get signOpen(){return signOpen},nearSign,QUEST,NEED,NPCS,KEYS,PR0,PR_BOSS,PR_GATE,talkNpc,get TALKN(){return TALKN},SHOTS,tryShoot,questReset,get wardenTalked(){return wardenTalked},set wardenTalked(v){wardenTalked=v},WWAVE,PIPE_A,PIPE_B,PRISON_A,TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
 
 </script>
