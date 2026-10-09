@@ -448,14 +448,14 @@ function slashFx(c,hx,oy,f,k,seed,S,tilt,long){if(k<0||k>1)return;if(long==null)
 /* short slash, after the top row of the Nail Slash sheet:
    a flat ">" crescent that opens from the front, thick at the point and thin at the ends, with comb streaks trailing behind.
    It opens and fades at the same speed as the long slash. */
-function slashShortFx(c,hx,oy,f,k,seed,S,tilt){const R=56*S,cx=hx+f*R*.85,cy=oy-R*.02,rx=R*1.15,ry=R*.44,tm=1.7,N=48;
+function slashShortFx(c,hx,oy,f,k,seed,S,tilt){const R=66*S,cx=hx+f*R*.8,cy=oy-R*.04,rx=R*1.15,ry=R*.52,tm=1.7,N=48;
  let s=seed;const rnd=()=>{s=(s*9301+49297)%233280;return s/233280};
  c.save();c.globalCompositeOperation='lighter';
  {const tl=(tilt==null?SLASH_TILT:tilt)*.22;c.translate(hx,oy);c.rotate(-f*tl);c.translate(-hx,-oy)}
  const pt=(a,d)=>{const nx=Math.cos(a)/rx,ny=Math.sin(a)/ry,l=Math.hypot(nx,ny);return [cx+f*(Math.cos(a)*rx+nx/l*d),cy+Math.sin(a)*ry+ny/l*d]};
  /* 1) the crescent */
  {const p=1-Math.pow(1-Math.min(1,k/.4),2.2),fade=Math.pow(1-k,.6),thin=1-.45*clamp((k-.4)/.6,0,1);
-  const w=a=>28*S*thin*Math.pow(Math.max(0,1-Math.abs(a)/tm),1.15);
+  const w=a=>34*S*thin*Math.pow(Math.max(0,1-Math.abs(a)/tm),1.15);
   const band=(sc,off)=>{c.beginPath();for(let i=0;i<=N;i++){const a=lerp(-tm*p,tm*p,i/N),q=pt(a,off*S+w(a)*sc*.5);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}
    for(let i=N;i>=0;i--){const a=lerp(-tm*p,tm*p,i/N),q=pt(a,off*S-w(a)*sc*.5);c.lineTo(q[0],q[1])}c.closePath()};
   band(1.7,2);c.fillStyle='rgba(255,190,60,'+.2*fade+')';c.fill();
