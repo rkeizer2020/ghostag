@@ -25,7 +25,7 @@ WAT ER NIEUW IS
 - Zwaard: in rust alleen het gouden handvat (omwikkeld gevest, gekrulde pareerstang, knop van tijdvloeistof). Bij een slag komt het hele gouden zwaard tevoorschijn (zet SLASH_BLADE op false als je dat niet wilt).
 - Slaan: de zwaai van het lichaam is razendsnel. Een mini-aanloop, dan slaat het zwaard in ongeveer 80 ms van achter het hoofd over de top naar laag voor hem, met een gouden veeg, leunen en uitvallen, en een wapperende cape. Daarna komt de slash, minder snel maar nog steeds snel. Het gaat alleen om de tekening: snelheid en hitbox blijven gelijk.
 - Twee slashes, willekeurig per slag, met dezelfde hitbox:
-  * Korte slash (meestal, 70%), naar de bovenste rij van het Nail Slash-plaatje: een grote, puntige &quot;&gt;&quot; vóór hem met bijna rechte armen, die openklapt (dik bij de punt, dun aan de uiteinden, met drie dunne kamstrepen die achter hem doorlopen) en dan vervaagt, net zo snel als de lange slash. Geen streepjes meer aan het eind; de oude halvemaan is weg. SLASH_TILT laat hem iets naar voren hellen (0 = recht). Geluid: &quot;slash&quot; (kort en scherp).
+  * Korte slash (meestal, 70%), naar de bovenste rij van het Nail Slash-plaatje: een platte &quot;&gt;&quot;-boog vóór hem die openklapt (dik bij de punt, dun aan de uiteinden, met drie dunne kamstrepen die achter hem doorlopen) en dan vervaagt, net zo snel als de lange slash. Geen streepjes meer aan het eind; de oude halvemaan is weg. SLASH_TILT laat hem iets naar voren hellen (0 = recht). Geluid: &quot;slash&quot; (kort en scherp).
   * Lange slash (soms, 30%; SLASH_LONG_CHANCE): een grote komeetachtige zwiep van achter het hoofd over de top rond de voorkant, met een dunne staart en een dikke kop. Geluid: &quot;axe slash&quot; (zwaarder).
   De geluiden zitten in de code (SLASH_SND) en worden automatisch aan SND toegevoegd als slashShort en slashLong.
 - Nieuwe animaties: genezen (gloed en bruisen), geraakt (terugdeinzen, witte flits, barstje), knock-out (inzakken, licht uit) en een vloeistofniveau dat je hoofdjes volgt.
@@ -437,16 +437,14 @@ function slashFx(c,hx,oy,f,k,seed,S,tilt,long){if(k&lt;0||k&gt;1)return;if(long=
 /* short slash, after the top row of the Nail Slash sheet:
    a flat &quot;&gt;&quot; crescent that opens from the front, thick at the point and thin at the ends, with comb streaks trailing behind.
    It opens and fades at the same speed as the long slash. */
-function slashShortFx(c,hx,oy,f,k,seed,S,tilt){const R=60*S,cx=hx+f*R*.9,cy=oy-R*.02,rx=R*1.2,ry=R*.5,tm=2.2,N=48;
+function slashShortFx(c,hx,oy,f,k,seed,S,tilt){const R=50*S,cx=hx+f*R*1.05,cy=oy-R*.02,rx=R*1.15,ry=R*.42,tm=2.2,N=48;
  let s=seed;const rnd=()=&gt;{s=(s*9301+49297)%233280;return s/233280};
  c.save();c.globalCompositeOperation=&#x27;lighter&#x27;;
  {const tl=(tilt==null?SLASH_TILT:tilt)*.22;c.translate(hx,oy);c.rotate(-f*tl);c.translate(-hx,-oy)}
- /* a &quot;&gt;&quot; with almost straight arms and a slightly rounded point (a/tm runs from -1 at the upper end to 1 at the lower end) */
- const cv=u=&gt;[rx*(1-1.7*(Math.sqrt(u*u+.01)-.1)),ry*1.25*u];
- const pt=(a,d)=&gt;{const u=a/tm,q=cv(u),q1=cv(u+.01),tx=q1[0]-q[0],ty=q1[1]-q[1],l=Math.hypot(tx,ty);return [cx+f*(q[0]+ty/l*d),cy+q[1]-tx/l*d]};
- /* the crescent */
+ const pt=(a,d)=&gt;{const nx=Math.cos(a)/rx,ny=Math.sin(a)/ry,l=Math.hypot(nx,ny);return [cx+f*(Math.cos(a)*rx+nx/l*d),cy+Math.sin(a)*ry+ny/l*d]};
+ /* 1) the crescent */
  {const p=1-Math.pow(1-Math.min(1,k/.4),2.2),fade=Math.pow(1-k,.6),thin=1-.45*clamp((k-.4)/.6,0,1);
-  const w=a=&gt;32*S*thin*Math.pow(Math.max(0,1-Math.abs(a)/tm),1.15);
+  const w=a=&gt;28*S*thin*Math.pow(Math.max(0,1-Math.abs(a)/tm),1.15);
   const band=(sc,off)=&gt;{c.beginPath();for(let i=0;i&lt;=N;i++){const a=lerp(-tm*p,tm*p,i/N),q=pt(a,off*S+w(a)*sc*.5);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}
    for(let i=N;i&gt;=0;i--){const a=lerp(-tm*p,tm*p,i/N),q=pt(a,off*S-w(a)*sc*.5);c.lineTo(q[0],q[1])}c.closePath()};
   band(1.7,2);c.fillStyle=&#x27;rgba(255,190,60,&#x27;+.2*fade+&#x27;)&#x27;;c.fill();
