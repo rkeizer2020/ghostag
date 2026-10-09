@@ -437,7 +437,7 @@ function slashFx(c,hx,oy,f,k,seed,S,tilt,long){if(k&lt;0||k&gt;1)return;if(long=
 /* short slash, after the top row of the Nail Slash sheet:
    a flat &quot;&gt;&quot; crescent that opens from the front, thick at the point and thin at the ends, with comb streaks trailing behind.
    It opens and fades at the same speed as the long slash. */
-function slashShortFx(c,hx,oy,f,k,seed,S,tilt){const R=50*S,cx=hx+f*R*1.05,cy=oy-R*.02,rx=R*1.15,ry=R*.42,tm=2.2,N=48;
+function slashShortFx(c,hx,oy,f,k,seed,S,tilt){const R=56*S,cx=hx+f*R*.85,cy=oy-R*.02,rx=R*1.15,ry=R*.44,tm=1.7,N=48;
  let s=seed;const rnd=()=&gt;{s=(s*9301+49297)%233280;return s/233280};
  c.save();c.globalCompositeOperation=&#x27;lighter&#x27;;
  {const tl=(tilt==null?SLASH_TILT:tilt)*.22;c.translate(hx,oy);c.rotate(-f*tl);c.translate(-hx,-oy)}
@@ -452,7 +452,7 @@ function slashShortFx(c,hx,oy,f,k,seed,S,tilt){const R=50*S,cx=hx+f*R*1.05,cy=oy
   const g=c.createRadialGradient(cx+f*rx,cy,R*.1,cx+f*rx*.6,cy,R*1.5);g.addColorStop(0,&#x27;rgba(255,255,245,&#x27;+fade+&#x27;)&#x27;);g.addColorStop(.6,&#x27;rgba(255,238,160,&#x27;+fade+&#x27;)&#x27;);g.addColorStop(1,&#x27;rgba(255,200,70,&#x27;+.7*fade+&#x27;)&#x27;);c.fillStyle=g;c.fill();
   c.shadowBlur=0;band(.32,5);c.fillStyle=&#x27;rgba(255,255,252,&#x27;+.9*fade+&#x27;)&#x27;;c.fill();
   /* comb streaks: three thin parallel lines that carry each end on behind the hero */
-  if(p&gt;.85){c.lineCap=&#x27;round&#x27;;for(const sg of[-1,1])for(let j=0;j&lt;3;j++){const off=(j-1)*5.5*S,len=.55+.25*j+rnd()*.15,a0=sg*tm*.72;c.strokeStyle=&#x27;rgba(255,250,220,&#x27;+.8*fade*(1-j*.18)+&#x27;)&#x27;;c.lineWidth=(2.2-j*.5)*S*thin;
+  if(p&gt;.85){c.lineCap=&#x27;round&#x27;;for(const sg of[-1,1])for(let j=0;j&lt;3;j++){const off=(j-1)*5.5*S,len=.3+.12*j+rnd()*.08,a0=sg*tm*.8;c.strokeStyle=&#x27;rgba(255,250,220,&#x27;+.8*fade*(1-j*.18)+&#x27;)&#x27;;c.lineWidth=(2.2-j*.5)*S*thin;
    c.beginPath();for(let i=0;i&lt;=10;i++){const a=a0+sg*len*i/10,q=pt(a,off*(1-i/14));i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}c.stroke()}}}
  c.restore()}
 function slashLongFx(c,hx,oy,f,k,seed,S){const R=64*S,cx=hx+f*R*.55,cy=oy-R*.12,rx=R*1.32,ry=R*.62,a0=-Math.PI*.95,a1=Math.PI*.7,N=64;
