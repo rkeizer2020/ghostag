@@ -2315,10 +2315,13 @@ SEWT.fishgod={up(e){const dt=1/60,G=560;e.t+=dt;e.flash=Math.max(0,e.flash-dt);e
   else if(e.state==='pillars'){/* red warning pillars, then giant tridents burst out of the floor there */
    const rounds=2;if(e.n<rounds&&e.st>e.n*1.6){e.n++;const gap=e.phase===2?170:190,off=e.n%2?0:gap/2,xs=[];for(let x=ARL+50+off;x<ARR-40;x+=gap)xs.push(x);for(const x of xs)GFX.pillars.push({x,t0:clock})}
    if(e.st>rounds*1.6+1.2){e.state='idle';e.cd=1/sp}}
-  else if(e.state==='waves'){const n=e.phase===2?6:4;if(e.n<n&&e.st>.6+e.n*.45){e.n++;e.bolt=.25;GWAVES.push({x:e.hx,dir:-1},{x:e.hx,dir:1});shakeT=.2;play('laser',{gain:.12,rate:.5})}if(e.st>.6+n*.45+.8){e.state='idle';e.cd=1/sp}}},
+  else if(e.state==='waves'){const n=e.phase===2?4:3,gap=1.25;if(e.n<n&&e.st>.6+e.n*gap){e.n++;e.bolt=.25;const ph2=e.phase===2;
+   /* two slow waves along the floor, one each way, and one slow wave running along every platform */
+   GWAVES.push({x:clamp(e.hx,ARL+40,ARR-40),dir:-1,y:G,lo:ARL,hi:ARR,sp:ph2?4.8:4},{x:clamp(e.hx,ARL+40,ARR-40),dir:1,y:G,lo:ARL,hi:ARR,sp:ph2?4.8:4});
+   PLAT.forEach((p,i)=>{const d=(i+e.n)%2?1:-1;GWAVES.push({x:d>0?p.x0+6:p.x1-6,dir:d,y:p.y,lo:p.x0,hi:p.x1,sp:ph2?3:2.5})});shakeT=.2;play('laser',{gain:.12,rate:.5})}if(e.st>.6+n*gap+2.2){e.state='idle';e.cd=1/sp}}},
  draw(){}};
 function godStep(e){const G=560;
- for(let i=GWAVES.length-1;i>=0;i--){const w=GWAVES[i];w.x+=w.dir*(e&&e.phase===2?8.5:7.4);if(w.x<ARL||w.x>ARR){GWAVES.splice(i,1);continue}if(e&&Math.abs(me.x-w.x)<22&&me.y>G-28&&me.y<G+12)godHit(e,w.x,G)}
+ for(let i=GWAVES.length-1;i>=0;i--){const w=GWAVES[i],wy=w.y||G;w.x+=w.dir*(w.sp||7.4);if(w.x<(w.lo||ARL)||w.x>(w.hi||ARR)){GWAVES.splice(i,1);continue}if(e&&me.inv<=0&&!me.dead&&Math.abs(me.x-w.x)<22&&me.y>wy-28&&me.y<wy+12)playerHit({type:'wave',cool:0,vy:0},[w.x,wy])}
  for(let i=GFX.spears.length-1;i>=0;i--){const s=GFX.spears[i],k=clock-s.t0;if(k>1.15){GFX.spears.splice(i,1);continue}
   if(e&&k>.6&&k<.95){const reach=s.side<0?ARL+(k<.75?(k-.6)/.15:1)*700:ARR-(k<.75?(k-.6)/.15:1)*700;if(Math.abs(me.y-34-s.y)<82&&(s.side<0?me.x<reach+170:me.x>reach-170))godHit(e,me.x,s.y)}}
  for(let i=GFX.pillars.length-1;i>=0;i--){const p=GFX.pillars[i],k=clock-p.t0;if(k>1.45){GFX.pillars.splice(i,1);continue}if(e&&k>.75&&k<1.2&&Math.abs(me.x-p.x)<38&&me.y>G-250)godHit(e,p.x,G-100)}}
@@ -2353,7 +2356,7 @@ function drawGodBack(c,cam,t){if(room!==GOD_ROOM)return;const e=ENM.find(q=>q.ty
  c.save();c.globalCompositeOperation='lighter';const ex=x+36*2.3/2.3*1,ey=y-30;c.fillStyle=rgrad(c,E.hx-cam+36,E.hy-30,2,40,['rgba(255,140,90,'+(.45+.2*Math.sin(t*6))+')','rgba(255,100,60,0)']);c.beginPath();c.arc(E.hx-cam+36,E.hy-30,40,0,TAU);c.fill();c.restore()
 }
 function drawGodFront(c,cam,t){if(room!==GOD_ROOM)return;const G=560;
- for(const w of GWAVES){const wx=w.x-cam;c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,wx,G-14,2,44,['rgba(190,235,255,.8)','rgba(90,180,255,0)']);c.beginPath();c.arc(wx,G-14,44,0,TAU);c.fill();
+ for(const w of GWAVES){const wx=w.x-cam,G=w.y||560;c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,wx,G-14,2,44,['rgba(190,235,255,.8)','rgba(90,180,255,0)']);c.beginPath();c.arc(wx,G-14,44,0,TAU);c.fill();
   c.strokeStyle='rgba(220,245,255,.95)';c.lineWidth=2.4;c.beginPath();c.moveTo(wx-18,G);for(let k=0;k<6;k++)c.lineTo(wx-18+k*7+rnd(-2,2),G-8-Math.sin(k/5*Math.PI)*26+rnd(-4,4));c.lineTo(wx+18,G);c.stroke();c.restore()}
  for(const s of GFX.spears){const k=clock-s.t0;if(k<0)continue;
   if(k<.6){const a=.25+.25*Math.sin(k*30);c.save();c.fillStyle='rgba(255,60,50,'+a*.35+')';c.fillRect(ARL-cam,s.y-84,ARR-ARL,168);c.strokeStyle='rgba(255,70,60,'+(.5+a)+')';c.lineWidth=2;c.strokeRect(ARL-cam,s.y-84,ARR-ARL,168);c.restore()}
