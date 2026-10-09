@@ -1554,7 +1554,7 @@ function drawCeiling(c,t,cam){
   const sg=c.createLinearGradient(0,CEIL_H+3,0,CEIL_H+46);sg.addColorStop(0,'rgba(10,4,16,.45)');sg.addColorStop(1,'rgba(10,4,16,0)');c.fillStyle=sg;c.fillRect(-2,CEIL_H+3,WW+4,43)})}
 /* ---- boss: The Last Guard, a ghost who hates every machine (second-to-last hall) ---- */
 const BOSS_ROOM=13;
-function mkBoss(x){const e=mkEnemy('drone',x,-150,0,0);e.type='boss';e.r=46;e.hp=e.max=30;e.state='enter';e.st=0;e.atkT=2;e.phase=1;e.trail=[];e.n=0;e.pulse=0;e.dying=false;e.dieT=0;return e}
+function mkBoss(x){const e=mkEnemy('drone',x,-150,0,0);e.type='boss';e.r=46;e.hp=e.max=45;e.state='enter';e.st=0;e.atkT=2;e.phase=1;e.trail=[];e.n=0;e.pulse=0;e.dying=false;e.dieT=0;return e}
 function bossAlive(){return ENM.some(e=>e.type==='boss'&&!e.dead)}
 function updateBoss(e){const dt=1/60;e.t+=dt;e.flash=Math.max(0,e.flash-dt);if(e.pulse>0)e.pulse-=dt;if(e.state==='intro')return;
  if(e.dying){e.dieT-=dt;e.y+=.35;if(Math.random()<.6)burst(e.x+rnd(-45,45),e.y+rnd(-55,55),2);if(e.dieT<=0){e.dead=true;bossBeaten=true;burst(e.x,e.y,36)}return}
@@ -2277,7 +2277,7 @@ function drawPuzScreen(c){if(PZ&&PZ.type==='fishboss'&&!PZ.solved)drawFishBar(c)
    under you, and lightning waves rolling over the floor.
    ===================================================================== */
 const FWAVES=[],POOL={x0:300,x1:640};
-function mkFish(x){return mkS('fish',x,560,760,WORLD-WALLW-90,42,40,{state:'intro',st:1.4,face:-1,cd:1,sub:false,phase:1,n:0,last:'',bolt:0})}
+function mkFish(x){return mkS('fish',x,560,760,WORLD-WALLW-90,42,60,{state:'intro',st:1.4,face:-1,cd:1,sub:false,phase:1,n:0,last:'',bolt:0})}
 function spawnTri(e){const side=Math.floor(Math.random()*3);let x,y;
  if(side===0){x=cam-20;y=camY+rnd(80,470)}else if(side===1){x=cam+WW+20;y=camY+rnd(80,470)}else{x=cam+rnd(20,WW-20);y=camY-20}
  const tx=me.x+rnd(-26,26),ty=me.y-30+rnd(-20,20),d=Math.hypot(tx-x,ty-y)||1,sp=e.phase===2?9:7.5;BUL.push({x,y,vx:(tx-x)/d*sp,vy:(ty-y)/d*sp,life:0,tr:[],tri:true})}
@@ -2359,7 +2359,7 @@ PUZ.fishboss={init(P){const out=[];for(const q of TER){if(q.hole||q.x1<=POOL.x0|
    the floor, and many lightning waves. He roars when you enter and stuns you.
    ===================================================================== */
 const GOD_ROOM=28,ARL=500,ARR=1420,GWAVES=[],GFX={spears:[],pillars:[]};
-function mkGod(){return mkS('fishgod',960,560,ARL,ARR,34,120,{bg:true,state:'intro',st:0,cd:1.4,phase:1,n:0,last:'',hx:960,hy:300,bolt:0,roar:0})}
+function mkGod(){return mkS('fishgod',960,560,ARL,ARR,34,180,{bg:true,state:'intro',st:0,cd:1.4,phase:1,n:0,last:'',hx:960,hy:300,bolt:0,roar:0})}
 function godHit(e,x,y){if(me.inv<=0&&!me.dead)playerHit(e,[x,y])}
 SEWT.fishgod={up(e){const dt=1/60,G=560;e.t+=dt;e.flash=Math.max(0,e.flash-dt);e.kb=0;e.bolt=Math.max(0,e.bolt-dt);e.roar=Math.max(0,e.roar-dt);e.phase=e.hp<=e.max/2?2:1;
   const sp=e.phase===2?1.3:1;e.hx=960+Math.sin(e.t*.45)*170;e.hy=280+Math.sin(e.t*.9)*22;e.x=e.hx;e.y=e.hy;
@@ -2939,7 +2939,7 @@ function drawDesk(c,x,y,t){c.save();c.translate(x,y);
  c.fillStyle='#2a2a30';c.fillRect(170,-60,8,46);c.beginPath();c.moveTo(150,-60);c.lineTo(198,-60);c.lineTo(186,-84);c.lineTo(162,-84);c.closePath();c.fillStyle='#3a5a3a';c.fill();c.strokeStyle=OUT;c.lineWidth=2;c.stroke();
  c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,174,-50,4,120,['rgba(255,230,160,.35)','rgba(255,220,140,0)']);c.beginPath();c.arc(174,-50,120,0,TAU);c.fill();c.restore();
  c.restore()}
-function mkWarden(){return mkS('warden',WD.x,560,600,1500,52,90,{bg:true,state:'intro',st:0,cd:1.6,phase:1,n:0,last:'',arm:0,stamp:0,look:0,hx:WD.x,hy:WD.headY})}
+function mkWarden(){return mkS('warden',WD.x,560,600,1500,52,135,{bg:true,state:'intro',st:0,cd:1.6,phase:1,n:0,last:'',arm:0,stamp:0,look:0,hx:WD.x,hy:WD.headY})}
 const WCUFF=[];
 SEWT.warden={up(e){const dt=1/60;e.t+=dt;e.flash=Math.max(0,e.flash-dt);e.kb=0;e.vx=0;e.x=WD.x;e.y=560;e.phase=e.hp<=e.max/2?2:1;e.look=clamp((me.x-WD.x)/300,-1,1);
   if(e.dying)return;
