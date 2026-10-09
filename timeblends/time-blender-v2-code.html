@@ -23,7 +23,7 @@ WAT ER NIEUW IS
 - Cape: bronzen kleuren met licht op de schouders en schaduw naar achter, een donkere voering die je onder de zoom ziet en een puntige zoom (3 punten) die van voor naar achter golft. Geen strepen.
 - Lichaam: paarse rok en borst, een lichte buikplaat met stiksels, een koperen riem met gouden gesp, benen met knie en kleine puntlaarsjes.
 - Zwaard: alleen het gouden handvat, met omwikkeld gevest, gekrulde pareerstang en een knop van tijdvloeistof. Het flitst bij een slag.
-- Slash: dezelfde halvemaan (60% van een cirkel), nu met een witte kern, een zachte gloed en vonken.
+- Slash: dezelfde halvemaan (60% van een cirkel), nu met een witte kern, een zachte gloed en vonken, en schuin: de slag gaat van hoog achter het hoofd naar laag voor hem. De schuinte stel je in met SLASH_TILT (0 = rechtop zoals vroeger).
 - Nieuwe animaties: genezen (gloed en bruisen), geraakt (terugdeinzen, witte flits, barstje), knock-out (inzakken, licht uit) en een vloeistofniveau dat je hoofdjes volgt.
 - Harnas (upgrade uit de forge) is opnieuw getekend naar het rechterdeel van mijn tekening: een platte koperen hoed die plat bovenop het glas ligt (op dezelfde plek als eerst); hij loopt naar achteren maar steekt niet verder uit dan de achterkant van het hoofd, zijn voorkant verdwijnt onder de achterrand van de gezichtsplaat en de bovenkant van de hoed ligt gelijk met de bovenkant van het masker; een gasmasker in de vorm van het eerste harnas-masker (afgeronde bovenkant, bolle voorkant, smal onderaan) in dezelfde lichte koperkleur als de schouderplaat, met een brede horizontale oogspleet met warm gloeilijntje, een donkere verticale gleuf eronder en een rond koperen filter met schuine groeven onderaan de voorkant; ronde tank en ronde plaat in het brons van de cape (met licht en schaduw); een draaiende leisteenblauwe opwindsleutel; een dikke geribbelde blauwe slang over de rug; een grote koperen schouderplaat met driehoek; een rond flesje met oranje vloeistof en kurk; opgerolde papiertjes achter de tank; en een PAARS tasje met koperen V; de leren riem loopt van de voorste schouder schuin over de borst naar achteren, en het tasje hangt achter onder de bovenarm (vóór de tank en cape, dus zichtbaar). Het zwaait naar achter als hij rent. Alleen het tasje is paars. De hoed kan uit met HARNESS_STYLE.funnel=false.
 - Het harnas-icoon in de forge en in de HUD is nog het oude gasmasker. Pas dat eventueel aan zodat het bij het nieuwe harnas past.
@@ -377,9 +377,13 @@ function poseFor(st,o){o=Object.assign({},o);const t=o.t,sp=o.speed||0,ph=o.ph||
   P.squash=lerp(P.squash,.92,k);P.lift=lerp(P.lift,-2.5,k);P.trail=lerp(P.trail,1,k);P.flutter*=1-.8*k;P.wave*=1-.7*k;P.breath*=1-k;P.hilt.ang=lerp(P.hilt.ang,2.95,k)}
  return P}
 
-/* the slash: a bright crescent (60% of a circle, sharp tips, wide middle) with a hot core, streaks and sparks */
-function slashFx(c,hx,oy,f,k,seed,S){if(k&lt;0||k&gt;1)return;const R=54*S,ox=hx+f*(R+12*S),p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-TAU*.3,th1=TAU*.3,N=44;
+/* the slash: a bright crescent (60% of a circle, sharp tips, wide middle) with a hot core, streaks and sparks, swung diagonally */
+/* SLASH_TILT tilts the crescent so the swing runs diagonally from high behind to low in front (0 = upright as before) */
+const SLASH_TILT=.75;
+function slashFx(c,hx,oy,f,k,seed,S,tilt){if(k&lt;0||k&gt;1)return;const R=54*S,ox=hx+f*(R+12*S),p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-TAU*.3,th1=TAU*.3,N=44;
  c.save();c.globalCompositeOperation=&#x27;lighter&#x27;;
+ /* tilt around the middle of the crescent so it stays in front of the hero */
+ {const tl=tilt==null?SLASH_TILT:tilt,mx=ox+f*R*.9;c.translate(mx,oy-R*.22*tl);c.rotate(-f*tl);c.translate(-mx,-oy)}
  const pt=(u,r)=&gt;{const a=lerp(th0,th0+(th1-th0)*p,u);return [ox+f*Math.cos(a)*r,oy+Math.sin(a)*r]};
  const band=(w,off)=&gt;{c.beginPath();for(let i=0;i&lt;=N;i++){const u=i/N,th=Math.pow(Math.sin(Math.PI*u),1.25)*w*S,q=pt(u,R+off*S+th*.5);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}
   for(let i=N;i&gt;=0;i--){const u=i/N,th=Math.pow(Math.sin(Math.PI*u),1.25)*w*S,q=pt(u,R+off*S-th*.5);c.lineTo(q[0],q[1])}c.closePath()};
@@ -397,7 +401,8 @@ function slashFx(c,hx,oy,f,k,seed,S){if(k&lt;0||k&gt;1)return;const R=54*S,ox=hx
  /* sparks thrown off the tip */
  for(let i=0;i&lt;7;i++){const a=lerp(th0,th1,.2+rnd()*.8),d=R*(1.05+k*(.5+rnd()*.6)),x=ox+f*Math.cos(a)*d,y=oy+Math.sin(a)*d+k*k*14*S,r=(1+rnd()*1.4)*S*(1-k);
   c.fillStyle=&#x27;rgba(255,236,150,&#x27;+fade+&#x27;)&#x27;;c.beginPath();c.arc(x,y,r,0,TAU);c.fill()}
- c.strokeStyle=&#x27;rgba(255,252,225,&#x27;+fade*.9+&#x27;)&#x27;;c.lineWidth=2*S;c.beginPath();c.moveTo(ox-f*R*.6,oy);c.lineTo(ox+f*R*1.9*p,oy);c.stroke();
+ /* thin speed line along the swing, just outside the crescent */
+ c.strokeStyle=&#x27;rgba(255,252,225,&#x27;+fade*.8+&#x27;)&#x27;;c.lineWidth=1.6*S;c.lineCap=&#x27;round&#x27;;c.beginPath();for(let i=0;i&lt;=N;i++){const u=.15+.85*i/N,q=pt(u,R*1.32);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}c.stroke();
  c.restore()}
 
 /* draw the hero at screen position x,y (feet), facing face (1 or -1), at scale S; sq is the squash from the pose */

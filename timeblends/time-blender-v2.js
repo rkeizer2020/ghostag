@@ -331,9 +331,13 @@ function poseFor(st,o){o=Object.assign({},o);const t=o.t,sp=o.speed||0,ph=o.ph||
   P.squash=lerp(P.squash,.92,k);P.lift=lerp(P.lift,-2.5,k);P.trail=lerp(P.trail,1,k);P.flutter*=1-.8*k;P.wave*=1-.7*k;P.breath*=1-k;P.hilt.ang=lerp(P.hilt.ang,2.95,k)}
  return P}
 
-/* the slash: a bright crescent (60% of a circle, sharp tips, wide middle) with a hot core, streaks and sparks */
-function slashFx(c,hx,oy,f,k,seed,S){if(k<0||k>1)return;const R=54*S,ox=hx+f*(R+12*S),p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-TAU*.3,th1=TAU*.3,N=44;
+/* the slash: a bright crescent (60% of a circle, sharp tips, wide middle) with a hot core, streaks and sparks, swung diagonally */
+/* SLASH_TILT tilts the crescent so the swing runs diagonally from high behind to low in front (0 = upright as before) */
+const SLASH_TILT=.75;
+function slashFx(c,hx,oy,f,k,seed,S,tilt){if(k<0||k>1)return;const R=54*S,ox=hx+f*(R+12*S),p=Math.min(1,k/.45),fade=Math.pow(1-k,.7),th0=-TAU*.3,th1=TAU*.3,N=44;
  c.save();c.globalCompositeOperation='lighter';
+ /* tilt around the middle of the crescent so it stays in front of the hero */
+ {const tl=tilt==null?SLASH_TILT:tilt,mx=ox+f*R*.9;c.translate(mx,oy-R*.22*tl);c.rotate(-f*tl);c.translate(-mx,-oy)}
  const pt=(u,r)=>{const a=lerp(th0,th0+(th1-th0)*p,u);return [ox+f*Math.cos(a)*r,oy+Math.sin(a)*r]};
  const band=(w,off)=>{c.beginPath();for(let i=0;i<=N;i++){const u=i/N,th=Math.pow(Math.sin(Math.PI*u),1.25)*w*S,q=pt(u,R+off*S+th*.5);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}
   for(let i=N;i>=0;i--){const u=i/N,th=Math.pow(Math.sin(Math.PI*u),1.25)*w*S,q=pt(u,R+off*S-th*.5);c.lineTo(q[0],q[1])}c.closePath()};
@@ -351,7 +355,8 @@ function slashFx(c,hx,oy,f,k,seed,S){if(k<0||k>1)return;const R=54*S,ox=hx+f*(R+
  /* sparks thrown off the tip */
  for(let i=0;i<7;i++){const a=lerp(th0,th1,.2+rnd()*.8),d=R*(1.05+k*(.5+rnd()*.6)),x=ox+f*Math.cos(a)*d,y=oy+Math.sin(a)*d+k*k*14*S,r=(1+rnd()*1.4)*S*(1-k);
   c.fillStyle='rgba(255,236,150,'+fade+')';c.beginPath();c.arc(x,y,r,0,TAU);c.fill()}
- c.strokeStyle='rgba(255,252,225,'+fade*.9+')';c.lineWidth=2*S;c.beginPath();c.moveTo(ox-f*R*.6,oy);c.lineTo(ox+f*R*1.9*p,oy);c.stroke();
+ /* thin speed line along the swing, just outside the crescent */
+ c.strokeStyle='rgba(255,252,225,'+fade*.8+')';c.lineWidth=1.6*S;c.lineCap='round';c.beginPath();for(let i=0;i<=N;i++){const u=.15+.85*i/N,q=pt(u,R*1.32);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}c.stroke();
  c.restore()}
 
 /* draw the hero at screen position x,y (feet), facing face (1 or -1), at scale S; sq is the squash from the pose */
