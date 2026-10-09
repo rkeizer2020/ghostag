@@ -1322,7 +1322,8 @@ document.getElementById('prev').onclick=()=>setRoom(room-1);document.getElementB
 const key={l:0,r:0,j:0,d:0,x:0};let jumpHeld=false;
 const me={healT:0,atkFace:1,x:960,y:FLOOR,vx:0,vy:0,face:1,ground:true,land:0,ph:0,atk:-1,lastStep:0,speed:0,inv:0,kb:0,dead:false,deadT:0,atkId:0,ign:null,ignT:0};
 const parts=[],trail=[];let clock=0;
-function tryAttack(){if(me.atk<0&&!me.dead&&!CUT.on){me.atk=0;me.atkId++;me.atkFace=me.face;me.slashLong=pickSlashLong();const sn=me.slashLong?'slashLong':'slashShort';if(buf[sn])play(sn,{gain:me.slashLong?.34:.3});else if(buf.slash)play('slash',{gain:.3});else whoosh()}}
+/* a new swing may start from frame 15 of the last one; a press a bit earlier is remembered */
+const ATK_NEXT=15;function tryAttack(){if(me.atk>=0&&me.atk<ATK_NEXT){if(me.atk>=4)me.atkBuf=1;return}if(!me.dead&&!CUT.on){me.atkBuf=0;me.atk=0;me.atkId++;me.atkFace=me.face;me.slashLong=pickSlashLong();const sn=me.slashLong?'slashLong':'slashShort';if(buf[sn])play(sn,{gain:me.slashLong?.34:.3});else if(buf.slash)play('slash',{gain:.3});else whoosh()}}
 function onKey(e,v){const k=e.key;let h=true;
  if(SCENE!=='play'){if(v)menuKey(e);return}
  if(paused){if(v)pauseKey(e);return}
@@ -1357,7 +1358,7 @@ function step(){clock+=1/60;
  if(me.ground)DASH.air=true;
  if(!me.ground&&DASH.t<=0){const gg=(key.j&&me.vy<0&&me.kb<=0)?.136:.5;me.vy=Math.min(me.wet?4.5:11,me.vy+gg*(me.wet?.55:1));const py=me.y;me.y+=me.vy;if(me.vy>=0){const sy=supportY(me.x,py,me.ign);if(me.y>=sy){me.y=sy;if(me.vy>1.0)play('land',{gain:.07});if(me.vy>9)me.land=8;me.vy=0;me.ground=true}}}
  if(me.land>0)me.land--;
- if(me.atk>=0){me.atk++;if(me.atk===8)fxs.push({x:me.x,y:me.y-44*SC_,f:me.atkFace,t0:clock,seed:slashSeed(me.slashLong)});if(me.atk>=26)me.atk=-1}
+ if(me.atk>=0){me.atk++;if(me.atkBuf&&me.atk>=ATK_NEXT){me.atkBuf=0;tryAttack()}if(me.atk===8)fxs.push({x:me.x,y:me.y-44*SC_,f:me.atkFace,t0:clock,seed:slashSeed(me.slashLong)});if(me.atk>=26)me.atk=-1}
  me.speed=Math.min(1,Math.abs(me.vx)/MAXV);
  if(me.ground&&Math.abs(me.vx)>.3){me.ph+=Math.abs(me.vx)/CYCLE*TAU;const si=Math.floor((me.ph+Math.PI/2)/Math.PI);if(si!==me.lastStep){me.lastStep=si;playStep()}}
  /* combat: the slash hurts enemies, enemies hurt you */
