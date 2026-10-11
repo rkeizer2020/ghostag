@@ -288,7 +288,7 @@ const GAME = {
 // Randomly-chosen map themes. Each run picks one. Every biome swaps the
 // ground, trees, fog and background tint for a different look; gameplay is
 // identical across them.
-// music: background theme from SFX._themes ('prison' | 'sewer' | 'factory')
+// music: background theme from SFX._themes ('prison' | 'sewer' | 'factory' | 'freezetown')
 const Biomes = {
   LIST: {
     forest: {
@@ -304,7 +304,7 @@ const Biomes = {
     snow: {
       key: 'snow', label: 'Snow', icon: '❄️',
       bg: 0x1a2431, ground: 'ground_snow', tree: 'tree_snow', fog: 'fog_snow',
-      firefly: 0xffffff, snowfall: true, music: 'prison',
+      firefly: 0xffffff, snowfall: true, music: 'freezetown',
     },
     city: {
       key: 'city', label: 'City', icon: '🏙️',

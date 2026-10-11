@@ -165,7 +165,7 @@ const SFX = {
   },
 
   // ---- Background music ----
-  // Three calm, Hollow Knight-flavoured themes with original melodies, fully
+  // Four calm, Hollow Knight-flavoured themes with original melodies, fully
   // synthesised (no audio files):
   //  - prison  "Cell Block Lullaby": felt piano over slow strings (cello on every
   //            second pass), a distant bell, water drips and far-off clanks.
@@ -174,6 +174,9 @@ const SFX = {
   //  - factory "Cogwork Hall": a ticking celesta ostinato over a slow machine
   //            pulse, a viola tune (muted horn on every second pass), steam and a
   //            far-off hammer.
+  //  - freezetown "Snowlight Waltz": a cosy winter waltz; music-box tune (flute
+  //            on every second pass), sleigh bells, wind chimes, a soft choir, a
+  //            church bell, snowy wind and a crackling fireplace.
   // Notes are scheduled a little ahead on the audio clock so timing stays steady.
   music: null,
   musicGain: null,
@@ -406,6 +409,74 @@ const SFX = {
       },
       form: ['a', 'a2', 'b', 'rest'],
     },
+
+    freezetown: {
+      bpm: 72, meter: 3, wet: 1.1, amb: 'freezetown', bed: 'wind',
+      drone: [[98, 0, 0.008], [98, 5, 0.006], [146.83, -3, 0.004]],
+      pad: { vol: 0.011, cutoff: 1100 },
+      mel: [['musicbox', 0], ['flute', 0]],
+      counter: 'musicbox',
+      patterns: {
+        root:   { inst: 'piano', chord: true, notes: [[0, 'r', 0, 0.6]] },
+        waltz:  { inst: 'piano', beats: 1.5, notes: [[0, 'r', 0, 0.55], [2, 't', 1, 0.28], [4, 'f', 1, 0.28]] },
+        jingle: { inst: 'sleigh', notes: [[0, null, 0, 0.8], [2, null, 0, 0.4], [4, null, 0, 0.4], [5, null, 0, 0.25]] },
+      },
+      chords: {
+        G:  { pad: ['G3', 'B3', 'D4'],   bass: 'G2', third: 4 },
+        Em: { pad: ['G3', 'B3', 'E4'],   bass: 'E2', third: 3 },
+        C:  { pad: ['G3', 'C4', 'E4'],   bass: 'C3', third: 4 },
+        Cm: { pad: ['G3', 'C4', 'Eb4'],  bass: 'C3', third: 3 },
+        D:  { pad: ['F#3', 'A3', 'D4'],  bass: 'D3', third: 4 },
+        Am: { pad: ['A3', 'C4', 'E4'],   bass: 'A2', third: 3 },
+        Bm: { pad: ['F#3', 'B3', 'D4'],  bass: 'B2', third: 3 },
+        B7: { pad: ['A3', 'D#4', 'F#4'], bass: 'B2', third: 4 },
+      },
+      sections: {
+        intro: {
+          layers: ['root'], hits: [[0, 'chimes', 'G5'], [0, 'toll', 'G3']],
+          chords: [['G', 2], ['C', 1], ['Cm', 1]],
+        },
+        a: {
+          layers: ['waltz'], alt: true,
+          chords: [['G', 1], ['Em', 1], ['C', 1], ['D', 1], ['G', 1], ['Em', 1], ['Am', 1], ['D', 1]],
+          melody: [
+            ['B4', 1], ['D5', 1], ['G5', 1],     ['F#5', 1.5], ['E5', 0.5], ['B4', 1],
+            ['C5', 1], ['E5', 1], ['G5', 1],     ['F#5', 2], ['D5', 1],
+            ['B4', 1], ['D5', 1], ['G5', 1],     ['B5', 1.5], ['A5', 0.5], ['G5', 1],
+            ['E5', 1.5], ['D5', 0.5], ['C5', 1], ['A4', 3],
+          ],
+        },
+        a2: {
+          layers: ['waltz', 'jingle'], alt: true,
+          chords: [['G', 1], ['Em', 1], ['C', 1], ['Cm', 1], ['G', 1], ['Am', 1], ['D', 1], ['G', 1]],
+          melody: [
+            ['B4', 1], ['D5', 1], ['G5', 1],     ['F#5', 1.5], ['E5', 0.5], ['B4', 1],
+            ['C5', 1], ['E5', 1], ['G5', 1],     ['G5', 1], ['Eb5', 1], ['C5', 1],
+            ['D5', 2], ['B4', 1],                ['C5', 1], ['E5', 1], ['A5', 1],
+            ['F#5', 1.5], ['E5', 0.5], ['F#5', 1], ['G5', 3],
+          ],
+        },
+        b: {
+          layers: ['waltz', 'jingle'], choir: true,
+          chords: [['Em', 1], ['Bm', 1], ['C', 1], ['G', 1], ['Am', 1], ['B7', 1], ['Em', 1], ['D', 1]],
+          melody: [
+            ['E5', 2], ['G5', 1],                ['F#5', 2], ['D5', 1],
+            ['E5', 1.5], ['D5', 0.5], ['C5', 1], ['B4', 2], ['D5', 1],
+            ['C5', 1], ['E5', 1], ['A5', 1],     ['A5', 1.5], ['F#5', 0.5], ['D#5', 1],
+            ['E5', 3],                           ['F#5', 1], ['E5', 1], ['D5', 1],
+          ],
+        },
+        rest: {
+          layers: ['root', 'jingle'], choir: true, hits: [[0, 'chimes', 'G5'], [0, 'toll', 'G3']],
+          chords: [['C', 1], ['Cm', 1], ['G', 1], ['D', 1]],
+          counter: [
+            ['r', 1], ['E6', 1], ['C6', 1],      ['r', 1], ['Eb6', 1], ['C6', 1],
+            ['B5', 1], ['G5', 1], ['D5', 1],     ['A5', 2], ['F#5', 1],
+          ],
+        },
+      },
+      form: ['a', 'a2', 'b', 'rest'],
+    },
   },
 
   _midi(name) {
@@ -438,6 +509,7 @@ const SFX = {
       s.chords.forEach(([cn, len]) => {
         const c = th.chords[cn];
         ev[bar * spb].push({ k: 'pad', f: c.pad.map(hz), d: len * th.meter * beat + 0.4 });
+        if (s.choir) ev[bar * spb].push({ k: 'choir', f: c.pad.map(hz), d: len * th.meter * beat + 0.4 });
         (s.layers || []).forEach((pn) => {
           const p = th.patterns[pn];
           if (p.chord) play(bar * spb, p, c, p.beats || len * th.meter);
@@ -500,7 +572,7 @@ const SFX = {
     this._mx = { ctx, verb, piano, noise };
   },
 
-  // theme: 'prison' (default), 'sewer' or 'factory'
+  // theme: 'prison' (default), 'sewer', 'factory' or 'freezetown'
   startMusic(theme) {
     this._ensure();
     if (!this.ctx) return;
@@ -629,6 +701,7 @@ const SFX = {
     const [melInst, melOct] = th.mel[sec.alt ? m.loop % th.mel.length : 0];
     sec.ev[m.pos].forEach((e) => {
       if (e.k === 'pad') this._mPad(t, e.f, e.d, th.pad);
+      else if (e.k === 'choir') this._mChoir(t, e.f, e.d);
       else if (e.k === 'mel') this._inst[melInst].call(this, t, e.f * Math.pow(2, melOct), e.d, 1);
       else if (e.k === 'ctr') this._inst[th.counter].call(this, t, e.f, e.d, 1);
       else this._inst[e.inst].call(this, t, e.f, e.d, e.v);
@@ -978,6 +1051,150 @@ const SFX = {
         o.stop(t + 0.4);
       });
     },
+
+    // glockenspiel / music box: struck-bar partials ringing out
+    musicbox(t, f, dur, vel) {
+      const ctx = this.ctx;
+      [[1, 0.045, 1.1], [2.76, 0.012, 0.3], [5.4, 0.005, 0.12]].forEach(([ratio, vol, tau]) => {
+        const o = ctx.createOscillator();
+        o.frequency.value = f * ratio;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(vol * vel, t + 0.003);
+        g.gain.setTargetAtTime(0, t + 0.004, tau);
+        o.connect(g);
+        g.connect(this.music.bus.keys);
+        o.start(t);
+        o.stop(t + tau * 8);
+      });
+    },
+
+    // soft wooden flute: a breathy "chiff", then a pure tone with gentle vibrato
+    flute(t, f, dur, vel) {
+      const ctx = this.ctx;
+      const vol = 0.03 * vel;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.08);
+      g.gain.setTargetAtTime(vol * 0.85, t + 0.08, 0.4);
+      g.gain.setTargetAtTime(0, t + dur - 0.04, 0.12);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.Q.value = 0;
+      lp.frequency.value = Math.min(4000, f * 3);
+      const vib = ctx.createOscillator();
+      vib.frequency.value = 4.8;
+      const depth = ctx.createGain();
+      depth.gain.setValueAtTime(0, t);
+      depth.gain.linearRampToValueAtTime(8, t + 0.5);
+      vib.connect(depth);
+      [['sine', 1], ['triangle', 0.35]].forEach(([type, amt]) => {
+        const o = ctx.createOscillator();
+        o.type = type;
+        o.frequency.value = f;
+        depth.connect(o.detune);
+        const a = ctx.createGain();
+        a.gain.value = amt;
+        o.connect(a);
+        a.connect(lp);
+        o.start(t);
+        o.stop(t + dur + 0.8);
+      });
+      vib.start(t);
+      vib.stop(t + dur + 0.8);
+      lp.connect(g);
+      this._mNoiseHit(t, 'bandpass', f * 2, 0.01 * vel, 0.06, g);
+      g.connect(this.music.bus.strings);
+    },
+
+    // a shake of sleigh bells
+    sleigh(t, f, dur, vel) {
+      this._mJingle(t, vel, this.music.bus.perc, 0.25);
+    },
+
+    // a sparkle of wind chimes running up a pentatonic scale
+    chimes(t, f) {
+      [0, 2, 4, 7, 9, 12, 14, 16].forEach((semis, i) =>
+        this._mGlint(t + i * 0.07, f * Math.pow(2, semis / 12), 0.25, 0.9));
+    },
+  },
+
+  // a cluster of tiny jingle bells: bright inharmonic pings plus a little shimmer
+  _mJingle(t, vel, dest, pan) {
+    const ctx = this.ctx;
+    const g = ctx.createGain();
+    g.gain.value = 1;
+    this._mPan(g, pan).connect(dest);
+    const n = 4 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const when = t + i * 0.008 + Math.random() * 0.025;
+      const base = 3800 + Math.random() * 1400;
+      [1, 1.47].forEach((ratio) => {
+        const o = ctx.createOscillator();
+        o.frequency.value = base * ratio;
+        const pg = ctx.createGain();
+        pg.gain.setValueAtTime(0, when);
+        pg.gain.linearRampToValueAtTime(0.011 * vel, when + 0.002);
+        pg.gain.setTargetAtTime(0, when + 0.003, 0.05 + Math.random() * 0.05);
+        o.connect(pg);
+        pg.connect(g);
+        o.start(when);
+        o.stop(when + 0.8);
+      });
+    }
+    this._mNoiseHit(t, 'highpass', 7000, 0.03 * vel, 0.03, g);
+  },
+
+  // soft "aah" choir: sawtooth voices shaped by vowel formants, swelling slowly
+  _mChoir(t, freqs, dur) {
+    const ctx = this.ctx;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.03, t + 1.6);
+    g.gain.setTargetAtTime(0, t + dur, 0.8);
+    const mix = ctx.createGain();
+    mix.gain.value = 1;
+    [[700, 2.5, 1], [1150, 3, 0.55], [2600, 4, 0.2]].forEach(([hz, q, amt]) => {
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = hz;
+      bp.Q.value = q;
+      const a = ctx.createGain();
+      a.gain.value = amt;
+      mix.connect(bp);
+      bp.connect(a);
+      a.connect(g);
+    });
+    const vib = ctx.createOscillator();
+    vib.frequency.value = 5;
+    const depth = ctx.createGain();
+    depth.gain.value = 6;
+    vib.connect(depth);
+    freqs.forEach((f) => [-8, 8].forEach((cents) => {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = f;
+      o.detune.value = cents + (Math.random() - 0.5) * 6;
+      depth.connect(o.detune);
+      o.connect(mix);
+      o.start(t);
+      o.stop(t + dur + 4);
+    }));
+    vib.start(t);
+    vib.stop(t + dur + 4);
+    g.connect(this.music.bus.strings);
+  },
+
+  // a few pops and snaps from a fireplace in one of the houses
+  _mCrackle(t) {
+    const g = this.ctx.createGain();
+    g.gain.value = 1;
+    this._mPan(g, Math.random() * 1.2 - 0.6).connect(this.music.bus.perc);
+    const n = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      this._mNoiseHit(t + Math.random() * 0.15, 'highpass', 1500 + Math.random() * 2500,
+        0.02 + Math.random() * 0.02, 0.003 + Math.random() * 0.004, g);
+    }
   },
 
   _mGlint(t, f, vel, tau) {
@@ -1038,6 +1255,15 @@ const SFX = {
         for (let i = 0; i < blows; i++) this._mClank(t + i * 0.62, base);
       }
     },
+    freezetown(t, m) {
+      const song = this._songs[m.key];
+      if (Math.random() < 0.05) this._mCrackle(t + Math.random() * song.step);
+      if (m.pos % song.spb === 0 && Math.random() < 0.04) {
+        // a sleigh passing somewhere far off in the snow
+        const pan = Math.random() * 1.4 - 0.7;
+        for (let i = 0; i < 8; i++) this._mJingle(t + i * 0.32, 0.35 * (1 - Math.abs(i - 3.5) / 5), this.music.bus.amb, pan);
+      }
+    },
   },
 
   // Continuous background beds, one per theme, started with the run.
@@ -1069,6 +1295,11 @@ const SFX = {
       o.start(t);
       m.nodes.push(o);
       this._mNoiseBed(t, 'lowpass', 150, 0, 0.02, [[0.5, 0.007, 'gain']]);
+    },
+    // snowy wind gusting around the houses, with a thin whistle through the gaps
+    wind(t, m) {
+      this._mNoiseBed(t, 'bandpass', 550, 1.2, 0.0085, [[0.06, 300, 'freq'], [0.13, 0.0042, 'gain']]);
+      this._mNoiseBed(t, 'bandpass', 1500, 6, 0.004, [[0.09, 500, 'freq']]);
     },
   },
 

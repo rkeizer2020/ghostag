@@ -49,7 +49,7 @@ zodra het prototype goed voelt.
 
 - **Engine:** Phaser **3.90.0**, **no-build** (geen bundler). `vendor/phaser.min.js` is
   gevendord; alle scripts via `<script>`-tags in `index.html` met **cache-busting
-  `?v=NN`** (nu v74 — dit nummer bij elke release ophogen).
+  `?v=NN`** (nu v75 — dit nummer bij elke release ophogen).
 - **Backend:** **Supabase** (auth + Realtime). Client via `js/auth.js` (`Auth.client`,
   `@supabase/supabase-js@2`).
 - **Opslag:** vooral **localStorage** (highscores, coins, skins, personage, difficulty,
@@ -230,7 +230,7 @@ wereld?), moeilijkheid/afstand-balans, meer obstakeltypes, muziek/SFX, en uitein
 
 - **SFX:** minimale oscillator-"blips" in `js/audio.js` (in de White Diver o.a. een
   bubbel-"bloop").
-- **Achtergrondmuziek: 3 thema's**, allemaal Hollow Knight als **sfeer-referentie** maar met
+- **Achtergrondmuziek: 4 thema's**, allemaal Hollow Knight als **sfeer-referentie** maar met
   **eigen, originele melodieën**. Volledig gegenereerd met WebAudio in `js/audio.js`
   (`SFX.startMusic(thema)` / `stopMusic`), geen audiobestanden. Elk thema heeft de vorm
   intro → A → A' → B → "adempauze" → (loop), en elke 2e ronde neemt een ander instrument
@@ -247,10 +247,15 @@ wereld?), moeilijkheid/afstand-balans, meer obstakeltypes, muziek/SFX, en uitein
      celesta-ostinato (draaiende tandwielen), trage machine-"puls" + tikjes, lage hoorn,
      trillende strijkers; melodie op **altviool** (2e ronde gedempte **hoorn**). Sfeer:
      stoom-sissers, verre hamer op een aambeeld, fabrieksfluit in de adempauze.
+  4. **`freezetown` — "Snowlight Waltz"** (G majeur met mineur-kleur, 3/4-wals, 72 bpm,
+     loop ~70 s): knusse winter-/kerstwals; melodie op **speeldoos/klokkenspel** (2e ronde
+     **fluit**), piano-wals, **arrenbelletjes**, windgong-glinsteringen, zacht **koor**
+     ("aah") in het B-deel, verre kerkklok, het kerst-akkoord IV→iv (C → Cm). Sfeer:
+     sneeuwwind en een knapperend haardvuur; soms rijdt er ver weg een arreslee voorbij.
   - Alles in een stenen-hal-galm (convolution reverb); zwelt **licht** aan als de Spook
     dichtbij is (`setMusicIntensity`), maar blijft rustig.
   - **Welk thema waar:** per biome via `music:` in `Biomes` (`config.js`). Nu: Forest →
-    sewer, Graveyard → prison, Snow → prison, City → factory. Bij nieuwe maps
+    sewer, Graveyard → prison, Snow → freezetown, City → factory. Bij nieuwe maps
     (gevangenis/riool/fabriek) gewoon `music:` zetten.
   - Noten/akkoorden/tempo staan als data in `SFX._themes` → makkelijk aan te passen.
 - Nog te ontwikkelen: betere SFX. Let op: no-build +
@@ -339,7 +344,7 @@ wipes). White Diver: `ghostrun.best`.
 1. **Verhaal/lore:** is er al een richting (wie/wat is het spookje en de Spook, waarom de
    jacht)? Nu is er geen canon.
 2. **Muziek:** ✅ gekozen: rustige, Hollow Knight-achtige thema's (gevangenis, riool,
-   fabriek), zie §12. Open: komen gevangenis/riool/fabriek ook als maps/lore in het spel,
+   fabriek, freezetown), zie §12. Open: komen gevangenis/riool/fabriek ook als maps/lore in het spel,
    en welk thema hoort bij welke bestaande map?
 3. **White Diver:** moet de sprite zélf over het scherm bewegen, of vooral de wereld
    (camera)? En moet dit uiteindelijk een personage of een aparte modus in het hoofdspel
