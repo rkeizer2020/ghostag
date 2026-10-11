@@ -4362,10 +4362,13 @@ const FT_VILLAGERS=[
  {r:1,x:790,id:'wick',st:{body:'#2e3448',scarf:'#d0b060',hat:'tophat',hatC:'#1c1c26',item:'pole',S:1.04},lines:["Every night I light the lamps, one by one.","The ice wraiths hate the light. They stay up in the cavern.","Keep to the light, little one."]},
  {r:1,x:1270,id:'nutty',st:{body:'#6a7a3a',scarf:'#d06a3a',hat:'cap',hatC:'#5a3a2a',item:'stall'},lines:["Hot roasted bolts! Warm nuts! ...No coins? Then just enjoy the smell.","Snow mites hop at anything that moves. Hit them when they land."]},
  {r:1,x:1500,id:'twins',rng:130,st:{S:.72},lines:["We're having a snowball war! You can be on my team!","No, on MY team!","Psst... in the cavern the icicles shake before they fall. Run!"]}];
-function villagerHere(){if(!isVillage(room)||GRANNY.phase==='hide'||GRANNY.phase==='fight')return null;const k=room-FT0;return FT_VILLAGERS.find(v=>v.r===k&&!v.hide&&!(v.id==='granny'&&GRANNY.done)&&Math.abs(me.x-v.x)<(v.rng||95))||null}
+function villagerHere(){if(!isVillage(room)||GRANNY.phase==='hide'||GRANNY.phase==='fight')return null;const k=room-FT0;
+ if(GRANNY.done)return FT_VILLAGERS.find(v=>v.r===k&&v.hide==='in'&&grSpot(v)&&Math.abs(me.x-grSpot(v).x)<(v.id==='twins'?110:80))||null;
+ return FT_VILLAGERS.find(v=>v.r===k&&!v.hide&&!(v.id==='granny'&&GRANNY.done)&&Math.abs(me.x-v.x)<(v.rng||95))||null}
 function nearVillager(){return !!(!me.dead&&villagerHere())}
 function talkVillager(){const v=villagerHere();if(!v||GRANNY.phase==='angry')return;play('impact',{gain:.06,rate:2.6});if(VTALK&&VTALK.v===v){VTALK.i++;VTALK.t0=clock;if(VTALK.i>=VTALK.lines.length)VTALK=null;return}
  /* Granny Wool learns a little more each time you sit down with her */
+ if(GRANNY.done){play('impact',{gain:.14,rate:.55});VTALK={v,i:0,t0:clock,lines:GR_FEAR[v.id]};return}
  VTALK={v,i:0,t0:clock,lines:v.id==='granny'?grannyTalkLines():v.lines}}
 /* one villager: a round robot head, a coat and a scarf; hats, items and poses make each one different */
 function drawFolk(c,x,y,st,t,look,arm){c.save();c.translate(x,y);const S=st.S||1;c.scale(S,S);const oy=st.sit?-6:0;
@@ -4414,6 +4417,8 @@ function drawTwins(c,v,x,y,t){const p=(t*.45)%2,thrower=p<1?-1:1,k=p%1;
  if(k>=.8&&k<.98){const q=(k-.8)/.18;for(let i=0;i<6;i++){const a=i*1.05;c.fillStyle='rgba(244,249,255,'+(1-q)+')';c.beginPath();c.arc(tx+Math.cos(a)*q*22,y-56+Math.sin(a)*q*16,2.5,0,TAU);c.fill()}}
  c.fillStyle='#eef5fc';for(const s of[-1,1]){c.beginPath();c.ellipse(x+s*100,y,18,7,0,Math.PI,0);c.fill();for(let i=0;i<3;i++){c.beginPath();c.arc(x+s*92+i*8,y-6,5,0,TAU);fillOut(c,'#f6fbff',1.2)}}}
 /* how high above the ground the talk hint sits: higher for the lamplighter's pole and the market stall */
+/* where the talk hint and bubble go: above the villager, or above their window once they hide from you */
+function vAnchor(v){if(GRANNY.done&&v.hide==='in'){const P=grSpot(v);if(P)return {x:P.x,top:P.top}}return {x:v.x,top:vTop(v)}}
 function vTop(v){return v.st.item==='pole'?250:v.st.item==='stall'?268:175}
 /* granny's empty bench; after the fight only her wool and scarf are left on it */
 function drawBench(c,x,y,done){c.save();c.translate(x,y);rrect(c,-44,-34,88,10,3);fillOut(c,'#6a4a30',2);c.fillStyle='#4a3020';c.fillRect(-38,-24,6,24);c.fillRect(32,-24,6,24);c.fillStyle='#f4f9ff';c.beginPath();c.ellipse(26,-34,16,4,0,Math.PI,0);c.fill();
@@ -4436,7 +4441,7 @@ function drawVillage(c,cam,t){const k=room-FT0;
   const ax=150-cam;c.save();c.fillStyle='#5a3e26';c.fillRect(ax-90,560-210,12,210);c.fillRect(ax+78,560-210,12,210);rrect(c,ax-104,560-250,208,46,8);fillOut(c,lgrad(c,0,560-250,0,560-204,['#8a6a42','#5a3e26']),2.6);
   c.fillStyle='#f4f9ff';c.beginPath();c.ellipse(ax,560-250,108,9,0,Math.PI,0);c.fill();c.fillStyle='#fff3cf';c.font='700 19px '+SERIF;c.textAlign='center';c.textBaseline='middle';c.fillText('FREEZETOWN',ax,560-226);c.restore()}
  else{drawLampPost(c,665-cam,560,t);drawLampPost(c,1390-cam,560,t);drawTownTree(c,1010-cam,560,t);drawStall(c,1270-cam,560,t,'back');drawSignpost(c,1880-cam,560,'THE SUMMIT')}
- if(k===0)drawPeekers(c,cam,t);
+ drawPeekers(c,cam,t);if(k===1&&GRANNY.done)drawStallPeek(c,1270-cam,t);
  for(const v of FT_VILLAGERS){if(v.r!==k||v.hide==='in')continue;
   if(v.id==='granny'&&(GRANNY.done||GRANNY.phase==='hide'||GRANNY.phase==='fight')){drawBench(c,v.x-cam,560,GRANNY.done);continue}
   const vx=v.hide==='run'?v.hx:v.x,x=vx-cam;if(x<-160||x>WW+160)continue;
@@ -4444,10 +4449,11 @@ function drawVillage(c,cam,t){const k=room-FT0;
   if(v.id==='granny'&&GRANNY.phase==='angry')drawFolk(c,x+Math.sin(t*40)*1.5,560,Object.assign({},v.st,{red:1}),t,me.x>v.x?2:-2,'');else drawVillager(c,v,x,560,t);
   if(villagerHere()===v&&!VTALK){const yy=560-vTop(v)+Math.sin(t*3)*3;c.save();rrect(c,x-60,yy-16,120,30,10);c.fillStyle='rgba(10,16,30,.85)';c.fill();c.strokeStyle='#bfe8ff';c.lineWidth=2;c.stroke();c.textAlign='center';c.textBaseline='middle';c.font='600 15px '+SERIF;c.fillStyle='#fff3cf';c.fillText('Z  ·  TALK',x,yy);c.restore()}}
  if(k===1)drawStall(c,1270-cam,560,t,'front');
- if(VTALK){const v=VTALK.v,s=VTALK.lines[VTALK.i],x=v.x-cam;c.save();c.font='italic 600 18px '+SERIF2;
+ if(GRANNY.done&&!VTALK){const v=villagerHere();if(v){const A=vAnchor(v),x=A.x-cam,yy=560-A.top+Math.sin(t*3)*3;c.save();rrect(c,x-64,yy-16,128,30,10);c.fillStyle='rgba(10,16,30,.85)';c.fill();c.strokeStyle='#bfe8ff';c.lineWidth=2;c.stroke();c.textAlign='center';c.textBaseline='middle';c.font='600 15px '+SERIF;c.fillStyle='#fff3cf';c.fillText('Z  ·  KNOCK',x,yy);c.restore()}}
+ if(VTALK){const v=VTALK.v,s=VTALK.lines[VTALK.i],A=vAnchor(v),x=A.x-cam;c.save();c.font='italic 600 18px '+SERIF2;
   /* wrap long lines so the bubble never runs off the screen */
   const rows=[];let cur='';for(const wd of s.split(' ')){const tr=cur?cur+' '+wd:wd;if(c.measureText(tr).width>400&&cur){rows.push(cur);cur=wd}else cur=tr}rows.push(cur);
-  const w=Math.min(460,Math.max(...rows.map(r=>c.measureText(r).width))+40),h=18+rows.length*24,y=560-vTop(v)-12-h,bx=clamp(x-w/2,12,WW-w-12);
+  const w=Math.min(460,Math.max(...rows.map(r=>c.measureText(r).width))+40),h=18+rows.length*24,y=560-A.top-12-h,bx=clamp(x-w/2,12,WW-w-12);
   rrect(c,bx,y,w,h,12);c.fillStyle='rgba(240,248,255,.96)';c.fill();c.strokeStyle=OUT;c.lineWidth=2.2;c.stroke();
   c.beginPath();c.moveTo(x-9,y+h);c.lineTo(x,y+h+14);c.lineTo(x+9,y+h);c.closePath();c.fill();c.fillStyle='#1c2a44';c.textAlign='center';c.textBaseline='middle';
   let n=Math.floor((clock-VTALK.t0)*40);rows.forEach((r,i)=>{if(n<=0)return;c.fillText(r.slice(0,n),bx+w/2,y+21+i*24);n-=r.length+1});c.restore()}}
@@ -4607,7 +4613,19 @@ const GRANNY_TALK=[null,
  ["So it's you. You want to open the gate and break the whole world apart."],
  ["I won't let that happen!"]];
 /* where each villager hides, and which window they peek out of */
-const GR_HIDE={bolt:{door:480,house:0,win:64},pell:{door:1110,house:1,win:-82},kid:{door:1110,house:1,win:82}};
+const GR_HIDE={bolt:{door:480,house:0,win:[64]},pell:{door:1110,house:1,win:[-82]},kid:{door:1110,house:1,win:[82]},
+ marla:{house:0,win:[-122],row:'lo'},wick:{house:0,win:[0],row:'hi'},twins:{house:1,win:[-56,56]},nutty:{stall:1270}};
+/* after Granny Wool is gone, the whole village is afraid of you: they stay inside and only talk through the window */
+const GR_FEAR={bolt:["Stay back! Stay away from my door!","You killed Granny Wool. She knitted all our scarves...","Monster. Just go. Please."],
+ pell:["D-don't come any closer!","I saw it. I saw everything from the window.","You're a monster... a MONSTER!"],
+ kid:["Mommy says I can't talk to monsters.","...Did it hurt her?","Go away. I don't like you anymore."],
+ marla:["The Warm Bolt is closed. Closed for YOU.","The whole town heard her scream.","Leave Freezetown, monster. Nobody wants you here."],
+ wick:["I lit the lamps every night to keep the monsters out...","...but the monster came walking right in.","Don't look at me. Please don't look at me."],
+ nutty:["N-no bolts today! Nothing! Take nothing!","Please... just walk past. Pretend you never saw me.","...is it gone yet?"],
+ twins:["Shh! Don't let the monster hear us!","You're not on our team. You're not on ANY team.","Granny made our mittens... you monster!"]};
+function grWinY(h,row){return h.inn?(row==='hi'?560-h.h+34:560-118):560-h.h+Math.min(40,h.h*.26)}
+/* where a hidden villager can be talked to: their window (or, for Nutty, behind his counter) */
+function grSpot(v){const H=GR_HIDE[v.id];if(!H)return null;if(H.stall)return {x:H.stall,top:268,stall:1};const h=FT_HOUSES[v.r][H.house],xs=H.win.map(o=>h.x+o),wy=grWinY(h,H.row);return {x:(xs[0]+xs[xs.length-1])/2,xs,wy,top:560-wy+14}}
 function grannyReset(){Object.assign(GRANNY,{talks:0,phase:'',t:0,fight:false,done:false,lock:false,lasso:null,wrap:null,say:null});GRANNY.needles.length=0;GRANNY.lanes.length=0;GRANNY.pops.length=0;for(const v of FT_VILLAGERS){v.hide=null;v.hx=undefined}}
 /* entering the village (or coming back after dying) puts everything back as it was, one talk before she snaps */
 function grannyRoomReset(){if(GRANNY.done)return;Object.assign(GRANNY,{phase:'',t:0,fight:false,lock:false,lasso:null,wrap:null,say:null});GRANNY.needles.length=0;GRANNY.lanes.length=0;GRANNY.pops.length=0;
@@ -4624,12 +4642,12 @@ function grannyStep(){const dt=1/60;GRANNY.pops=GRANNY.pops.filter(q=>clock-q.t0
  if(room!==FT0)return;
  if(GRANNY.lock&&!me.dead){me.x=clamp(me.x,GR_A,GR_B)}
  /* the villagers run home */
- for(const v of FT_VILLAGERS){if(v.hide!=='run')continue;const H=GR_HIDE[v.id];if(v.hx===undefined)v.hx=v.x;const d=H.door-v.hx;v.hx+=Math.sign(d)*Math.min(Math.abs(d),5.2);if(Math.abs(d)<6){v.hide='in';play('land',{gain:.06,rate:1.6})}}
+ for(const v of FT_VILLAGERS){if(v.hide!=='run')continue;const H=GR_HIDE[v.id];if(H.door===undefined){v.hide='in';continue}if(v.hx===undefined)v.hx=v.x;const d=H.door-v.hx;v.hx+=Math.sign(d)*Math.min(Math.abs(d),5.2);if(Math.abs(d)<6){v.hide='in';play('land',{gain:.06,rate:1.6})}}
  if(GRANNY.phase==='angry'){GRANNY.t+=dt;const L=GRANNY_TALK[7][0].length/40;if(GRANNY.t>L+1.3){VTALK=null;GRANNY.phase='hide';GRANNY.t=0;GRANNY.lock=true;shakeT=.5;play('roar',{gain:.22,rate:1.9});
    for(const v of FT_VILLAGERS)if(v.r===0&&GR_HIDE[v.id])v.hide='run';
    const e=mkS('granny',1640,560,GR_A,GR_B,30,GR_HP,{one:1,state:'rise',st:0,cd:1.4,last:'',face:-1,tx:1500,fy:0,pose:'',n:0});ENM.push(e)}return}
  if(GRANNY.phase==='hide'){GRANNY.t+=dt;if(GRANNY.t>1.7){GRANNY.phase='fight';GRANNY.fight=true;const e=grannyBoss();if(e){e.state='idle';e.cd=.6}pzBanner('GRANNY WOOL')}}
- if(GRANNY.phase==='end'){GRANNY.t+=dt;if(GRANNY.t>.6)for(const v of FT_VILLAGERS)if(v.hide==='in'){v.hide=null;v.hx=undefined}return}
+ if(GRANNY.phase==='end')return;
  if(!GRANNY.fight)return;
  const e=grannyBoss(),sp=grSp(e),tm=timeMode();
  /* the STOP chip freezes her needles and wool too (SLOW makes them crawl) */
@@ -4660,7 +4678,7 @@ function yarnShot(e,vx,vy){const y=mkS('yarnling',e.x+e.face*20,e.y-90,GR_A,GR_B
 SEWT.granny={up(e){const dt=1/60,sp=grSp(e);e.t+=dt;e.flash=Math.max(0,e.flash-dt);e.kb=0;e.vx=0;
   if(e.state==='rise'){e.st+=dt;return}
   if(e.state==='dead'){e.st+=dt;if(e.st>.2&&!e.said){e.said=true;GRANNY.say={s:'Who... will knit the scarves now...?',t0:clock}}if(Math.random()<.35)burst(e.x+rnd(-30,30),e.y-rnd(10,100),1);
-   if(e.st>4.2&&!e.gone){e.gone=true;GRANNY.done=true;GRANNY.fight=false;GRANNY.lock=false;GRANNY.phase='end';GRANNY.t=0;GRANNY.say=null;for(let i=0;i<18;i++)dropPart(rnd(GR_A+60,GR_B-60),420);pzBanner('GRANNY WOOL HAS FALLEN')}
+   if(e.st>4.2&&!e.gone){e.gone=true;GRANNY.done=true;GRANNY.fight=false;GRANNY.lock=false;GRANNY.phase='end';GRANNY.t=0;GRANNY.say=null;for(const v of FT_VILLAGERS)if(v.id!=='granny')v.hide='in';for(let i=0;i<18;i++)dropPart(rnd(GR_A+60,GR_B-60),420);pzBanner('GRANNY WOOL HAS FALLEN')}
    if(e.st>5)e.dead=true;return}
   if(!GRANNY.fight)return;
   if(e.state!=='lanes'&&e.fy>0)e.fy=Math.max(0,e.fy-3);
@@ -4757,12 +4775,20 @@ function drawGrannyBar(c){if(room!==FT0||!GRANNY.fight)return;const e=grannyBoss
  c.font='600 15px '+SERIF;c.textAlign='center';c.fillStyle='#fff3cf';c.fillText('GRANNY WOOL',WW/2,y-8);rrect(c,x,y,w,18,8);c.fillStyle='rgba(20,10,20,.85)';c.fill();c.strokeStyle='#c8803a';c.lineWidth=2;c.stroke();
  const k=clamp(e.hp/GR_HP,0,1);if(k>0){rrect(c,x+4,y+4,(w-8)*k,10,5);c.fillStyle='#d84a8a';c.fill()}c.restore()}
 /* the villagers who hid: scared faces in the windows */
-function drawPeekers(c,cam,t){if(room!==FT0)return;for(const v of FT_VILLAGERS){if(v.hide!=='in')continue;const H=GR_HIDE[v.id],h=FT_HOUSES[0][H.house],wx=h.x+H.win-cam,wy=560-h.h+Math.min(40,h.h*.26);if(wx<-40||wx>WW+40)continue;
-  c.save();c.beginPath();c.rect(wx-19,wy,38,46);c.clip();const tr=Math.sin(t*34+h.x)*1.1,hy=wy+40+tr,S=v.st.S||1;
-  c.fillStyle='#9ab6d2';c.strokeStyle=OUT;c.lineWidth=2;c.beginPath();c.ellipse(wx+tr*.6,hy,15*S,12*S,0,0,TAU);c.fill();c.stroke();
-  c.fillStyle=v.st.hatC||'#5a4a6a';c.beginPath();c.arc(wx+tr*.6,hy-8*S,11*S,Math.PI,0);c.fill();
-  const e=grannyBoss(),lk=e?(e.x>h.x+H.win?1.6:-1.6):0;c.fillStyle='#fff';for(const s of[-1,1]){c.beginPath();c.arc(wx+tr*.6+s*5.5*S+lk,hy-1,3.8*S,0,TAU);c.fill()}c.fillStyle='#1c1226';for(const s of[-1,1]){c.beginPath();c.arc(wx+tr*.6+s*5.5*S+lk*1.4,hy-1,1.4,0,TAU);c.fill()}
-  c.restore();c.save();c.strokeStyle='#2a1c22';c.lineWidth=2.4;c.beginPath();c.moveTo(wx,wy);c.lineTo(wx,wy+46);c.moveTo(wx-19,wy+46*.45);c.lineTo(wx+19,wy+46*.45);c.stroke();c.restore()}}
+function drawPeekers(c,cam,t){if(!isVillage(room))return;const k=room-FT0,e=grannyBoss();
+ for(const v of FT_VILLAGERS){if(v.r!==k||v.hide!=='in')continue;const P=grSpot(v);if(!P||P.stall)continue;
+  P.xs.forEach((X,i)=>{const wx=X-cam,wy=P.wy;if(wx<-40||wx>WW+40)return;
+   /* when you come close they duck down and shake harder */
+   const near=GRANNY.done&&Math.abs(me.x-X)<150,tr=Math.sin(t*(near?52:34)+X)*(near?1.6:1.1),hy=wy+40+tr+(near?7:0),S=v.id==='twins'?.72:v.st.S||1,hat=v.id==='twins'?['#e86a8a','#e88a3a'][i]:v.st.hatC||'#5a4a6a';
+   c.save();c.beginPath();c.rect(wx-19,wy,38,46);c.clip();
+   c.fillStyle='#9ab6d2';c.strokeStyle=OUT;c.lineWidth=2;c.beginPath();c.ellipse(wx+tr*.6,hy,15*S,12*S,0,0,TAU);c.fill();c.stroke();
+   c.fillStyle=hat;c.beginPath();c.arc(wx+tr*.6,hy-8*S,11*S,Math.PI,0);c.fill();
+   const tx=e?e.x:me.x,lk=tx>X?1.6:-1.6;c.fillStyle='#fff';for(const s of[-1,1]){c.beginPath();c.arc(wx+tr*.6+s*5.5*S+lk,hy-1,3.8*S,0,TAU);c.fill()}c.fillStyle='#1c1226';for(const s of[-1,1]){c.beginPath();c.arc(wx+tr*.6+s*5.5*S+lk*1.4,hy-1,1.4,0,TAU);c.fill()}
+   c.restore();c.save();c.strokeStyle='#2a1c22';c.lineWidth=2.4;c.beginPath();c.moveTo(wx,wy);c.lineTo(wx,wy+46);c.moveTo(wx-19,wy+46*.45);c.lineTo(wx+19,wy+46*.45);c.stroke();c.restore()})}}
+/* Nutty hides behind his counter: only the top of his head and his eyes show */
+function drawStallPeek(c,x,t){const near=Math.abs(me.x-(x+cam))<150,tr=Math.sin(t*(near?52:34))*(near?1.6:1),hy=560-84+tr+(near?6:0);c.save();
+ c.fillStyle='#9ab6d2';c.strokeStyle=OUT;c.lineWidth=2;c.beginPath();c.ellipse(x+tr*.6,hy,20,16,0,0,TAU);c.fill();c.stroke();c.fillStyle='#5a3a2a';c.beginPath();c.ellipse(x-2+tr*.6,hy-12,19,9,0,Math.PI,0);c.closePath();c.fill();c.stroke();
+ const lk=me.x>x+cam?2:-2;c.fillStyle='#fff';for(const s of[-1,1]){c.beginPath();c.arc(x+tr*.6+s*7+lk,hy-1,4.6,0,TAU);c.fill()}c.fillStyle='#1c1226';for(const s of[-1,1]){c.beginPath();c.arc(x+tr*.6+s*7+lk*1.4,hy-1,1.6,0,TAU);c.fill()}c.restore()}
 
 function genRoom(safeX){genRoom0(safeX);if(room===SHOP_ROOM)ENM=[];if(PUZ_ROOMS[room]!==undefined){if(!isSewer())TER=[{x0:0,x1:WORLD,y:FLOOR}];initPuzzle()}else PZ=null}
 function genRoom0(safeX){CORPSES.length=0;if(SC[room].sewer){HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;genSewer(safeX);return}genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
