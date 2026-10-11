@@ -250,7 +250,7 @@ function drawHero(c,P){
  heroCape(c,P,OL);
  if(typeof UPG!=='undefined'&&UPG.harness&&typeof harnessBack==='function'){harnessBack(c,P);harnessFront(c,P)}
  if(P.swing)heroSword(c,P);
- heroHead(c,P,OL);
+ if(!HEADLESS)heroHead(c,P,OL);
  c.restore()}
 
 /* ---------- the golden sword while swinging: it comes out from behind, whips over the top and ends low in front ---------- */
@@ -1054,6 +1054,367 @@ function draw(S,t,dt){const M=MID[S.mid],o=S.o;c.save();back(S);if(M.far)M.far(S
 return {SCENES,draw(i,ctx,t,dt){const S=SCENES[i];c=ctx;if(!S.built)build(S);draw(S,t,dt||0)}};
 })();
 
+/* ===== Intro paintings: 'office' (grey / black / red, the bloody desk room of the opening) and 'garage' (neon tutorial garage) ===== */
+const INTROBG=(()=>{
+const W=960,H=540,TAU=Math.PI*2,FY=470;
+
+let c=null;
+let seed=1;const R=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646};const rr=(a,b)=>a+R()*(b-a);
+const lg=(x0,y0,x1,y1,st)=>{const g=c.createLinearGradient(x0,y0,x1,y1);st.forEach((s,i)=>g.addColorStop(i/(st.length-1),s));return g};
+const rg=(x,y,r0,r1,st)=>{const g=c.createRadialGradient(x,y,r0,x,y,r1);st.forEach((s,i)=>g.addColorStop(i/(st.length-1),s));return g};
+const blob=(pts,p)=>{const n=pts.length;for(let i=0;i<=n;i++){const a=pts[i%n],q=pts[(i+1)%n],mx=(a[0]+q[0])/2,my=(a[1]+q[1])/2;i?p.quadraticCurveTo(a[0],a[1],mx,my):p.moveTo(mx,my)}p.closePath();return p};
+const rock=(cx,cy,rx,ry,j,n)=>{const pts=[];n=n||11;for(let i=0;i<n;i++){const a=i/n*TAU,k=1+rr(-j,j);pts.push([cx+Math.cos(a)*rx*k,cy+Math.sin(a)*ry*k])}return pts};
+const add=(f)=>{c.save();c.globalCompositeOperation='lighter';f();c.restore()};
+const P2=()=>new Path2D();
+const A=(r,g,b,a)=>'rgba('+(r|0)+','+(g|0)+','+(b|0)+','+(a===undefined?1:a)+')';
+const G=(v,a)=>A(v,v,v,a);
+const poly=(p,pts)=>{p.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)p.lineTo(pts[i][0],pts[i][1]);p.closePath();return p};
+const seg=(p,a,b)=>{p.moveTo(a[0],a[1]);p.lineTo(b[0],b[1])};
+/* rotated rectangle (centre x,y) added to a path */
+const rrect=(p,x,y,w,h,a,sy)=>{const ca=Math.cos(a),sa=Math.sin(a),k=sy||1,pt=(u,v)=>[x+u*ca-v*sa,y+(u*sa+v*ca)*k];return poly(p,[pt(-w/2,-h/2),pt(w/2,-h/2),pt(w/2,h/2),pt(-w/2,h/2)])};
+/* soft ellipse with a unit radial gradient */
+const ell=(g,x,y,rx,ry,a)=>{c.globalAlpha=a;c.fillStyle=g;c.save();c.translate(x,y);c.scale(rx,ry);c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore()};
+const crack=(p,x,y,ang,len,br)=>{p.moveTo(x,y);let l=0;while(l<len){const s=rr(6,16);ang+=rr(-.5,.5);x+=Math.cos(ang)*s;y+=Math.sin(ang)*s;p.lineTo(x,y);l+=s;if(br>0&&R()<.18){crack(p,x,y,ang+rr(-1,1),len*.4,br-1);p.moveTo(x,y)}}};
+/* drifting fog puffs, one cached unit gradient */
+function fog(g,t,y,a,sp,h,n){add(()=>{c.fillStyle=g;n=n||4;for(let i=0;i<n;i++){const x=((i*330+t*sp)%(W+520)+W+520)%(W+520)-260,yy=y+Math.sin(t*.2+i*2)*8;
+  c.globalAlpha=a*(.8+.2*Math.sin(t*.3+i));c.save();c.translate(x,yy);c.scale(300,h||60);c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore()}})}
+function motes(list,t,dt,cols,box){add(()=>{for(const m of list){m.y-=m.s*dt*14;m.x+=Math.sin(t*.35+m.ph)*.12+.03;const b=box||[0,0,W,H];
+  if(m.y<b[1]-5){m.y=b[3]+5;m.x=b[0]+((m.x*7.31+m.ph*97)%1+1)%1*(b[2]-b[0])}if(m.x>b[2]+5)m.x=b[0]-5;
+  const a=(.22+.22*Math.sin(t*1.2+m.ph))*m.k;c.fillStyle=cols[m.c];c.globalAlpha=a*.3;c.beginPath();c.arc(m.x,m.y,m.r*2.6,0,TAU);c.fill();c.globalAlpha=a;c.beginPath();c.arc(m.x,m.y,m.r*.75,0,TAU);c.fill()}})}
+const mkMotes=(n,box,k,nc)=>{const o=[];for(let i=0;i<n;i++)o.push({x:rr(box[0],box[2]),y:rr(box[1],box[3]),r:rr(.6,2),s:rr(.06,.35),ph:rr(0,TAU),k:k||1,c:(R()*(nc||1))|0});return o};
+
+/* =========================================================================================
+   OFFICE: grey / black / red. Desk top edge exactly y=330, x=250..640. Rift area x 670..900, y 250..470 kept dark.
+   ========================================================================================= */
+const RD=(a)=>A(74,5,9,a),RF=(a)=>A(150,12,18,a),RB=(a)=>A(205,24,30,a);
+const DESK={x0:250,x1:640,y:330};
+/* blood splatter: blob, satellite drops, streaks and drips, all appended to path p */
+function splat(p,x,y,r,nd,drip){blob(rock(x,y,r,r*.82,.38,13),p);
+ for(let i=0;i<nd;i++){const a=rr(0,TAU),d=r*rr(1.1,3.4),s=Math.max(.8,r*rr(.05,.22)*(1.6-d/(r*3.4))),xx=x+Math.cos(a)*d,yy=y+Math.sin(a)*d;
+  if(R()<.35){p.moveTo(xx+s*2.4*Math.cos(a),yy+s*2.4*Math.sin(a));p.ellipse(xx,yy,s*2.4,s*.8,a,0,TAU)}else{p.moveTo(xx+s,yy);p.arc(xx,yy,s,0,TAU)}}
+ for(let i=0;i<(drip||0);i++){const xx=x+rr(-r*.8,r*.8),w=rr(1.6,3.6),len=rr(18,90),y0=y+rr(0,r*.5);p.moveTo(xx-w/2,y0);p.lineTo(xx-w*.35,y0+len);p.arc(xx,y0+len,w*.75,Math.PI,0,true);p.lineTo(xx+w/2,y0);p.closePath()}}
+function initOffice(S){seed=4242;
+ S.wallG=lg(0,0,0,FY,[G(9),G(22),G(29),G(26),G(15)]);
+ S.stripe=P2();for(let x=0;x<W;x+=26)S.stripe.rect(x,24,9,344);
+ S.dam=P2();for(let y=46,r=0;y<360;y+=34,r++)for(let x=(r%2)*13+4.5;x<W;x+=26){S.dam.moveTo(x,y-5);S.dam.lineTo(x+3.5,y);S.dam.lineTo(x,y+5);S.dam.lineTo(x-3.5,y);S.dam.closePath()}
+ S.streakG=lg(0,0,0,1,[G(0,.45),G(0,.18),G(0,0)]);S.streaks=[];for(let i=0;i<16;i++)S.streaks.push([rr(0,W),rr(8,40),rr(80,300),rr(.4,1)]);
+ S.stain=P2();for(let i=0;i<10;i++)blob(rock(rr(0,W),rr(30,360),rr(30,90),rr(20,60),.4,12),S.stain);
+ S.oldB=P2();for(const [x,y,r] of[[150,300,26],[880,100,18],[352,312,14]])blob(rock(x,y,r,r*.7,.5,12),S.oldB);
+ S.peel=P2();S.peelE=P2();for(const [x,y,w,h] of[[236,60,46,64],[640,320,30,40],[30,214,36,50],[452,260,30,30]]){const pts=rock(x,y,w/2,h/2,.45,9);blob(pts,S.peel);blob(pts,S.peelE)}
+ S.cracks=P2();crack(S.cracks,420,24,1.3,160,2);crack(S.cracks,860,26,1.9,120,2);crack(S.cracks,238,372,-1.6,90,1);crack(S.cracks,700,372,-1.2,110,2);crack(S.cracks,40,90,.6,80,1);
+ /* wainscot */
+ S.wains=P2();for(let x=0;x<W;x+=96){S.wains.rect(x+8,390,80,68)}S.wainG=lg(0,370,0,FY,[G(18),G(11),G(7)]);
+ /* window with broken blinds */
+ S.win={x:72,y:92,w:136,h:160};const wn=S.win;S.skyG=lg(0,wn.y,0,wn.y+wn.h,[G(58),G(40),G(24),A(60,12,14)]);
+ S.slat=P2();S.slatH=P2();S.slatGap=P2();let k=0;for(let y=wn.y+4;y<wn.y+wn.h-2;y+=8,k++){if(k===9||k===10||k===14)continue;
+  if(k>=11&&k<=13){const a=(k-10)*.16;rrect(S.slat,wn.x+wn.w*.5+(k-11)*6,y+k*1.5,wn.w*.98,4.4,a);continue}
+  S.slat.rect(wn.x,y,wn.w,4.6);S.slatH.rect(wn.x,y,wn.w,1)}
+ S.cordP=P2();S.cordP.moveTo(wn.x+wn.w-14,wn.y);S.cordP.lineTo(wn.x+wn.w-12,wn.y+wn.h+46);S.cordP.moveTo(wn.x+16,wn.y);S.cordP.lineTo(wn.x+18,wn.y+wn.h-20);
+ S.shaftG=lg(140,170,330,470,[G(205,.16),G(170,.07),G(140,0)]);
+ S.shaft=poly(P2(),[[wn.x+6,wn.y+12],[wn.x+wn.w-4,wn.y+12],[wn.x+wn.w+250,FY+40],[wn.x+120,FY+40]]);
+ /* corkboard with photos, notes and red string */
+ S.board={x:280,y:96,w:152,h:136};const bd=S.board;S.boardG=lg(bd.x,bd.y,bd.x+bd.w,bd.y+bd.h,[G(40),G(31),G(24)]);
+ S.paper=P2();S.photo=P2();S.photoIn=P2();S.txt=P2();S.pins=[];
+ for(const [x,y,w,h,a,ty] of[[304,128,30,38,-.08,1],[350,124,34,26,.06,0],[402,132,26,34,.1,1],[318,188,34,24,.05,0],[366,180,28,36,-.06,1],[410,196,24,30,.12,0],[358,150,18,22,.2,0]]){
+  rrect(ty?S.photo:S.paper,x,y,w,h,a);if(ty)rrect(S.photoIn,x,y-3,w-6,h-12,a);else for(let i=0;i<4;i++){const yy=y-h/2+6+i*5;S.txt.moveTo(x-w/2+4,yy+a*(-w/2));S.txt.lineTo(x+w/2-5-rr(0,10),yy+a*(w/2))}
+  S.pins.push([x+Math.sin(a)*h/2*0,y-h/2+3])}
+ S.strings=P2();const pp=S.pins;for(const [i,j] of[[0,1],[1,2],[0,4],[4,2],[3,4],[4,5],[1,6],[3,6]]){const a=pp[i],b=pp[j];S.strings.moveTo(a[0],a[1]);S.strings.quadraticCurveTo((a[0]+b[0])/2,(a[1]+b[1])/2+7,b[0],b[1])}
+ S.xMark=P2();S.xMark.moveTo(394,120);S.xMark.lineTo(410,144);S.xMark.moveTo(410,120);S.xMark.lineTo(394,144);S.circ=P2();S.circ.ellipse(366,180,19,22,0,0,TAU);
+ /* broken clock */
+ S.clk={x:588,y:136,r:34};S.clkG=rg(588,128,4,36,[G(150),G(110),G(64)]);S.ticks=P2();for(let i=0;i<12;i++){const a=i/12*TAU,r0=i%3?27:24;seg(S.ticks,[588+Math.cos(a)*r0,136+Math.sin(a)*r0],[588+Math.cos(a)*30,136+Math.sin(a)*30])}
+ S.glass=P2();for(let i=0;i<7;i++){const a=rr(0,TAU);crack(S.glass,600,124,a,rr(14,30),0)}S.glass.moveTo(611,124);S.glass.arc(600,124,11,0,TAU);
+ /* shelves above the rift zone */
+ S.shelf=P2();S.shelf.rect(684,126,222,8);S.shelf.rect(684,206,222,8);S.brk=P2();for(const x of[700,880])for(const y of[134,214]){S.brk.moveTo(x,y);S.brk.lineTo(x+16,y);S.brk.lineTo(x,y+18);S.brk.closePath()}
+ S.jars=[];S.files=P2();S.fileL=P2();
+ let x=692;for(const it of[['j',30,44],['f',14,58],['f',12,52],['f',16,60],['j',26,36],['j',34,52],['f',12,46],['j',24,30],['f',14,56],['f',13,50]]){
+  if(it[0]==='j'){S.jars.push({x,w:it[1],h:it[2],y:126,lv:rr(.35,.9),sp:R()<.6});}else{S.files.rect(x,126-it[2],it[1],it[2]);S.fileL.rect(x+2,126-it[2]+10,it[1]-4,7)}x+=it[1]+rr(2,6)}
+ x=694;for(const it of[['f',14,62],['f',15,60],['f',13,58],['t',0,0],['j',30,40],['j',22,28],['f',16,54],['f',14,60],['b',44,30]]){
+  if(it[0]==='t'){rrect(S.files,x+30,206-24,14,62,-.5);rrect(S.fileL,x+30,206-24,8,7,-.5);x+=42;continue}
+  if(it[0]==='b'){S.files.rect(x,206-30,44,30);S.fileL.rect(x+12,206-22,20,8);x+=48;continue}
+  if(it[0]==='j'){S.jars.push({x,w:it[1],h:it[2],y:206,lv:rr(.35,.9),sp:R()<.5});}else{S.files.rect(x,206-it[2],it[1],it[2]);S.fileL.rect(x+2,206-it[2]+10,it[1]-4,7)}x+=it[1]+rr(2,6)}
+ S.jarP=P2();S.liq=P2();S.lid=P2();S.spec=P2();S.jarH=P2();for(const j of S.jars){const y0=j.y-j.h;S.jarP.roundRect?S.jarP.roundRect(j.x,y0+5,j.w,j.h-5,5):S.jarP.rect(j.x,y0+5,j.w,j.h-5);
+  S.liq.rect(j.x+2,y0+5+(j.h-7)*(1-j.lv),j.w-4,(j.h-7)*j.lv);S.lid.rect(j.x-1,y0,j.w+2,6);S.jarH.rect(j.x+4,y0+9,2,j.h-14);if(j.sp)blob(rock(j.x+j.w/2,j.y-j.h*.42,j.w*.26,j.h*.2,.45,9),S.spec)}
+ /* filing cabinet (left) with open drawer */
+ S.cab=P2();S.cab.rect(36,326,84,144);S.cabD=P2();for(const y of[374,422])S.cabD.rect(42,y,72,42);S.cabO=P2();S.cabO.rect(28,334,100,36);S.cabH=P2();for(const y of[352,394,442])S.cabH.rect(66,y,24,4);
+ S.cabPap=P2();for(let i=0;i<6;i++)rrect(S.cabPap,40+i*14,330-rr(0,10),12,22,rr(-.4,.4));
+ /* overturned chair (wooden, on its back) */
+ S.chair=P2();{const p=S.chair,a=-Math.PI/2+.07,ca=Math.cos(a),sa=Math.sin(a),T=(u,v)=>[236+(u*ca-v*sa)*1.25,FY-3+(u*sa+v*ca)*1.25];
+  const bar=(u0,v0,u1,v1,w)=>{const dx=u1-u0,dy=v1-v0,l=Math.hypot(dx,dy),nx=-dy/l*w/2,ny=dx/l*w/2;poly(p,[T(u0+nx,v0+ny),T(u1+nx,v1+ny),T(u1-nx,v1-ny),T(u0-nx,v0-ny)])};
+  bar(2,0,2,-50,6);bar(40,0,40,-50,6);bar(-4,-50,46,-50,7);bar(2,-50,-6,-112,6);bar(-5,-108,-3,-84,9);bar(2,-26,40,-26,3.4);bar(-1,-76,-1,-60,3)}
+ /* desk */
+ S.deskTopG=lg(0,330,0,346,[G(52),G(30),G(16)]);S.deskG=lg(DESK.x0,0,DESK.x1,0,[G(14),G(26),G(30),G(22),G(12)]);
+ S.ped=P2();S.ped.rect(258,346,124,116);S.ped.rect(508,346,124,116);S.knee=P2();S.knee.rect(382,346,126,124);
+ S.drw=P2();for(const px of[264,514])for(const [y,h] of[[352,30],[388,34],[428,30]])S.drw.rect(px,y,112,h);
+ S.hdl=P2();for(const px of[264,514])for(const [y,h] of[[352,30],[388,34],[428,30]])S.hdl.rect(px+44,y+h/2-2,24,4);
+ S.grain=P2();for(let i=0;i<26;i++){const y=rr(348,460),x0=rr(258,600),l=rr(30,90);S.grain.moveTo(x0,y);S.grain.bezierCurveTo(x0+l*.3,y+rr(-2,2),x0+l*.7,y+rr(-2,2),x0+l,y+rr(-1,1))}
+ S.feet=P2();for(const x of[258,370,508,620])S.feet.rect(x,462,12,8);
+ /* books / files on the left end (the stopper) */
+ S.bk=[];S.bkFlat=P2();S.bkFlatE=P2();S.bkFlat.rect(250,317,54,13);S.bkFlatE.rect(252,318,50,1.2);S.bkFlatE.rect(252,324,50,1.2);x=251;
+ const bcol=[G(38),RD(1),G(56),G(24),A(110,14,20),G(46),G(30)];let bi=0;while(x<297){const w=rr(7,11),h=rr(38,62);S.bk.push({x,w,h,col:bcol[bi++%bcol.length]});x+=w+.6}
+ S.bkBand=P2();for(const b of S.bk){S.bkBand.rect(b.x+1,317-b.h+6,b.w-2,1.6);S.bkBand.rect(b.x+1,317-12,b.w-2,1.6)}
+ /* blood */
+ S.bD=P2();S.bF=P2();
+ splat(S.bD,618,262,22,40,6);splat(S.bF,612,258,13,26,4);splat(S.bD,598,112,8,18,2);splat(S.bF,452,210,7,16,2);splat(S.bD,90,400,10,20,3);splat(S.bF,224,300,6,12,2);
+ splat(S.bD,860,330,9,22,3);splat(S.bF,340,262,5,10,1);
+ S.hand=P2();blob(rock(522,214,15,17,.25,10),S.hand);for(let i=0;i<4;i++){const fx=508+i*9.5;S.hand.moveTo(fx-2.6,206);S.hand.lineTo(fx+2.6,206);S.hand.lineTo(fx+2.2,188-(i==1||i==2?5:0));S.hand.arc(fx,188-(i==1||i==2?5:0),2.4,0,Math.PI,true);S.hand.closePath()}
+ S.smear=[];for(let i=0;i<4;i++)S.smear.push([510+i*8.5,222,516+i*8,262,530+i*6.5,328-rr(0,14),6-i*.6]);
+ S.smearG=lg(0,210,0,330,[RF(.85),RD(.65),RD(.0)]);
+ S.deskB=P2();for(let i=0;i<6;i++){const xx=rr(560,610),w=rr(2,4),l=rr(14,80);S.deskB.moveTo(xx-w/2,345);S.deskB.lineTo(xx-w*.35,345+l);S.deskB.arc(xx,345+l,w*.75,Math.PI,0,true);S.deskB.lineTo(xx+w/2,345);S.deskB.closePath()}S.deskB.rect(548,343,74,4);
+ S.pool=P2();blob(rock(586,480,56,7,.25,14),S.pool);blob(rock(660,488,26,4,.3,9),S.pool);blob(rock(720,494,14,3,.3,8),S.pool);
+ S.floorB=P2();splat(S.floorB,300,486,4,10,0);splat(S.floorB,140,500,3,8,0);
+ /* floor */
+ S.floorG=lg(0,FY,0,H,[G(22),G(12),G(6),G(3)]);S.seams=P2();for(const y of[482,498,520])seg(S.seams,[0,y],[W,y]);for(let r=0;r<3;r++){const y0=[470,482,498][r],y1=[482,498,520][r];for(let x=rr(0,120);x<W;x+=rr(140,240))seg(S.seams,[x,y0],[x,y1])}
+ S.papers=P2();S.ptxt=P2();for(const [x,y,w,a] of[[96,478,34,.3],[140,488,30,-.4],[244,482,36,.1],[330,490,30,.8],[420,478,32,-.2],[470,496,36,.5],[660,478,30,-.6],[60,500,28,.9]]){rrect(S.papers,x,y,w,w*1.3,a,.3);for(let i=0;i<3;i++)rrect(S.ptxt,x,y-4+i*3,w*.6,1,a,.3)}
+ /* hanging lamp */
+ S.lampG=rg(0,0,0,1,[A(255,246,236,1),A(235,225,215,.4),A(200,190,180,0)]);S.coneG=lg(0,204,0,330,[A(245,238,228,.34),A(225,218,210,.12)]);
+ /* exit sign, red */
+ S.redG=rg(0,0,0,1,[A(255,40,40,1),A(190,10,16,.35),A(120,0,0,0)]);
+ /* rift area darkening + vignette */
+ S.darkG=rg(0,0,0,1,[G(0,.62),G(0,.4),G(0,0)]);S.dustG=rg(0,0,0,1,[G(170,1),G(150,.4),G(120,0)]);
+ S.vig=rg(W/2,H*.46,H*.28,W*.7,[A(0,0,0,0),A(6,0,0,.42),A(2,0,0,.86)]);
+ S.motes=mkMotes(50,[0,0,W,H],.7);S.cmotes=mkMotes(26,[320,200,620,330],1.4);
+ S.edgeG=lg(0,0,54,0,[G(2),G(10),G(5)]);S.edgeR=lg(906,0,960,0,[G(5),G(12),G(3)]);
+ S.drop={t:0,per:2.7};
+}
+function drawOffice(S,t,dt){
+ const sw=Math.sin(t*.55)*4,lx=470+sw,
+  /* lamp flicker: steady most of the time, a stutter every few seconds */
+  ph=(t%7.3),fl=ph>6.1&&ph<6.9?(Math.sin(t*61)>-.2?.75:.18)+.1*Math.sin(t*23):.93+.05*Math.sin(t*2.3)+.02*Math.sin(t*9.1);
+ /* wall */
+ c.fillStyle=S.wallG;c.fillRect(0,0,W,FY);
+ c.fillStyle=G(0,.16);c.fill(S.stripe);c.fillStyle=G(120,.05);c.fill(S.dam);
+ c.fillStyle=G(0,.22);c.fill(S.stain);
+ c.fillStyle=S.streakG;for(const s of S.streaks){c.save();c.globalAlpha=s[3];c.translate(s[0],24);c.scale(s[1],s[2]);c.fillRect(-.5,0,1,1);c.restore()}c.globalAlpha=1;
+ c.fillStyle=G(62,.5);c.fill(S.peel);c.strokeStyle=G(4,.6);c.lineWidth=1.5;c.stroke(S.peelE);
+ c.fillStyle=A(46,6,8,.55);c.fill(S.oldB);
+ c.strokeStyle=G(0,.6);c.lineWidth=1.3;c.stroke(S.cracks);c.save();c.translate(1,1);c.strokeStyle=G(120,.07);c.lineWidth=1;c.stroke(S.cracks);c.restore();
+ /* ceiling band */
+ c.fillStyle=lg(0,0,0,30,[G(3),G(10)]);c.fillRect(0,0,W,24);c.fillStyle=G(70,.18);c.fillRect(0,24,W,1.5);
+ /* window: outside sky, a slow red pulse from somewhere outside, blinds */
+ const wn=S.win;c.fillStyle=S.skyG;c.fillRect(wn.x,wn.y,wn.w,wn.h);
+ add(()=>{c.globalAlpha=.25+.2*Math.max(0,Math.sin(t*1.4));c.fillStyle=lg(0,wn.y+wn.h-50,0,wn.y+wn.h,[A(120,0,0,0),A(150,10,14,.7)]);c.fillRect(wn.x,wn.y+wn.h-50,wn.w,50)});
+ c.fillStyle=G(30);c.fill(S.slat);c.fillStyle=G(120,.25);c.fill(S.slatH);c.strokeStyle=G(14);c.lineWidth=1;c.stroke(S.cordP);
+ c.strokeStyle=G(6);c.lineWidth=8;c.strokeRect(wn.x-4,wn.y-4,wn.w+8,wn.h+8);c.fillStyle=G(8);c.fillRect(wn.x-12,wn.y+wn.h+4,wn.w+24,9);c.fillStyle=G(90,.2);c.fillRect(wn.x-12,wn.y+wn.h+4,wn.w+24,1.5);
+ c.fillStyle=G(8);c.fillRect(wn.x+wn.w/2-2,wn.y,4,wn.h);
+ /* corkboard */
+ const bd=S.board;c.fillStyle=G(6);c.fillRect(bd.x-5,bd.y-5,bd.w+10,bd.h+10);c.fillStyle=S.boardG;c.fillRect(bd.x,bd.y,bd.w,bd.h);
+ c.fillStyle=A(178,172,164);c.fill(S.paper);c.fillStyle=A(196,190,182);c.fill(S.photo);c.fillStyle=G(28);c.fill(S.photoIn);c.strokeStyle=G(60,.8);c.lineWidth=1;c.stroke(S.txt);
+ c.strokeStyle=RF(.95);c.lineWidth=1.3;c.stroke(S.strings);c.lineWidth=2.4;c.stroke(S.xMark);c.strokeStyle=RB(.8);c.lineWidth=1.8;c.stroke(S.circ);
+ c.fillStyle=RB(1);for(const p of S.pins){c.beginPath();c.arc(p[0],p[1],2.6,0,TAU);c.fill()}
+ /* clock */
+ const k=S.clk;c.fillStyle=G(8);c.beginPath();c.arc(k.x,k.y,k.r+4,0,TAU);c.fill();c.fillStyle=S.clkG;c.beginPath();c.arc(k.x,k.y,k.r-1,0,TAU);c.fill();c.strokeStyle=G(18);c.lineWidth=2;c.stroke(S.ticks);
+ const sa=2.1+(t%1<.12?.11:0)-(t%1<.06?.05:0);c.strokeStyle=G(12);c.lineCap='round';c.lineWidth=3.6;c.beginPath();c.moveTo(k.x,k.y);c.lineTo(k.x+Math.cos(-2.4)*15,k.y+Math.sin(-2.4)*15);c.moveTo(k.x,k.y);c.lineTo(k.x+Math.cos(1.2)*23,k.y+Math.sin(1.2)*23);c.stroke();
+ c.strokeStyle=RF(1);c.lineWidth=1.3;c.beginPath();c.moveTo(k.x-Math.cos(sa)*6,k.y-Math.sin(sa)*6);c.lineTo(k.x+Math.cos(sa)*27,k.y+Math.sin(sa)*27);c.stroke();c.lineCap='butt';
+ c.fillStyle=G(10);c.beginPath();c.arc(k.x,k.y,3,0,TAU);c.fill();c.strokeStyle=G(230,.35);c.lineWidth=.8;c.stroke(S.glass);
+ /* shelves */
+ c.fillStyle=A(36,34,34);c.fill(S.files);c.fillStyle=G(150,.35);c.fill(S.fileL);
+ c.fillStyle=G(70,.28);c.fill(S.jarP);c.fillStyle=RD(.9);c.fill(S.liq);c.fillStyle=G(6,.85);c.fill(S.spec);c.fillStyle=G(12);c.fill(S.lid);c.fillStyle=G(220,.16);c.fill(S.jarH);c.strokeStyle=G(120,.25);c.lineWidth=1;c.stroke(S.jarP);
+ c.fillStyle=G(10);c.fill(S.shelf);c.fill(S.brk);c.fillStyle=G(110,.18);c.fillRect(684,126,222,1.2);c.fillRect(684,206,222,1.2);
+ /* wainscot */
+ c.fillStyle=S.wainG;c.fillRect(0,372,W,FY-372);c.strokeStyle=G(0,.55);c.lineWidth=2;c.stroke(S.wains);c.strokeStyle=G(90,.08);c.lineWidth=1;c.save();c.translate(1,1);c.stroke(S.wains);c.restore();
+ c.fillStyle=G(7);c.fillRect(0,366,W,9);c.fillStyle=G(110,.16);c.fillRect(0,366,W,1.5);
+ /* blood on the wall */
+ c.fillStyle=RD(.95);c.fill(S.bD);c.fillStyle=RF(.9);c.fill(S.bF);
+ c.strokeStyle=S.smearG;c.lineCap='round';for(const s of S.smear){c.lineWidth=s[6];c.beginPath();c.moveTo(s[0],s[1]);c.bezierCurveTo(s[2],s[3]-20,s[2],s[3],s[4],s[5]);c.stroke()}c.lineCap='butt';
+ c.fillStyle=RF(.92);c.fill(S.hand);
+ /* EXIT sign above the door (red) */
+ c.fillStyle=G(6);c.fillRect(40,40,62,24);const ex=.85+.15*Math.sin(t*3.1)*Math.sin(t*.7);c.fillStyle=A(200*ex,20,24);c.fillRect(43,43,56,18);c.fillStyle=A(255,170,160,.9*ex);c.font='700 13px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('EXIT',71,52.5);
+ add(()=>{ell(S.redG,71,52,80,50,.42*ex)});
+ /* window light shaft (cold grey) */
+ add(()=>{c.globalAlpha=.5+.06*Math.sin(t*.4);c.fillStyle=S.shaftG;c.fill(S.shaft)});
+ fog(S.dustG,t,180,.035,7,70);
+ /* lamp light cone behind the desk, glow pool on the wall */
+ add(()=>{ell(S.lampG,lx,250,190,120,.16*fl);c.fillStyle=S.coneG;c.globalAlpha=.45*fl;c.beginPath();c.moveTo(lx-46,204);c.lineTo(lx+46,204);c.lineTo(646,330);c.lineTo(296,330);c.closePath();c.fill();c.globalAlpha=.55*fl;c.beginPath();c.moveTo(lx-36,204);c.lineTo(lx+36,204);c.lineTo(600,330);c.lineTo(340,330);c.closePath();c.fill()});
+ /* filing cabinet */
+ c.fillStyle=lg(36,0,120,0,[G(16),G(30),G(14)]);c.fill(S.cab);c.fillStyle=G(0,.3);c.fill(S.cabD);c.fillStyle=G(140,.4);c.fill(S.cabH);
+ c.fillStyle=A(170,164,156,.8);c.fill(S.cabPap);c.fillStyle=lg(28,0,128,0,[G(20),G(36),G(18)]);c.fill(S.cabO);c.fillStyle=G(120,.2);c.fillRect(28,334,100,1.5);c.fillStyle=G(140,.4);c.fillRect(66,350,24,4);
+ /* chair */
+ c.fillStyle=lg(150,0,240,0,[G(12),G(26)]);c.fill(S.chair);c.strokeStyle=G(130,.12);c.lineWidth=1;c.stroke(S.chair);
+ /* desk */
+ c.fillStyle=G(4,.6);c.fillRect(382,346,126,124);
+ c.fillStyle=S.deskG;c.fill(S.ped);c.fillStyle=G(0,.28);c.fill(S.drw);c.strokeStyle=G(120,.1);c.lineWidth=1;c.stroke(S.drw);c.strokeStyle=G(0,.25);c.stroke(S.grain);c.fillStyle=G(140,.45);c.fill(S.hdl);c.fillStyle=G(6);c.fill(S.feet);
+ c.fillStyle=lg(382,0,508,0,[G(6),G(12),G(6)]);c.fillRect(382,346,126,52);c.fillStyle=G(0,.4);c.fillRect(382,346,126,4);
+ c.fillStyle=S.deskTopG;c.fillRect(DESK.x0,DESK.y,DESK.x1-DESK.x0,16);
+ c.fillStyle=RD(.95);c.fill(S.deskB);
+ add(()=>{ell(S.lampG,470,346,190,80,.12*fl);ell(S.lampG,(lx+460)/2,337,200,8,.3*fl)});
+ /* the crisp desk top edge at y=330 */
+ c.fillStyle=G(200,.55+.25*fl);c.fillRect(DESK.x0,DESK.y,DESK.x1-DESK.x0,1.5);c.fillStyle=G(0,.6);c.fillRect(DESK.x0,DESK.y+15,DESK.x1-DESK.x0,1.5);
+ /* stopper: books standing on files */
+ c.fillStyle=G(26);c.fill(S.bkFlat);c.fillStyle=A(180,174,166,.5);c.fill(S.bkFlatE);
+ for(const b of S.bk){c.fillStyle=b.col;c.fillRect(b.x,317-b.h,b.w,b.h);c.fillStyle=G(150,.12);c.fillRect(b.x+b.w-1.4,317-b.h,1.4,b.h)}c.fillStyle=G(170,.3);c.fill(S.bkBand);
+ /* floor */
+ c.fillStyle=S.floorG;c.fillRect(0,FY,W,H-FY);c.strokeStyle=G(0,.6);c.lineWidth=1.2;c.stroke(S.seams);c.fillStyle=G(100,.14);c.fillRect(0,FY,W,1.5);
+ c.fillStyle=G(0,.5);c.beginPath();c.ellipse(445,472,215,6,0,0,TAU);c.fill();
+ c.fillStyle=A(120,116,110,.55);c.fill(S.papers);c.fillStyle=G(30,.5);c.fill(S.ptxt);
+ c.fillStyle=RD(.95);c.fill(S.pool);c.fill(S.floorB);add(()=>{c.globalAlpha=.25*fl;c.fillStyle=RB(.6);c.fillRect(560,477,40,1.4)});
+ /* a drop falling from the desk edge into the pool */
+ const d=S.drop;d.t+=dt||0;const q=(d.t%d.per)/d.per;
+ if(q<.5){const r=1+1.6*q/.5;c.fillStyle=RF(1);c.beginPath();c.ellipse(585,347+r,r*.8,r*1.1,0,0,TAU);c.fill()}
+ else{const f=(q-.5)/.5,y=350+f*f*170;if(y<478){c.fillStyle=RF(1);c.beginPath();c.ellipse(585,y,1.6,3.2,0,0,TAU);c.fill()}else{const s=Math.min(1,(y-478)/42);c.strokeStyle=RB(.7*(1-s));c.lineWidth=1.2;c.beginPath();c.ellipse(585,479,3+s*16,1+s*2.5,0,0,TAU);c.stroke()}}
+ /* keep the rift zone dark */
+ c.globalAlpha=1;c.save();c.translate(785,360);c.scale(170,150);c.fillStyle=S.darkG;c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore();
+ /* hanging lamp */
+ c.strokeStyle=G(8);c.lineWidth=2;c.beginPath();c.moveTo(470,0);c.lineTo(lx,172);c.stroke();
+ c.fillStyle=lg(lx-48,0,lx+48,0,[G(14),G(58),G(22)]);c.beginPath();c.moveTo(lx-12,170);c.lineTo(lx+12,170);c.lineTo(lx+48,204);c.lineTo(lx-48,204);c.closePath();c.fill();c.fillStyle=G(170,.35);c.fillRect(lx-48,203,96,1.5);c.strokeStyle=G(150,.25);c.lineWidth=1;c.beginPath();c.moveTo(lx-11,171);c.lineTo(lx-47,203);c.stroke();c.fillStyle=G(8);c.fillRect(lx-6,164,12,8);
+ add(()=>{ell(S.lampG,lx,206,70,40,.6*fl);ell(S.lampG,lx,204,26,8,fl)});
+ fog(S.dustG,t,420,.05,-12,50);
+ motes(S.motes,t,dt||0,[G(200,1)]);motes(S.cmotes,t,dt||0,[A(250,244,236,1)],[320,206,620,330]);
+ /* near foreground: door jamb (left), riser pipe (right), sagging wires at the top */
+ c.fillStyle=S.edgeG;c.fillRect(0,0,34,H);c.fillStyle=G(90,.14);c.fillRect(30,0,2,FY);c.fillStyle=G(4);c.fillRect(0,0,52,30);
+ c.fillStyle=S.edgeR;c.fillRect(912,0,48,H);c.fillStyle=G(110,.13);c.fillRect(922,0,2,H);for(const y of[90,250,410]){c.fillStyle=G(4);c.fillRect(906,y,54,12);c.fillStyle=G(120,.14);c.fillRect(906,y,54,1.2)}
+ c.strokeStyle=G(3);c.lineWidth=3;c.beginPath();c.moveTo(-10,14);c.quadraticCurveTo(140,70+Math.sin(t*.5)*3,290,10);c.moveTo(660,6);c.quadraticCurveTo(780,58+Math.sin(t*.6+1)*3,960,18);c.stroke();
+ c.lineWidth=2;c.beginPath();c.moveTo(860,30);c.quadraticCurveTo(866+Math.sin(t*.7)*3,90,862+Math.sin(t*.7)*5,118);c.stroke();c.fillStyle=G(14);c.beginPath();c.arc(862+Math.sin(t*.7)*5,124,6,0,TAU);c.fill();
+ c.fillStyle=S.vig;c.fillRect(0,0,W,H);
+}
+
+/* =========================================================================================
+   GARAGE: neon (magenta, cyan, purple, a bit of lime) on blue-black. Bottom ~70 px kept dark.
+   ========================================================================================= */
+const PK=(a)=>A(255,46,176,a),CY=(a)=>A(40,228,255,a),PU=(a)=>A(150,70,255,a),LM=(a)=>A(176,255,64,a);
+/* a neon tube: wide faint halo strokes plus a bright core */
+function neon(path,col,core,w,f){c.lineCap='round';c.lineJoin='round';add(()=>{c.strokeStyle=col(.07*f);c.lineWidth=w*7;c.stroke(path);c.strokeStyle=col(.16*f);c.lineWidth=w*3.4;c.stroke(path);c.strokeStyle=col(.9*f);c.lineWidth=w;c.stroke(path)});
+ c.strokeStyle=core(Math.min(1,.85*f));c.lineWidth=w*.4;c.stroke(path);c.lineCap='butt';c.lineJoin='miter'}
+function neonText(s,x,y,font,col,core,w,f){c.font=font;c.textAlign='center';c.textBaseline='middle';c.lineJoin='round';
+ add(()=>{c.strokeStyle=col(.07*f);c.lineWidth=w*7;c.strokeText(s,x,y);c.strokeStyle=col(.18*f);c.lineWidth=w*3;c.strokeText(s,x,y);c.strokeStyle=col(.95*f);c.lineWidth=w;c.strokeText(s,x,y)});
+ c.strokeStyle=core(Math.min(1,.8*f));c.lineWidth=w*.35;c.strokeText(s,x,y);c.lineJoin='miter'}
+const WHT=(a)=>A(255,240,250,a),WHC=(a)=>A(230,255,255,a);
+function initGarage(S){seed=9090;
+ S.backG=lg(0,0,0,H,[A(4,5,14),A(9,9,28),A(14,12,40),A(10,9,30),A(4,4,12)]);
+ S.grid=P2();for(let x=0;x<=W;x+=32)seg(S.grid,[x,40],[x,FY]);for(let y=40;y<FY;y+=32)seg(S.grid,[0,y],[W,y]);
+ S.panel=P2();for(let x=0;x<=W;x+=160)seg(S.panel,[x,40],[x,FY]);for(const y of[150,300])seg(S.panel,[0,y],[W,y]);
+ S.rivet=P2();for(let x=0;x<=W;x+=160)for(const y of[150,300]){for(const dx of[-6,6])for(const dy of[-6,6]){S.rivet.moveTo(x+dx+1.4,y+dy);S.rivet.arc(x+dx,y+dy,1.4,0,TAU)}}
+ /* ceiling trusses */
+ S.truss=P2();seg(S.truss,[0,8],[W,8]);seg(S.truss,[0,34],[W,34]);for(let x=0;x<W;x+=40){seg(S.truss,[x,8],[x+20,34]);seg(S.truss,[x+20,34],[x+40,8])}
+ S.pipe=P2();S.pipe.rect(0,44,W,10);S.pipeJ=P2();for(let x=30;x<W;x+=150)S.pipeJ.rect(x,41,10,16);
+ /* ceiling tube lights + cones */
+ S.tubes=[[90,250],[390,570],[710,870]];S.coneG=lg(0,60,0,FY,[CY(.13),CY(.04),CY(0)]);S.tubeG=lg(0,40,0,80,[CY(0),CY(.5),CY(0)]);
+ /* shutters */
+ S.sh=[{x:74,w:236,y:168,open:0,col:PK},{x:650,w:236,y:168,open:20,col:PU}];
+ for(const s of S.sh){s.bot=FY-2-s.open;s.sl=P2();s.slH=P2();for(let y=s.y+6;y<s.bot-12;y+=11){seg(s.sl,[s.x,y],[s.x+s.w,y]);s.slH.rect(s.x,y+1.5,s.w,1)}
+  s.g=lg(0,s.y,0,s.bot,[A(40,40,74),A(26,26,52),A(16,15,34)]);s.haz=P2();for(let x=s.x-10;x<s.x+s.w;x+=16)poly(s.haz,[[x,s.bot-12],[x+8,s.bot-12],[x+16,s.bot],[x+8,s.bot]])}
+ S.leakG=lg(0,FY-22,0,FY+30,[CY(.5),CY(.15),CY(0)]);
+ /* neon signs: lightning badge (left), wrench hexagon (right), chevrons, underline */
+ S.badge=P2();S.badge.moveTo(232,96);S.badge.arc(192,96,40,0,TAU);poly(S.badge,[[198,66],[178,100],[194,100],[184,128],[208,90],[192,90]]);
+ S.hex=P2();{const pts=[];for(let i=0;i<6;i++){const a=i/6*TAU+Math.PI/6;pts.push([768+Math.cos(a)*40,96+Math.sin(a)*40])}poly(S.hex,pts)}
+ S.wr=P2();{const p=S.wr;p.moveTo(752,116);p.lineTo(778,86);p.moveTo(786,80);p.arc(781,82,9,-.1,TAU*.78)}
+ S.chev=[0,1,2,3].map(i=>{const p=P2(),y=190+i*26;p.moveTo(629,y);p.lineTo(637,y+9);p.lineTo(629,y+18);return p});
+ S.under=P2();S.under.moveTo(360,128);S.under.lineTo(600,128);
+ /* pegboard with tools */
+ S.peg={x:336,y:170,w:166,h:126};S.holes=P2();for(let y=S.peg.y+8;y<S.peg.y+S.peg.h;y+=10)for(let x=S.peg.x+8;x<S.peg.x+S.peg.w;x+=10){S.holes.rect(x,y,1.4,1.4)}
+ S.tools=P2();{const p=S.tools;
+  /* wrenches */for(const [x,l] of[[356,70],[372,58],[386,48]]){p.rect(x-2.5,186,5,l);p.moveTo(x+7,186);p.arc(x,186,7,0,TAU)}
+  /* hammer */p.rect(410,184,26,10);p.rect(420,194,6,64);
+  /* screwdrivers */for(const x of[450,462,474]){p.rect(x-3,184,6,22);p.rect(x-1,206,2,34)}
+  /* saw */poly(p,[[348,262],[432,262],[432,284],[360,284]]);p.rect(432,260,14,26);
+  /* drill */p.rect(452,252,40,14);p.rect(462,266,10,24);}
+ /* monitors */
+ S.mon=[{x:516,y:172,w:104,h:58},{x:516,y:236,w:104,h:58}];S.monG=lg(0,0,0,1,[A(6,24,40),A(4,14,28)]);
+ S.monL=[];for(let i=0;i<14;i++)S.monL.push([rr(6,50),rr(.3,1),R()<.25]);S.wave=[];for(let i=0;i<=40;i++)S.wave.push(rr(-1,1));
+ /* car lift + hover bike */
+ S.lift=P2();S.lift.rect(352,452,256,12);S.lift.rect(364,390,232,10);S.arms=P2();for(const [a,b] of[[372,560],[400,588]]){seg(S.arms,[a,452],[b,400]);seg(S.arms,[b,452],[a,400])}
+ S.bike=P2();{const p=S.bike;p.moveTo(386,356);p.bezierCurveTo(392,326,436,314,480,316);p.lineTo(520,306);p.bezierCurveTo(548,300,578,310,590,324);p.bezierCurveTo(598,334,596,348,582,352);p.lineTo(540,356);p.bezierCurveTo(520,370,450,372,420,366);p.bezierCurveTo(400,364,386,362,386,356);p.closePath();
+  p.moveTo(470,316);p.bezierCurveTo(480,298,512,296,522,306);p.lineTo(500,312);p.closePath()}
+ S.bikeG=lg(0,300,0,372,[A(60,56,110),A(26,24,56),A(10,9,24)]);
+ S.bikeLine=P2();S.bikeLine.moveTo(404,346);S.bikeLine.bezierCurveTo(440,338,500,336,576,334);S.bikeCan=P2();S.bikeCan.moveTo(480,316);S.bikeCan.bezierCurveTo(492,302,512,300,520,306);
+ S.pods=P2();S.pods.ellipse(424,368,30,8,0,0,TAU);S.pods.ellipse(548,362,30,8,0,0,TAU);
+ /* tool cabinet + crates */
+ S.cart=P2();S.cart.rect(300,386,46,78);S.cartD=P2();for(const y of[394,412,430,448])S.cartD.rect(304,y,38,14);
+ S.crate=P2();S.crate.rect(610,420,44,46);S.crate.rect(618,386,32,34);S.crateX=P2();seg(S.crateX,[610,420],[654,466]);seg(S.crateX,[654,420],[610,466]);seg(S.crateX,[618,386],[650,420]);
+ /* hanging cables (catenaries) */
+ S.cab=[];for(const [x0,x1,sag,w,col] of[[60,340,90,3,0],[300,520,60,2.4,1],[540,760,110,3,0],[720,930,70,2.2,2],[150,260,40,2,1]])S.cab.push({x0,x1,sag,w,col,ph:rr(0,TAU)});
+ S.drop=[];for(const [x,l] of[[264,120],[600,96],[818,140]])S.drop.push({x,l,ph:rr(0,TAU)});
+ /* floor light pools / reflections */
+ S.dot=rg(0,0,0,1,[A(255,255,255,1),A(255,255,255,.35),A(255,255,255,0)]);
+ S.pPK=rg(0,0,0,1,[PK(.9),PK(.3),PK(0)]);S.pCY=rg(0,0,0,1,[CY(.9),CY(.3),CY(0)]);S.pPU=rg(0,0,0,1,[PU(.9),PU(.3),PU(0)]);S.pLM=rg(0,0,0,1,[LM(.9),LM(.3),LM(0)]);
+ S.fogG=rg(0,0,0,1,[A(120,80,220,1),A(90,60,200,.4),A(60,40,160,0)]);S.fogC=rg(0,0,0,1,[A(40,160,220,1),A(30,120,200,.4),A(20,60,160,0)]);
+ S.floorG=lg(0,FY-30,0,H,[A(4,4,14,0),A(4,4,14,.7),A(3,3,10,.95),A(2,2,7,1)]);
+ S.vig=rg(W/2,H*.46,H*.3,W*.72,[A(0,0,8,0),A(2,0,14,.38),A(0,0,6,.82)]);
+ S.motes=mkMotes(60,[0,0,W,H],1,3);
+ /* foreground pillar (left) and hanging bundle (right) */
+ S.pilG=lg(0,0,64,0,[A(3,3,10),A(14,14,32),A(6,6,16)]);S.pilHaz=P2();for(let y=400;y<H;y+=18)poly(S.pilHaz,[[0,y],[60,y-20],[60,y-11],[0,y+9]]);
+}
+function cat(x0,x1,y0,sag){c.moveTo(x0,y0);c.quadraticCurveTo((x0+x1)/2,y0+sag*2,x1,y0)}
+function drawGarage(S,t,dt){
+ c.fillStyle=S.backG;c.fillRect(0,0,W,H);
+ c.strokeStyle=A(70,110,255,.06);c.lineWidth=1;c.stroke(S.grid);c.strokeStyle=A(90,110,200,.2);c.lineWidth=2;c.stroke(S.panel);c.fillStyle=A(120,140,255,.25);c.fill(S.rivet);
+ /* a slow scan band moving down the back wall grid */
+ const sy=40+((t*38)%520);add(()=>{c.fillStyle=lg(0,sy-40,0,sy,[CY(0),CY(.06)]);c.fillRect(0,sy-40,W,40)});
+ /* big wall glows behind the signs */
+ add(()=>{ell(S.pPK,480,100,340,120,.22);ell(S.pPU,192,96,150,120,.2);ell(S.pCY,768,96,150,120,.2)});
+ /* ceiling */
+ c.fillStyle=A(3,3,10);c.fillRect(0,0,W,40);c.strokeStyle=A(26,26,56);c.lineWidth=3;c.stroke(S.truss);c.strokeStyle=A(90,90,180,.18);c.lineWidth=1;c.stroke(S.truss);
+ c.fillStyle=lg(0,44,0,54,[A(40,40,80),A(16,16,36)]);c.fill(S.pipe);c.fillStyle=A(10,10,24);c.fill(S.pipeJ);
+ /* neon signs */
+ const f1=.92+.08*Math.sin(t*3),glitch=(t%5.7)>5.2?(Math.sin(t*70)>0?.25:1):1;
+ neonText('GARAGE',480,86,'italic 900 70px sans-serif',PK,WHT,3.2,f1);
+ neon(S.under,CY,WHC,3,.95);
+ neonText('HOVER REPAIR · NO.7',480,150,'700 19px sans-serif',CY,WHC,1.4,glitch*(.9+.1*Math.sin(t*5)));
+ neon(S.badge,PU,WHT,3,.9+.1*Math.sin(t*2.2+1));neon(S.hex,CY,WHC,3,.95);neon(S.wr,CY,WHC,4,.95);
+ /* shutters */
+ for(const s of S.sh){c.fillStyle=A(5,5,14);c.fillRect(s.x-10,s.y-14,s.w+20,FY-s.y+14);c.fillStyle=s.g;c.fillRect(s.x,s.y,s.w,s.bot-s.y);
+  c.strokeStyle=A(0,0,0,.55);c.lineWidth=1.5;c.stroke(s.sl);c.fillStyle=A(150,150,255,.07);c.fill(s.slH);
+  c.fillStyle=LM(.75);c.fill(s.haz);c.fillStyle=A(20,20,10,.5);c.fillRect(s.x,s.bot-12,s.w,12);
+  c.fillStyle=A(12,12,30);c.fillRect(s.x-14,s.y-18,s.w+28,10);
+  const p=P2();p.moveTo(s.x-6,s.y-13);p.lineTo(s.x+s.w+6,s.y-13);neon(p,s.col,WHT,2.4,.9+.1*Math.sin(t*2+s.x));
+  /* status light */
+  const on=Math.sin(t*3+s.x)>0;c.fillStyle=on?LM(1):A(30,50,20);c.beginPath();c.arc(s.x+s.w+3,s.y+40,3,0,TAU);c.fill();if(on)add(()=>ell(S.pLM,s.x+s.w+3,s.y+40,14,14,.6));
+  if(s.open){c.fillStyle=A(30,40,70);c.fillRect(s.x,s.bot,s.w,FY-s.bot);add(()=>{const k=.8+.2*Math.sin(t*1.7);c.globalAlpha=k;c.fillStyle=lg(0,s.bot,0,FY,[CY(.08),CY(.45)]);c.fillRect(s.x,s.bot,s.w,FY-s.bot);c.globalAlpha=.5*k;c.fillStyle=S.leakG;c.fillRect(s.x-30,FY-22,s.w+60,52);ell(S.pCY,s.x+s.w/2,FY,s.w*.7,22,.35*k)})}}
+ /* chevrons (lime, sequential) */
+ for(let i=0;i<4;i++){const on=((t*3|0)%5)===i||((t*3|0)%5)===i+1;neon(S.chev[i],LM,WHT,2.6,on?1:.18)}
+ /* light cones from the tube lights */
+ add(()=>{for(const [a,b] of S.tubes){c.globalAlpha=.9+.1*Math.sin(t*.7+a);c.fillStyle=S.coneG;c.beginPath();c.moveTo(a,60);c.lineTo(b,60);c.lineTo(b+70,FY);c.lineTo(a-70,FY);c.closePath();c.fill()}});
+ fog(S.fogG,t,240,.05,10,80);
+ /* pegboard */
+ const pg=S.peg;c.fillStyle=A(14,14,34);c.fillRect(pg.x,pg.y,pg.w,pg.h);c.fillStyle=A(0,0,0,.6);c.fill(S.holes);c.fillStyle=A(8,8,20);c.fill(S.tools);c.strokeStyle=CY(.35);c.lineWidth=1;c.stroke(S.tools);
+ c.strokeStyle=A(60,60,120,.5);c.lineWidth=2;c.strokeRect(pg.x,pg.y,pg.w,pg.h);
+ /* monitors with scrolling readouts */
+ for(let m=0;m<2;m++){const M=S.mon[m];c.fillStyle=A(6,6,14);c.fillRect(M.x-5,M.y-5,M.w+10,M.h+10);c.save();c.translate(M.x,M.y);c.scale(M.w,M.h);c.fillStyle=S.monG;c.fillRect(0,0,1,1);c.restore();
+  c.save();c.beginPath();c.rect(M.x,M.y,M.w,M.h);c.clip();
+  add(()=>{if(m===0){const off=(t*14)%7;for(let i=0;i<S.monL.length;i++){const L=S.monL[(i+((t*2)|0))%S.monL.length],y=M.y+4+i*7-off;c.fillStyle=L[2]?LM(.75):CY(.55*L[1]+.2);c.fillRect(M.x+6,y,L[0]*1.6,3)}}
+   else{c.strokeStyle=PK(.85);c.lineWidth=1.6;c.beginPath();for(let i=0;i<=40;i++){const x=M.x+i*M.w/40,y=M.y+M.h/2+Math.sin(i*.5+t*4)*10*S.wave[(i+((t*6)|0))%41]*.6+Math.sin(i*.9-t*3)*6;i?c.lineTo(x,y):c.moveTo(x,y)}c.stroke();
+    c.fillStyle=CY(.4);for(let i=0;i<8;i++){const h=8+14*Math.abs(Math.sin(t*2+i));c.fillRect(M.x+6+i*6,M.y+M.h-4-h,4,h)}}
+   c.fillStyle=CY(.05);c.fillRect(M.x,M.y,M.w,M.h)});c.restore();
+  add(()=>ell(m?S.pPK:S.pCY,M.x+M.w/2,M.y+M.h/2,M.w*.9,M.h,.14))}
+ /* vertical pipe */
+ c.fillStyle=lg(326,0,338,0,[A(14,14,30),A(46,46,90),A(14,14,30)]);c.fillRect(324,54,12,FY-54);
+ /* tool cart, crates */
+ c.fillStyle=A(40,10,44);c.fill(S.cart);c.fillStyle=A(0,0,0,.35);c.fill(S.cartD);c.fillStyle=PK(.5);for(const y of[400,418,436,454])c.fillRect(316,y,14,2);
+ c.fillStyle=A(16,16,34);c.fill(S.crate);c.strokeStyle=A(80,80,160,.3);c.lineWidth=1.5;c.stroke(S.crate);c.stroke(S.crateX);
+ /* lift and hover bike */
+ c.strokeStyle=A(30,30,60);c.lineWidth=7;c.stroke(S.arms);c.strokeStyle=A(110,110,200,.25);c.lineWidth=1.5;c.stroke(S.arms);
+ c.fillStyle=A(20,20,44);c.fill(S.lift);c.fillStyle=LM(.65);for(let x=356;x<604;x+=24)c.fillRect(x,452,12,3);c.fillStyle=A(140,140,255,.2);c.fillRect(364,390,232,1.5);
+ const bob=Math.sin(t*1.6)*3,ug=.75+.25*Math.sin(t*3.1);
+ add(()=>{ell(S.pPU,480,394,150,18,.7*ug);ell(S.pPK,424,370+bob,46,14,.6*ug);ell(S.pPK,548,364+bob,46,14,.6*ug)});
+ c.save();c.translate(0,bob);c.fillStyle=S.bikeG;c.fill(S.bike);c.fillStyle=A(10,10,26);c.fill(S.pods);
+ neon(S.bikeLine,PK,WHT,2,.9);c.strokeStyle=CY(.5);c.lineWidth=1.5;c.stroke(S.bikeCan);c.strokeStyle=A(170,170,255,.25);c.lineWidth=1;c.stroke(S.bike);
+ add(()=>{c.fillStyle=CY(1);c.fillRect(586,326,6,3);ell(S.pCY,596,328,40,10,.6);c.globalAlpha=.12;c.fillStyle=lg(590,0,760,0,[CY(1),CY(0)]);c.beginPath();c.moveTo(590,326);c.lineTo(760,300);c.lineTo(760,360);c.closePath();c.fill()});
+ c.restore();
+ /* floor reflections (fade out before the game's floor) */
+ add(()=>{ell(S.pPK,480,FY-4,260,20,.3);ell(S.pPU,192,FY-2,120,14,.2);ell(S.pCY,568,FY-2,90,12,.2);ell(S.pPU,480,FY+4,140,10,.35*ug);
+  c.globalAlpha=.1;c.fillStyle=lg(0,FY-60,0,FY,[PK(0),PK(1)]);c.fillRect(380,FY-60,200,60)});
+ c.fillStyle=S.floorG;c.fillRect(0,FY-30,W,H-FY+30);c.fillStyle=A(120,120,255,.12);c.fillRect(0,FY,W,1.2);
+ /* hanging cables */
+ c.lineCap='round';for(const k of S.cab){const sw=Math.sin(t*.6+k.ph)*4;c.strokeStyle=A(4,4,12);c.lineWidth=k.w;c.beginPath();cat(k.x0,k.x1,40,k.sag/2+sw);c.stroke();
+  c.strokeStyle=[PK,CY,PU][k.col](.22);c.lineWidth=1;c.beginPath();cat(k.x0,k.x1,39,k.sag/2+sw);c.stroke()}
+ for(const d of S.drop){const sw=Math.sin(t*.8+d.ph)*3;c.strokeStyle=A(4,4,12);c.lineWidth=2.4;c.beginPath();c.moveTo(d.x,40);c.quadraticCurveTo(d.x,40+d.l*.6,d.x+sw,40+d.l);c.stroke();c.fillStyle=A(10,10,22);c.fillRect(d.x+sw-4,40+d.l,8,12);
+  add(()=>{c.fillStyle=LM(.9);c.fillRect(d.x+sw-1,40+d.l+12,2,3);ell(S.pLM,d.x+sw,40+d.l+13,8,8,.5)})}
+ c.lineCap='butt';
+ fog(S.fogC,t,420,.04,-14,50);
+ motes(S.motes,t,dt||0,[CY(1),PK(1),PU(1)]);
+ /* foreground: left pillar with neon strip, right hanging cable bundle and hook */
+ c.fillStyle=S.pilG;c.fillRect(0,0,62,H);c.fillStyle=A(0,0,0,.6);c.fill(S.pilHaz);c.save();c.beginPath();c.rect(0,380,62,H-380);c.clip();c.fillStyle=LM(.16);c.translate(0,9);c.fill(S.pilHaz);c.restore();
+ const ps=P2();ps.moveTo(54,70);ps.lineTo(54,360);neon(ps,PK,WHT,2.6,.95+.05*Math.sin(t*4));
+ c.fillStyle=lg(62,0,120,0,[A(0,0,6,.5),A(0,0,6,0)]);c.fillRect(62,0,58,H);
+ c.strokeStyle=A(2,2,8);c.lineCap='round';for(const [x,l,w,ph] of[[918,260,7,0],[934,330,5,1],[948,200,6,2],[904,170,3,3]]){const sw=Math.sin(t*.5+ph)*4;c.lineWidth=w;c.beginPath();c.moveTo(x,-5);c.quadraticCurveTo(x,l*.6,x+sw,l);c.stroke()}
+ c.lineWidth=4;c.beginPath();const hx=918+Math.sin(t*.5)*4;c.arc(hx-8,272,9,0,Math.PI*1.2);c.stroke();c.lineCap='butt';
+ c.fillStyle=A(2,2,8);c.fillRect(0,0,W,6);
+ c.fillStyle=S.vig;c.fillRect(0,0,W,H);
+}
+
+const SC={office:{init:initOffice,draw:drawOffice},garage:{init:initGarage,draw:drawGarage}};
+return {draw(name,ctx,t,dt){const S=SC[name];if(!S)return;c=ctx;c.save();if(!S.built){S.init(S);S.built=true}S.draw(S,t||0,dt||0);c.restore()}};
+})();
+
 /* ===== Sewer area paintings (from the Sewer Caves gallery), drawn as the far background of the sewer rooms ===== */
 const SEWER=(()=>{
 const W=960,H=540,TAU=Math.PI*2,WY=462;
@@ -1259,7 +1620,7 @@ return {SCENES,draw(i,ctx,t,dt){const S=SCENES[i];if(!S.built)build(S);c=ctx;dra
 })();
 const FACT_N=SC.length;
 [7,0,1,2,3,4,5,6,8,9,10,11,12,13,14].forEach((p,k)=>add({name:k?SEWER.SCENES[p].name:'Long Corridor',sewer:true,paint:p,wall:()=>{}}));
-add({name:'Drain Pipe',sewer:true,pipe:1,paint:0,wall:()=>{}});add({name:'Pipe Shaft',sewer:true,pipe:2,paint:0,wall:()=>{}});[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,19,18].forEach(b=>add({name:PRISON.SCENES[b].name,sewer:true,prison:b,paint:0,wall:()=>{}}));
+add({name:'Drain Pipe',sewer:true,pipe:1,paint:0,wall:()=>{}});add({name:'Pipe Shaft',sewer:true,pipe:2,paint:0,wall:()=>{}});[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,19,18].forEach(b=>add({name:PRISON.SCENES[b].name,sewer:true,prison:b,paint:0,wall:()=>{}}));add({name:'The Garage',sewer:true,tut:1,paint:0,wall:()=>{}});
 /* ---- pre-rendering and the scrolling, layered draw ---- */
 function prepScene(sc,Q){if(sc._wall||sc.sewer)return;const cv=document.createElement('canvas');cv.width=(WW+160)*Q;cv.height=(HH+80)*Q;const c=cv.getContext('2d');c.setTransform(Q,0,0,Q,80*Q,40*Q);sc.wall(c);sc._wall=cv}
 function tile(c,shift,fn){const s=((shift%WW)+WW)%WW;c.save();c.translate(-s,0);fn();c.restore();c.save();c.translate(WW-s,0);fn();c.restore()}
@@ -1365,7 +1726,7 @@ function step(){clock+=1/60;
  if(me.atk>=8&&me.atk<=20){for(const e of ENM){if(e.dead||e.hitId===me.atkId||e.state==='intro'||e.sub||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e),sx=me.x+me.atkFace*44,sy=me.y-36;
   let hit;if(e.type==='boss'){const hy=clamp(sy,e.y-80,e.y+85);hit=Math.hypot(e.x-sx,hy-sy)<=51+74&&(e.x-me.x)*me.atkFace>-70}else hit=Math.hypot(ec[0]-sx,ec[1]-sy)<=51+e.r*.9&&(ec[0]-me.x)*me.atkFace>-14;
   if(hit){e.hitId=me.atkId;if(shieldBlocks(e,me.x)){clank(e);me.vx=-me.atkFace*4}else damageEnemy(e,critDamage(slashDmg()))}}}
- {const tm=timeMode();FRAMEN++;if(!tm||(tm==='slow'&&FRAMEN%3===0)){updateEnemies();updateBullets()}}updateDrops();updateShots();prisonStep();signStep();if(timeMode()!=='stop')puzStep();
+ {const tm=timeMode();FRAMEN++;if(!tm||(tm==='slow'&&FRAMEN%3===0)){updateEnemies();updateBullets()}}updateDrops();updateShots();prisonStep();signStep();tutStep();if(timeMode()!=='stop')puzStep();
  if(me.inv<=0)for(const e of ENM){if(e.dead||e.sub||e.bg||(e.type==='boss'&&e.state!=='dash')||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e);if(Math.hypot(ec[0]-me.x,ec[1]-(me.y-30))<16+e.r*.85){playerHit(e,ec);break}}
  if((room===0||(isSewer()&&SWI&&SWI.blockL)||puzLockL())&&me.x<WALLW+16){me.x=WALLW+16;me.vx=Math.max(0,me.vx)}if((room===FORGE_ROOM||(isSewer()&&SWI&&SWI.blockR)||puzLockR())&&me.x>WORLD-WALLW-16){me.x=WORLD-WALLW-16;me.vx=Math.min(0,me.vx)}if(EV.on&&room===0)me.x=clamp(me.x,WALLW+16,WORLD-60);
  if(bossAlive()||CUT.on){me.x=clamp(me.x,14,WORLD-14)}else if(me.x>WORLD-8){me.x=40;setRoom(room+1);if(!CUT.on)cam=0}else if(me.x<8){me.x=WORLD-40;setRoom(room-1);if(room===SEW_LAST)me.x=WORLD-230;cam=WORLD-WW}
@@ -2591,8 +2952,8 @@ function drawTalk(c){if(!TALK.on)return;const t=TALK.t,e=TALK.who==='god'?ENM.fi
    a long rusty pipe with rats, then a tall vertical shaft you climb, and at the top you
    come up through the floor of the prison. The prison rooms use the PRISON paintings. */
 const PIPE_A=SEW_LAST+1,PIPE_B=SEW_LAST+2,PRISON_A=SEW_LAST+3,PCEIL=350,PBR=1740,PTOP=330;
-function isExtra(r){const s=SC[r];return !!(s&&(s.pipe||s.prison!==undefined))}
-function extraInfo(r){
+function isExtra(r){const s=SC[r];return !!(s&&(s.pipe||s.tut||s.prison!==undefined))}
+function extraInfo(r){if(SC[r].tut)return {holes:[],tops:[],blockL:true,blockR:true};
  if(r===PIPE_A)return {holes:[],tops:[{x:PBR,to:PIPE_B}],blockL:false,blockR:true};
  if(r===PIPE_B)return {holes:[{x:PBR,to:PIPE_A,gy:560}],tops:[{x:PTOP,to:PRISON_A}],blockL:true,blockR:true};
  return prisonInfo(r)}
@@ -2608,7 +2969,7 @@ function genExtra(safeX){WL=null;camYmin=0;camYmax=560+90-HH;const far=x=>Math.a
   const n=11;for(let k=0;k<n;k++){const y=Math.round(470-k*(470-(SWTOP+60))/(n-1)),x=Math.round(1560-k*(1560-PTOP)/(n-1)+(k%2?70:-70)*(k>0&&k<n-1?1:0)),wide=k===2||k===5||k===8,w=wide?300:170;
    const x0=clamp(x-w/2,WALLW+10,WORLD-WALLW-10-w);PLAT.push({x0,x1:x0+w,y,cx:x0+w/2});if(wide){const r=mkRat(x0+w/2,y,x0+20,x0+w-20);r.platY=y;ENM.push(r)}}
   ENM.push(mkRat(900,560,600,1300));return}
- genPrison(safeX)}
+ if(SC[room].tut){genTut();return}genPrison(safeX)}
 
 /* ---------- walking into the pipe and the low pipe ceiling ---------- */
 function pipeCeil(){if(room!==PIPE_A)return;if(Math.abs(me.x-PBR)<96)return;if(me.y-100<PCEIL){me.y=PCEIL+100;if(me.vy<0)me.vy=0}}
@@ -2616,7 +2977,7 @@ function pipeCeil(){if(room!==PIPE_A)return;if(Math.abs(me.x-PBR)<96)return;if(m
 /* ---------- drawing ---------- */
 const IRON=['#151a19','#2c3331','#3c4542','#2a302e','#121615'];
 function hsh(n){n=Math.sin(n*127.1)*43758.5453;return n-Math.floor(n)}
-function drawExtraBack(c,t){const s=SC[room];
+function drawExtraBack(c,t){const s=SC[room];if(s.tut){const px=(cam/(WORLD-WW))*40;c.save();c.translate(-px,0);c.scale(1.09,1.09);INTROBG.draw('garage',c,t,0);c.restore();c.fillStyle='rgba(4,2,12,.18)';c.fillRect(0,0,WW,HH);return true}
  if(s.prison!==undefined){const px=(cam/(WORLD-WW))*40,py=(camYmax?camY/camYmax:0)*30;c.save();c.translate(-px,-py);c.scale(1.09,1.09);PRISON.draw(s.prison,c,t,0);c.restore();c.fillStyle='rgba(6,6,8,.22)';c.fillRect(0,0,WW,HH);return true}
  if(!s.pipe)return false;
  c.fillStyle='#070909';c.fillRect(0,0,WW,HH);
@@ -2639,7 +3000,7 @@ function drawExtraBack(c,t){const s=SC[room];
  for(let k=0;k<9;k++){const x=k*113+40,h=hsh(k+7);c.fillStyle=lgrad(c,0,0,0,HH,['rgba(120,70,40,0)','rgba(120,70,40,'+(.12+h*.18)+')','rgba(120,70,40,0)']);c.fillRect(x,0,6+h*12,HH)}
  c.save();c.globalCompositeOperation='lighter';const ty=SWTOP-camY,tx=PTOP-cam;c.fillStyle=lgrad(c,0,ty,0,ty+900,['rgba(220,225,230,.32)','rgba(200,210,215,0)']);c.beginPath();c.moveTo(tx-100,ty);c.lineTo(tx+100,ty);c.lineTo(tx+260,ty+900);c.lineTo(tx-260,ty+900);c.closePath();c.fill();c.restore();
  return true}
-function drawExtraTerrain(c,cam){const s=SC[room];if(!isExtra(room))return false;const bot=camY+HH+80,pr=s.prison!==undefined;
+function drawExtraTerrain(c,cam){const s=SC[room];if(!isExtra(room))return false;if(s.tut){drawTutFloor(c,cam);return true}const bot=camY+HH+80,pr=s.prison!==undefined;
  for(const q of TER){if(q.hole)continue;const x0=q.x0-cam,x1=q.x1-cam;if(x1<-20||x0>WW+20)continue;
   if(pr){c.fillStyle=lgrad(c,0,q.y,0,q.y+260,['#4a4a4e','#2a2a2e','#121214']);c.fillRect(x0,q.y,x1-x0,bot-q.y);
    c.save();c.beginPath();c.rect(x0,q.y,x1-x0,bot-q.y);c.clip();c.strokeStyle='rgba(0,0,0,.45)';c.lineWidth=1.4;for(let yy=q.y+26,r=0;yy<bot;yy+=26,r++){c.beginPath();c.moveTo(x0,yy);c.lineTo(x1,yy);c.stroke();for(let xx=q.x0-(q.x0%70)+(r%2?35:0);xx<q.x1;xx+=70){c.beginPath();c.moveTo(xx-cam,yy);c.lineTo(xx-cam,yy-26);c.stroke()}}c.restore();
@@ -2659,13 +3020,13 @@ function drawExtraTerrain(c,cam){const s=SC[room];if(!isExtra(room))return false
    /* drips */
    for(let k=0;k<14;k++){const wx=k*137+60;if(Math.abs(wx-PBR)<130)continue;const x=wx-cam;if(x<-10||x>WW+10)continue;const p=(clock*.7+hsh(k))%1;c.fillStyle='rgba(160,230,200,'+(.6-p*.4)+')';c.beginPath();c.ellipse(x,PCEIL+8+p*200,1.6,3.4,0,0,TAU);c.fill()}}}
  return true}
-function drawExtraPlat(c,p,cam){if(!isExtra(room))return false;const x=p.x0-cam,w=p.x1-p.x0,y=p.y;if(x>WW+20||x+w<-20)return true;
+function drawExtraPlat(c,p,cam){if(!isExtra(room))return false;if(SC[room].tut){drawCrate(c,p,cam);return true}const x=p.x0-cam,w=p.x1-p.x0,y=p.y;if(x>WW+20||x+w<-20)return true;
  if(SC[room].prison!==undefined){rrect(c,x,y,w,16,3);c.fillStyle=lgrad(c,0,y,0,y+16,['#9a9aa0','#55555a','#2c2c30']);c.fill();c.strokeStyle='rgba(0,0,0,.9)';c.lineWidth=2.4;c.stroke();return true}
  c.fillStyle=lgrad(c,0,y,0,y+14,['#6a736f','#3c4542','#1c2120']);c.fillRect(x,y,w,14);c.strokeStyle='rgba(0,0,0,.9)';c.lineWidth=2.4;c.strokeRect(x,y,w,14);
  c.strokeStyle='rgba(0,0,0,.45)';c.lineWidth=1.2;for(let k=10;k<w-4;k+=12){c.beginPath();c.moveTo(x+k,y+2);c.lineTo(x+k-6,y+12);c.stroke()}
  c.strokeStyle='#2c3331';c.lineWidth=4;for(const bx of[x+16,x+w-16]){c.beginPath();c.moveTo(bx,y+14);c.lineTo(bx+(bx<x+w/2?-10:10),y+34);c.stroke()}
  c.fillStyle='rgba(120,70,40,.5)';c.fillRect(x+w*.35,y+14,4,10+Math.sin(x)*4);return true}
-function drawExtraWall(c,x0,cam){if(!isExtra(room))return false;const x=x0-cam;if(x<-WALLW-60||x>WW+60)return true;const pr=SC[room].prison!==undefined;
+function drawExtraWall(c,x0,cam){if(!isExtra(room))return false;if(SC[room].tut){drawTutWall(c,x0,cam);return true}const x=x0-cam;if(x<-WALLW-60||x>WW+60)return true;const pr=SC[room].prison!==undefined;
  c.fillStyle=pr?lgrad(c,x,0,x+WALLW,0,['#1a1a1c','#4a4a4e','#1a1a1c']):lgrad(c,x,0,x+WALLW,0,IRON);c.fillRect(x,camY-30,WALLW,HH+80);c.strokeStyle='rgba(0,0,0,.9)';c.lineWidth=3;c.strokeRect(x,camY-30,WALLW,HH+80);
  c.strokeStyle='rgba(0,0,0,.45)';c.lineWidth=1.3;const st=pr?28:140;for(let y=Math.floor((camY-30)/st)*st;y<camY+HH+50;y+=st){c.beginPath();c.moveTo(x,y);c.lineTo(x+WALLW,y);c.stroke()}return true}
 /* the pipe mouths, and the gate at the end of the prison hall */
@@ -3067,6 +3428,112 @@ function drawPadToast(c){const k=(performance.now()-PAD.toast)/1000;if(k<0||k>3)
  c.fillStyle='#fff3cf';c.textAlign='center';c.textBaseline='middle';c.fillText(s,WW/2+12,y+18);
  c.strokeStyle='#fff3cf';c.lineWidth=2;rrect(c,x+14,y+11,26,15,6);c.stroke();c.beginPath();c.arc(x+21,y+18.5,2.4,0,TAU);c.arc(x+33,y+18.5,2.4,0,TAU);c.fill();c.restore()}
 
+/* ===================== OPENING: the desk, the rift and the neon garage =====================
+   A new game starts with only the glass head lying on a bloody desk. Roll it left and right
+   until it tumbles off the edge into a strange rift. It drops into its body waiting in a pod
+   in a neon garage, where a short tutorial teaches moving, jumping, striking and refilling.
+   Then the garage door opens to room 1 and closes behind you. */
+const TUT_ROOM=SC.findIndex(s=>s.tut),POD_X=300,CRATE={x0:760,x1:900,y:450},DUMMY={x:1240},TDOOR=WORLD-WALLW-150;
+const INTRO={on:false,ph:'desk',t:0,x:470,vx:0,rot:0,fx:0,fy:0,fvy:0,off:0,ovy:0,wt:0};
+const TUT={active:false,step:0,moved:0,lastX:0,hits:0,doorT:0,closeT:-9,done:false,dw:0,stepT:0};
+let HEADLESS=false;
+const HEAD_R=18*2.1,DESK_Y=330,DESK_L=300,DESK_R=640,RIFT={x:790,y:372};
+function tutReset(){TUT.active=true;TUT.step=0;TUT.moved=0;TUT.lastX=me.x;TUT.hits=0;TUT.doorT=0;TUT.done=false;TUT.dw=0;TUT.stepT=clock}
+function startIntro(){INTRO.on=true;INTRO.ph='desk';INTRO.t=0;INTRO.x=470;INTRO.vx=0;INTRO.rot=-.25;HEADLESS=true;key.l=key.r=key.j=key.d=key.x=0;TUT.active=false;TUT.done=false;TUT.closeT=-9}
+function introStep(dt){if(!INTRO.on)return;INTRO.t+=dt;const R=HEAD_R;
+ if(INTRO.ph==='desk'){const push=(key.r?1:0)-(key.l?1:0);INTRO.vx+=push*.16;INTRO.vx*=.965;INTRO.x+=INTRO.vx;
+  /* the book pile on the left stops it */
+  if(INTRO.x<DESK_L+R){INTRO.x=DESK_L+R;INTRO.vx=Math.abs(INTRO.vx)*.35;if(Math.abs(INTRO.vx)>.4)play('impact',{gain:.08,rate:2})}
+  INTRO.rot+=INTRO.vx/R;
+  if(INTRO.x>DESK_R+4){INTRO.ph='fall';INTRO.fx=INTRO.x;INTRO.fy=DESK_Y-R;INTRO.fvy=0;INTRO.t=0;play('roll',{gain:.1,rate:.7,dur:.5})}}
+ else if(INTRO.ph==='fall'){INTRO.fvy+=.42;INTRO.fy+=INTRO.fvy;INTRO.fx+=(RIFT.x-INTRO.fx)*.08+INTRO.vx*.3;INTRO.rot+=.08+INTRO.vx/R;
+  if(INTRO.fy>RIFT.y-10&&!INTRO.sucked){INTRO.sucked=true;play('laser',{gain:.22,rate:.4});shakeT=.4}
+  if(INTRO.t>1.25){INTRO.ph='warp';INTRO.t=0}}
+ else if(INTRO.ph==='warp'){if(INTRO.t>.9){INTRO.ph='drop';INTRO.t=0;INTRO.sucked=false;setRoom(TUT_ROOM);me.x=POD_X;me.y=560;me.vy=0;me.vx=0;me.face=1;me.ground=true;cam=0;INTRO.off=-560;INTRO.ovy=0}}
+ else if(INTRO.ph==='drop'){INTRO.ovy+=.55;INTRO.off=Math.min(0,INTRO.off+INTRO.ovy);
+  if(INTRO.off>=0){INTRO.on=false;HEADLESS=false;shakeT=.35;play('impact',{gain:.4,rate:1.4});play('land',{gain:.3});burst(me.x,me.y-50,14);tutReset()}}}
+/* ---------- drawing the desk scene (screen space, covers the whole view) ---------- */
+function drawHeadAt(c,x,y,rot,S,P){c.save();c.translate(x,y);c.rotate(rot);c.scale(S,-S);c.translate(-2,-59);heroHead(c,P,2.6);c.restore()}
+function drawRift(c,t,k){const x=RIFT.x,y=RIFT.y;c.save();
+ c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,x,y,10,190,['rgba(255,40,40,.35)','rgba(160,0,20,.12)','rgba(80,0,10,0)']);c.fillRect(x-200,y-200,400,400);c.globalCompositeOperation='source-over';
+ /* a jagged tear that slowly turns */
+ const n=22,pts=[];for(let i=0;i<n;i++){const a=i/n*TAU,r=(i%2?46:70)+Math.sin(t*3+i*1.7)*8;pts.push([x+Math.cos(a+t*.4)*r*(1+k*.4),y+Math.sin(a+t*.4)*r*.62*(1+k*.4)])}
+ c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();c.fillStyle=rgrad(c,x,y,4,80,['#000','#0a0006','#3a0008']);c.fill();
+ c.strokeStyle='rgba(255,60,50,.9)';c.lineWidth=3;c.stroke();c.strokeStyle='rgba(120,240,255,.35)';c.lineWidth=1.2;c.stroke();
+ for(let i=0;i<14;i++){const ph=(t*.7+i/14)%1,a=i*2.4+t,r=150*(1-ph);c.fillStyle='rgba(255,'+(80+i*8)+',80,'+(ph*.8)+')';c.beginPath();c.arc(x+Math.cos(a)*r,y+Math.sin(a)*r*.6,1.5+ph*2,0,TAU);c.fill()}
+ c.restore()}
+function drawOpening(c){if(!INTRO.on||INTRO.ph==='drop')return;const t=INTRO.t+(INTRO.base||0),P=poseFor('idle',{t:clock,fill:1});P.tilt=0;P.bob=0;
+ c.save();INTROBG.draw('office',c,clock,1/60);
+ const k=INTRO.ph==='fall'?clamp(INTRO.t/1.2,0,1):INTRO.ph==='warp'?1:0;drawRift(c,clock,k);
+ if(INTRO.ph==='desk')drawHeadAt(c,INTRO.x,DESK_Y-HEAD_R+1,INTRO.rot,2.1,P);
+ else if(INTRO.ph==='fall'){const s=2.1*clamp(1-(INTRO.fy-(RIFT.y-30))/90,0,1);if(s>.05)drawHeadAt(c,INTRO.fx,INTRO.fy,INTRO.rot,s,P)}
+ /* hint */
+ if(INTRO.ph==='desk'){const a=clamp((INTRO.t-1)/.8,0,1)*(.75+.25*Math.sin(clock*3));c.globalAlpha=a;c.font='600 18px '+SERIF;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#f0e6e6';
+  c.fillText('←  →   roll',WW/2,92);c.font='600 13px '+SERIF;c.fillStyle='rgba(240,200,200,.7)';c.fillText('A / D  ·  left stick',WW/2,116);c.globalAlpha=1}
+ if(INTRO.ph==='warp'){const w=INTRO.t/.9;c.fillStyle='rgba(120,0,10,'+Math.min(1,w*2)+')';c.fillRect(0,0,WW,HH);if(w>.5){c.fillStyle='rgba(140,255,255,'+(w-.5)*2+')';c.fillRect(0,0,WW,HH)}}
+ c.restore()}
+/* the head falling into its body in the garage (world space, drawn right after the hero) */
+function drawIntroHead(c,sx,P){if(!INTRO.on||INTRO.ph!=='drop')return;c.save();c.translate(sx,me.y+INTRO.off);c.scale(me.face*SC_,-SC_);heroHead(c,P,2.6);c.restore()}
+/* ---------- the garage: tutorial ---------- */
+function genTut(){TER=[{x0:0,x1:WORLD,y:560}];PLAT=[{x0:CRATE.x0,x1:CRATE.x1,y:CRATE.y,cx:(CRATE.x0+CRATE.x1)/2}];camYmin=0;camYmax=560+90-HH;WL=null;ENM=[];if(!TUT.done&&!INTRO.on)tutReset()}
+function tutStep(){if(room!==TUT_ROOM||!TUT.active||me.dead)return;
+ if(TUT.dw>0)TUT.dw-=1/60;
+ if(!TUT.doorT&&me.x>TDOOR-40){me.x=TDOOR-40;me.vx=Math.min(0,me.vx)}
+ const go=s=>{TUT.step=s;TUT.stepT=clock;chime()};
+ if(TUT.step===0){TUT.moved+=Math.abs(me.x-TUT.lastX);TUT.lastX=me.x;if(TUT.moved>280)go(1)}
+ else if(TUT.step===1){if(me.ground&&Math.abs(me.y-CRATE.y)<4&&me.x>CRATE.x0&&me.x<CRATE.x1)go(2)}
+ else if(TUT.step===2){if(slashHit(DUMMY,DUMMY.x,560-62,26)){TUT.hits++;TUT.dw=.5;play('impact',{gain:.25,rate:1.2});SOUL.v=Math.min(1,SOUL.v+1/6)}
+  if(TUT.hits>=3){go(3);/* a loose cable sparks and cracks the glass: some liquid leaks out */
+   hurt();me.inv=60;shakeT=.4;burst(me.x,me.y-60,12);play('laser',{gain:.2,rate:2.2});SOUL.v=1}}
+ else if(TUT.step===3){if(HP.hp>=HP.max&&me.healT===0){go(4);TUT.doorT=clock;play('roll',{gain:.2,rate:.6,dur:1.2})}}
+ else if(TUT.step===4){if(me.x>TDOOR+40){TUT.active=false;TUT.done=true;TUT.clanked=false;setRoom(0);me.x=WALLW+70;me.y=FLOOR;cam=0;TUT.closeT=clock;SAVE.room=0}}}
+function drawTutHud(c,t){if(room!==TUT_ROOM||!TUT.active||INTRO.on)return;
+ const S=[['MOVE','← →   or   A  D','Left stick','Walk around a bit.'],
+  ['JUMP','Space  /  ↑  /  W   (hold to jump higher)','B','Jump onto the crate.'],
+  ['STRIKE','Shift','Y','Hit the training dummy  '+Math.min(TUT.hits,3)+' / 3'],
+  ['REFILL','Hold  X  for 1.5 s','Hold  A','Your glass cracked and leaked! Refill your liquid. It uses the yellow energy you get from hitting.'],
+  ['GO ON','→','Stick right','The door to room 1 is open.']][TUT.step];
+ const a=clamp((clock-TUT.stepT)/.4,0,1),w=560,x=(WW-w)/2,y=196+(1-a)*10;c.save();c.globalAlpha=a;
+ rrect(c,x,y,w,98,12);c.fillStyle='rgba(10,6,24,.82)';c.fill();c.strokeStyle='#ff4fd8';c.lineWidth=2;c.shadowColor='#ff4fd8';c.shadowBlur=12;c.stroke();c.shadowBlur=0;
+ c.textAlign='center';c.textBaseline='middle';c.font='700 20px '+SERIF;c.fillStyle='#7ff6ff';c.fillText(S[0],WW/2,y+22);
+ c.font='600 15px '+SERIF;c.fillStyle='#fff3f9';c.fillText(S[1]+'      ●  controller: '+S[2],WW/2,y+50);
+ c.font='italic 600 15px '+SERIF2;c.fillStyle='rgba(220,230,255,.85)';c.fillText(S[3],WW/2,y+76);c.restore()}
+function drawTutFloor(c,cam){const bot=camY+HH+80;const x0=-cam,x1=WORLD-cam;
+ c.fillStyle=lgrad(c,0,560,0,560+200,['#1a1630','#0d0a1c','#05040c']);c.fillRect(x0,560,x1-x0,bot-560);
+ c.strokeStyle='rgba(120,90,200,.25)';c.lineWidth=1.2;for(let xx=0;xx<WORLD;xx+=96){c.beginPath();c.moveTo(xx-cam,560);c.lineTo(xx-cam,bot);c.stroke()}
+ c.fillStyle=lgrad(c,0,554,0,566,['#3a3266','#1c1838']);c.fillRect(x0,554,x1-x0,12);
+ c.save();c.globalCompositeOperation='lighter';c.fillStyle='rgba(255,79,216,.75)';c.fillRect(x0,560,x1-x0,2);c.fillStyle='rgba(127,246,255,.35)';c.fillRect(x0,574,x1-x0,1.5);c.restore()}
+function drawTutWall(c,x0,cam){const x=x0-cam;if(x<-WALLW-60||x>WW+60)return;c.fillStyle=lgrad(c,x,0,x+WALLW,0,['#0c0a1a','#24204a','#0c0a1a']);c.fillRect(x,camY-30,WALLW,HH+80);
+ c.save();c.globalCompositeOperation='lighter';c.fillStyle='rgba(127,246,255,.6)';c.fillRect(x+(x0<WW?WALLW-4:2),camY-30,2,HH+80);c.restore()}
+function drawCrate(c,p,cam){const x=p.x0-cam,w=p.x1-p.x0,y=p.y,h=560-y;if(x>WW+20||x+w<-20)return;
+ rrect(c,x,y,w,h,6);c.fillStyle=lgrad(c,0,y,0,560,['#3a3460','#221e40']);c.fill();c.strokeStyle=OUT;c.lineWidth=2.6;c.stroke();
+ c.strokeStyle='rgba(0,0,0,.4)';c.lineWidth=2;c.beginPath();c.moveTo(x+8,y+8);c.lineTo(x+w-8,y+h-8);c.moveTo(x+w-8,y+8);c.lineTo(x+8,y+h-8);c.stroke();
+ c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(127,246,255,.8)';c.lineWidth=2;c.strokeRect(x+3,y+3,w-6,4);c.restore();
+}
+function drawTutWorld(c,cam,t){
+ if(room===TUT_ROOM){
+  /* the pod the body waits in */
+  const px=POD_X-cam;if(px>-200&&px<WW+200){c.save();rrect(c,px-56,560-190,112,190,26);c.fillStyle='rgba(20,14,44,.85)';c.fill();c.strokeStyle='#2a2450';c.lineWidth=6;c.stroke();
+   c.globalCompositeOperation='lighter';for(let i=0;i<3;i++){const yy=560-40-i*55,a=.35+.3*Math.sin(t*3+i);c.strokeStyle='rgba(127,246,255,'+a+')';c.lineWidth=2;c.beginPath();c.ellipse(px,yy,46,7,0,0,TAU);c.stroke()}
+   c.fillStyle=rgrad(c,px,560-100,10,120,['rgba(255,79,216,.18)','rgba(255,79,216,0)']);c.fillRect(px-120,560-220,240,220);c.restore();
+   c.fillStyle='#3a3266';c.fillRect(px-70,556,140,8)}
+  /* training dummy */
+  const dx=DUMMY.x-cam,wob=Math.sin(t*30)*TUT.dw*8;if(dx>-80&&dx<WW+80){c.save();c.translate(dx,560);c.fillStyle='#2a2450';c.fillRect(-6,-60,12,60);c.strokeStyle=OUT;c.lineWidth=2;c.strokeRect(-6,-60,12,60);
+   c.translate(0,-70);c.rotate(wob*.02);c.beginPath();c.ellipse(0,0,24,32,0,0,TAU);fillOut(c,lgrad(c,0,-32,0,32,['#5a4a8a','#2a2450']),2.6);
+   c.save();c.globalCompositeOperation='lighter';for(const [r,a] of[[18,.5],[10,.8]]){c.strokeStyle='rgba(255,79,216,'+a+')';c.lineWidth=2.4;c.beginPath();c.arc(0,0,r,0,TAU);c.stroke()}c.fillStyle='#ff4fd8';c.beginPath();c.arc(0,0,3.4,0,TAU);c.fill();c.restore();
+   c.beginPath();c.arc(0,-44,13,0,TAU);fillOut(c,'#3a3266',2.4);c.restore()}
+  /* the garage door to room 1 */
+  const gx=TDOOR-cam;if(gx>-200&&gx<WW+200){const open=TUT.doorT?clamp((clock-TUT.doorT)/1.2,0,1):0,top=560-300;
+   c.fillStyle='#05040c';c.fillRect(gx,top,150,300);
+   c.save();c.beginPath();c.rect(gx,top,150,300);c.clip();const lift=open*290;for(let i=0;i<10;i++){const yy=top+i*30-lift;c.fillStyle=lgrad(c,0,yy,0,yy+30,['#3a3266','#221e40']);c.fillRect(gx,yy,150,28);c.fillStyle='rgba(0,0,0,.35)';c.fillRect(gx,yy+26,150,2)}c.restore();
+   c.save();c.globalCompositeOperation='lighter';c.strokeStyle=open>=1?'rgba(127,255,170,.9)':'rgba(255,79,216,.9)';c.lineWidth=3;c.strokeRect(gx-4,top-4,158,304);c.restore();
+   c.fillStyle=open>=1?'#7fffaa':'#ff4fd8';c.font='700 15px '+SERIF;c.textAlign='center';c.fillText('ROOM 1',gx+75,top-16)}}
+ if(room===0){/* the garage door you came through, closing behind you */
+  const x=-cam;if(x<-300)return;const k=clamp((clock-TUT.closeT)/1.1,0,1),top=FLOOR-260,w=WALLW+40;
+  c.fillStyle='#05040c';c.fillRect(x,top,w,260);c.save();c.beginPath();c.rect(x,top,w,260);c.clip();const drop=(1-k)*250;for(let i=0;i<9;i++){const yy=top+i*30-drop;c.fillStyle=lgrad(c,0,yy,0,yy+30,['#3a3266','#221e40']);c.fillRect(x,yy,w,28)}c.restore();
+  c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,79,216,.8)';c.lineWidth=3;c.strokeRect(x-4,top-4,w+4,264);c.restore();
+  if(k>.98&&!TUT.clanked&&clock-TUT.closeT<2){TUT.clanked=true;play('impact',{gain:.35,rate:.6});shakeT=.25}}}
+
 function genRoom(safeX){genRoom0(safeX);if(room===SHOP_ROOM)ENM=[];if(PUZ_ROOMS[room]!==undefined){if(!isSewer())TER=[{x0:0,x1:WORLD,y:FLOOR}];initPuzzle()}else PZ=null}
 function genRoom0(safeX){CORPSES.length=0;if(SC[room].sewer){HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;genSewer(safeX);return}genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
  if(room===0&&bossBeaten&&!EV.done&&!CUT.on)startAlarm();
@@ -3083,7 +3550,7 @@ const MENU_GEARS=[[70,618,150,14,1],[300,648,122,11,-1],[540,632,160,13,1],[790,
 const TOP_GEARS=[[170,36,64,12,1],[286,-6,46,9,-1],[672,-8,48,9,1],[790,34,66,12,-1],[900,-4,44,8,1]];
 function menuItems(){return optMode?['SOUND: '+(soundOn?'ON':'OFF'),'BACK']:[SAVE.room===null?'START GAME':'CONTINUE','OPTIONS']}
 function menuSelNow(){return optMode?optSel:menuSel}
-function startGame(){EV.on=false;sirenStop();if(SAVE.room===null){UPG.sword=0;UPG.heart=0;UPG.bat=false;UPG.harness=false;UPG.chip=false;UPG.slow=UPG.stop=UPG.crit=UPG.dash=false;godTalked=false;TALK.on=false;questReset();CRIT.n=0;CRIT.ready=false;TFX.mode=null;TFX.cdUntil=0;EV.done=false;for(const k in PUZDONE)delete PUZDONE[k];PUZCODE=null;HP.max=5;bossBeaten=false;PARTS.n=0}CUT.on=false;HUSK.on=false;forgeOpen=false;DARK.length=0;FLEE.length=0;titleT=-1;darkV=0;shakeT=0;if(SAVE.room===null)SOUL.v=0;me.healT=0;HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0;s.pop=0});me.dead=false;me.inv=0;me.kb=0;me.vx=0;me.vy=0;me.x=960;me.y=FLOOR;me.ground=true;me.atk=-1;cam=0;ENM.length=0;BUL.length=0;const r=SAVE.room===null?0:SAVE.room;me.x=r===0?(SAVE.room===null?960:WALLW+60):80;setRoom(r);if(!CUT.on){me.x=r===0?(SAVE.room===null?960:WALLW+60):80;cam=0}SAVE.room=r;paused=false;DROPS.length=0;SCENE='play';game.focus()}
+function startGame(){EV.on=false;sirenStop();if(SAVE.room===null){UPG.sword=0;UPG.heart=0;UPG.bat=false;UPG.harness=false;UPG.chip=false;UPG.slow=UPG.stop=UPG.crit=UPG.dash=false;godTalked=false;TALK.on=false;questReset();CRIT.n=0;CRIT.ready=false;TFX.mode=null;TFX.cdUntil=0;EV.done=false;for(const k in PUZDONE)delete PUZDONE[k];PUZCODE=null;HP.max=5;bossBeaten=false;PARTS.n=0}CUT.on=false;HUSK.on=false;forgeOpen=false;DARK.length=0;FLEE.length=0;titleT=-1;darkV=0;shakeT=0;if(SAVE.room===null)SOUL.v=0;me.healT=0;HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0;s.pop=0});me.dead=false;me.inv=0;me.kb=0;me.vx=0;me.vy=0;me.x=960;me.y=FLOOR;me.ground=true;me.atk=-1;cam=0;ENM.length=0;BUL.length=0;const fresh=SAVE.room===null,r=fresh?TUT_ROOM:SAVE.room,sx0=r===TUT_ROOM?POD_X:r===0?WALLW+60:80;INTRO.on=false;HEADLESS=false;me.x=sx0;setRoom(r);if(!CUT.on){me.x=sx0;cam=0}SAVE.room=r;if(fresh)startIntro();else if(r===TUT_ROOM)tutReset();paused=false;DROPS.length=0;SCENE='play';game.focus()}
 function menuAct(i){if(!optMode){if(i===0){startFade=flowT}else{optMode=true;optSel=0}}else{if(i===0)document.getElementById('snd').click();else{optMode=false}}}
 function menuKey(e){const k=e.key;let h=true;
  if(SCENE==='logo'){if(flowT>.4)introSkip=flowT;else h=false}
@@ -3174,29 +3641,29 @@ function drawSoul(c,t){const x0=26,y0=98,W=HP.max*56+34,Hh=30,ix=x0+12,iw=W-24,i
 let last=0,acc=0;
 function loop(ts){if(FLOW0===null)FLOW0=ts;
  if(SCENE!=='play'){last=ts;acc=0;g.setTransform(Q,0,0,Q,0,0);if(SCENE==='menu'&&ac&&ac.state==='running')loopStart('mmenu');for(const n in loops)loopGain(n,n==='mmenu'&&SCENE==='menu'?MUS.menu:0);drawFlow(g,(ts-FLOW0)/1000);drawPadToast(g);requestAnimationFrame(loop);return}
- const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=1000/60){if(TALK.on&&!paused)talkStep(1/60);else if(!forgeOpen&&!paused&&!shopOpen)step();acc-=1000/60}
+ const dtms=Math.min(100,ts-last);last=ts;acc+=dtms;while(acc>=1000/60){if(INTRO.on&&!paused)introStep(1/60);else if(TALK.on&&!paused)talkStep(1/60);else if(!forgeOpen&&!paused&&!shopOpen)step();acc-=1000/60}
  g.setTransform(Q,0,0,Q,0,0);const sc=SC[room];
  const fdt=forgeOpen||paused||shopOpen?0:dtms/1000;shakeT=Math.max(0,shakeT-fdt);darkV=Math.max(0,darkV-fdt*.55);const shk=shakeT*7;
  const SW=!!sc.sewer;if(SW)drawSewerBack(g,clock,fdt);HC.glow=UPG.chip?'#6ac8ff':'#ffd84a';
  g.save();g.translate(shk?rnd(-shk,shk):0,-viewY()+(shk?rnd(-shk,shk):0));
  if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawGodBack(g,cam,clock);drawWardenBack(g,cam,clock);drawSewerTerrain(g,cam);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
- for(const p of PLAT)(SW?drawSewerPlat:drawPlat)(g,p,cam);drawWalls(g,cam);drawAltar(g,cam,clock);drawHouse(g,cam,clock);if(PZ){PUZ[PZ.type].draw(g,cam,clock,PZ);drawPuzGates(g,cam,clock)}drawCorpses(g,cam,clock);drawForge(g,cam,clock);drawHusk(g,cam,clock);drawPrisonWorld(g,cam,clock);drawPuzSign(g,cam,clock);
+ for(const p of PLAT)(SW?drawSewerPlat:drawPlat)(g,p,cam);drawWalls(g,cam);drawAltar(g,cam,clock);drawHouse(g,cam,clock);if(PZ){PUZ[PZ.type].draw(g,cam,clock,PZ);drawPuzGates(g,cam,clock)}drawCorpses(g,cam,clock);drawForge(g,cam,clock);drawHusk(g,cam,clock);drawPrisonWorld(g,cam,clock);drawPuzSign(g,cam,clock);drawTutWorld(g,cam,clock);
  for(const e of ENM)drawEnemy(g,e,cam,clock);drawShots(g,cam);drawNpcTalk(g,cam,clock);drawFlee(g,cam,clock);drawDrops(g,cam,clock);updateLoops();musicUpdate();
  const st=stateNow(),atkP=me.atk>=0?me.atk/26:-1,P=poseFor(st,{ph:me.ph,t:clock,speed:me.speed,atk:atkP,long:me.slashLong,heal:me.healT/1.5,hurt:me.inv>56&&!me.dead?(me.inv-56)/24:0,ko:me.dead?clamp((110-me.deadT)/40,0,1):0,fill:HP.max?HP.hp/HP.max:1});
  const sx=me.x-cam,sq=P.squash;
  const gy=supportY(me.x,me.y-3,null)+6,h=Math.max(0,gy-6-me.y),sw=clamp(30-h*.06,12,30),sg=g.createRadialGradient(sx,gy,2,sx,gy,sw);sg.addColorStop(0,'rgba(10,4,16,'+Math.max(.1,.5-h*.002)+')');sg.addColorStop(1,'rgba(10,4,16,0)');g.save();g.fillStyle=sg;g.beginPath();g.ellipse(sx,gy,sw,sw*.28,0,0,TAU);g.fill();g.restore();
  const atkOn=atkP>.3&&atkP<.8;energy(P,atkOn);drawParts(g,dtms/1000);drawCurls(g,dtms/1000);
- g.save();if(me.inv>0&&((me.inv/5)|0)%2)g.globalAlpha=.35;if(me.dead)g.globalAlpha=.5;heroDraw(g,sx,me.y,me.face,P,0,sq,SC_);g.restore();
+ g.save();if(me.inv>0&&((me.inv/5)|0)%2)g.globalAlpha=.35;if(me.dead)g.globalAlpha=.5;heroDraw(g,sx,me.y,me.face,P,0,sq,SC_);g.restore();drawIntroHead(g,sx,P);
  drawDebris(g,dtms/1000);drawLasers(g,cam,clock);
  if(me.healT>0){const k=me.healT/1.5,hx=me.x-cam,hy=me.y-59*SC_;g.save();g.lineCap='round';g.strokeStyle='rgba(42,24,48,.6)';g.lineWidth=6;g.beginPath();g.arc(hx,hy,24,0,TAU);g.stroke();g.shadowColor='#ffd84a';g.shadowBlur=12;g.strokeStyle='#ffe27a';g.lineWidth=4;g.beginPath();g.arc(hx,hy,24,-Math.PI/2,-Math.PI/2+TAU*k);g.stroke();g.restore()}
  for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}slashFx(g,me.x-cam,me.y-44*SC_,f.f,k,f.seed,SC_*1.15)}
  if(SW){drawWBub(g,cam);drawSewerWaterFront(g,cam,clock);if(me.wet&&!UPG.chip&&!me.dead)zap(g,me.x-cam,me.y-40,46)}drawEventWater(g,cam,clock);drawGodTarget(g,cam,clock);
  drawDark(g,cam,clock);if(CUT.on||ENM.some(q=>q.type==='fishgod'&&q.state==='intro'))stunStars(g,me.x-cam,me.y-100*SC_,clock);
  g.restore();if(!SW){drawCeiling(g,clock,cam);drawFront(g,sc,clock,cam,room)}else{const vg=g.createRadialGradient(WW/2,HH*.55,HH*.3,WW/2,HH*.55,WW*.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(1,8,10,.6)');g.fillStyle=vg;g.fillRect(0,0,WW,HH)}
- drawAlarmScreen(g,clock);hudUpdate(dtms/1000);drawHud(g,clock);drawSoul(g,clock);drawParts2(g,clock);drawAbilityHud(g,clock);drawQuestHud(g,clock);drawBossBar(g,clock);drawDarkness(g,clock);
+ drawAlarmScreen(g,clock);hudUpdate(dtms/1000);drawHud(g,clock);drawSoul(g,clock);drawParts2(g,clock);drawAbilityHud(g,clock);drawQuestHud(g,clock);drawTutHud(g,clock);drawBossBar(g,clock);drawDarkness(g,clock);
  barK+=((CUT.on?1:0)-barK)*.08;if(barK>.005){g.fillStyle='#000';g.fillRect(0,0,WW,48*barK);g.fillRect(0,HH-48*barK,WW,48*barK)}
  if(CUT.on&&CUT.t<.7){g.fillStyle='rgba(0,0,0,'+(1-CUT.t/.7)+')';g.fillRect(0,0,WW,HH)}
- drawTitle(g);drawChipBanner(g);drawPuzScreen(g);drawSignPanel(g);drawPauseBtn(g,ts/1000);drawForgeMenu(g,ts/1000);drawShop(g,ts/1000);drawTalk(g);drawPause(g,ts/1000);drawPadToast(g);
+ drawTitle(g);drawChipBanner(g);drawPuzScreen(g);drawSignPanel(g);drawPauseBtn(g,ts/1000);drawForgeMenu(g,ts/1000);drawShop(g,ts/1000);drawTalk(g);drawOpening(g);drawPause(g,ts/1000);drawPadToast(g);
  if(me.dead){g.fillStyle='rgba(10,4,16,.55)';g.fillRect(0,0,WW,HH);g.fillStyle='#fff3cf';g.textAlign='center';g.font='bold 30px "Press Start 2P","Courier New",monospace';g.fillText('Knocked out',WW/2,HH/2-6);g.font='16px "Space Mono","Courier New",monospace';g.fillStyle='#f0a868';g.fillText('Refilling your head...',WW/2,HH/2+28);g.textAlign='left'}
  requestAnimationFrame(loop)}
 /* ---- animation previews ---- */
@@ -3217,6 +3684,6 @@ setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimat
 function unlockAll(){UPG.far=true;UPG.chip=true;UPG.slow=UPG.stop=UPG.crit=UPG.dash=true;UPG.sword=4;UPG.heart=5;UPG.bat=true;UPG.harness=true;HP.max=10;HP.hp=10;HP.slots.forEach(s=>{s.fill=1;s.pop=1})}
 document.getElementById('bunlock').onclick=()=>{unlockAll();game.focus()};
 document.getElementById('bhurt').onclick=()=>{hurt();game.focus()};document.getElementById('bheal').onclick=()=>{heal();game.focus()};
-window.__demo={PAD,get signOpen(){return signOpen},nearSign,QUEST,NEED,NPCS,KEYS,PR0,PR_BOSS,PR_GATE,talkNpc,get TALKN(){return TALKN},SHOTS,tryShoot,questReset,get wardenTalked(){return wardenTalked},set wardenTalked(v){wardenTalked=v},WWAVE,PIPE_A,PIPE_B,PRISON_A,TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
+window.__demo={INTRO,TUT,TUT_ROOM,startIntro,get HEADLESS(){return HEADLESS},PAD,get signOpen(){return signOpen},nearSign,QUEST,NEED,NPCS,KEYS,PR0,PR_BOSS,PR_GATE,talkNpc,get TALKN(){return TALKN},SHOTS,tryShoot,questReset,get wardenTalked(){return wardenTalked},set wardenTalked(v){wardenTalked=v},WWAVE,PIPE_A,PIPE_B,PRISON_A,TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
 
 </script>
