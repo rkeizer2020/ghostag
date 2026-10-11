@@ -1692,6 +1692,7 @@ function onKey(e,v){const k=e.key;let h=true;
  if(TALK.on&&v){talkKey(e);return}
  if(forgeOpen){if(v)forgeKey(e);return}
  if(v&&k==='Tab'){if(!me.dead)setPause(true);e.preventDefault();return}
+ if(v&&k==='Escape'&&tutSkippable()){skipTutorial();e.preventDefault();return}
  if(v&&k==='Escape'){if(!me.dead)setPause(true);e.preventDefault();return}
  if(k=='ArrowLeft'||k=='a'||k=='A')key.l=v;else if(k=='ArrowRight'||k=='d'||k=='D')key.r=v;
  else if(k==' '||k=='ArrowUp'||k=='w'||k=='W')key.j=v;else if(k=='ArrowDown'||k=='s'||k=='S')key.d=v;else if(v&&(k=='z'||k=='Z'||k==='Shift')){if(k!=='Shift'&&nearForge())openForge();else if(k!=='Shift'&&nearAltar())takeChip();else if(k!=='Shift'&&nearHouse())openShop();else if(k!=='Shift'&&nearNpc())talkNpc();else if(k!=='Shift'&&(nearSign()||signOpen))readSign();else if(k!=='Shift'&&UPG.far)tryShoot();else tryAttack()}else if(v&&(k=='e'||k=='E'||k==='Enter')&&nearForge())openForge();else if(v&&(k=='e'||k=='E'||k==='Enter')&&nearAltar())takeChip();else if(v&&(k=='e'||k=='E'||k==='Enter')&&nearHouse())openShop();else if(v&&k==='1')useTime();else if(v&&(k=='c'||k=='C'))tryDash();else if(k=='x'||k=='X')key.x=v;else if(DEV&&v&&(k=='h'||k=='H'))hurt();else if(DEV&&v&&(k=='j'||k=='J'))heal();
@@ -2652,7 +2653,7 @@ SEWT.fish={up(e){const dt=1/60,G=560;e.t+=dt;e.flash=Math.max(0,e.flash-dt);if(e
   switch(e.state){
    case 'intro':e.st-=dt;if(e.st<=0){e.state='walk';e.cd=.8}break;
    case 'walk':if(Math.abs(dx)>30)e.face=dx>0?1:-1;if(Math.abs(dx)>170)e.x+=e.face*1.7*sp;e.cd-=dt;
-    if(e.cd<=0&&!me.dead){const o=['stab','rain','wave'];let k=o[Math.floor(Math.random()*3)];if(k===e.last)k=o[(o.indexOf(k)+1)%3];e.last=k;e.st=0;e.n=0;e.state=k+'0';
+    if(e.cd<=0&&!me.dead){const o=['stab','rain','dive','wave'];let k=o[Math.floor(Math.random()*4)];if(k===e.last)k=o[(o.indexOf(k)+1)%4];e.last=k;e.st=0;e.n=0;e.state=k+'0';
      if(k==='dive'){e.vx=((POOL.x0+POOL.x1)/2-e.x)/44;e.vy=-11;e.face=e.vx>0?1:-1;play('roll',{gain:.08,rate:.6,dur:.4})}else play('impact',{gain:.12,rate:.6})}break;
    case 'stab0':e.st+=dt;if(e.st>.6/sp){e.state='stab1';e.st=0;e.vx=e.face*15;play('slash',{gain:.3,rate:.7})}break;
    case 'stab1':e.st+=dt;e.x+=e.vx;e.vx*=.96;{const tx=e.x+e.face*112,ty=G-62;if(me.inv<=0&&!me.dead&&Math.hypot(me.x-tx,me.y-30-ty)<40)playerHit(e,[tx,ty])}if(e.st>.42){e.state='walk';e.cd=1.1/sp}break;
@@ -2663,7 +2664,7 @@ SEWT.fish={up(e){const dt=1/60,G=560;e.t+=dt;e.flash=Math.max(0,e.flash-dt);if(e
    case 'dive2':e.st+=dt;e.x=e.tx;if(e.st>.5){e.state='dive3';e.sub=false;e.y=G+40;e.vy=-17;burst(e.x,G,16);shakeT=.35;play('impact',{gain:.35,rate:.6})}break;
    case 'dive3':e.vy+=.6;e.y+=e.vy;if(e.vy>0&&e.y>=G){e.y=G;e.vy=0;e.x=clamp(e.x,e.lo,e.hi);e.state='walk';e.cd=1.2/sp;shakeT=.3}break;
    case 'wave0':e.st+=dt;if(e.st>.75){e.state='wave1';e.st=0;e.n=0}break;
-   case 'wave1':{e.st+=dt;const nW=2;if(e.n<nW&&e.st>e.n*.6){e.n++;e.bolt=.25;FWAVES.push({x:e.x,dir:-1},{x:e.x,dir:1});shakeT=.25;play('laser',{gain:.12,rate:.5})}if(e.st>nW*.6+.6){e.state='walk';e.cd=1}}break}
+   case 'wave1':{e.st+=dt;const nW=e.phase===2?3:2;if(e.n<nW&&e.st>e.n*.6){e.n++;e.bolt=.25;FWAVES.push({x:e.x,dir:-1},{x:e.x,dir:1});shakeT=.25;play('laser',{gain:.12,rate:.5})}if(e.st>nW*.6+.6){e.state='walk';e.cd=1}}break}
   if(!e.state.startsWith('dive'))e.y=G,e.x=clamp(e.x,e.lo,e.hi);
   for(let i=FWAVES.length-1;i>=0;i--){const w=FWAVES[i];w.x+=w.dir*(e.phase===2?8.5:7.2);if(w.x<WALLW||w.x>WORLD-WALLW){FWAVES.splice(i,1);continue}
    if(me.inv<=0&&!me.dead&&Math.abs(me.x-w.x)<22&&me.y>G-28&&me.y<G+12)playerHit(e,[w.x,G])}},
@@ -3400,7 +3401,7 @@ function drawSignPanel(c){if(!signOpen)return;const s=signOpen,w=560,h=96+s.line
    The pad presses the same keys the keyboard does, so everything else just works.
    A = 1 (tap) / X heal (hold) · B = jump · Y = slash (Shift) · X = Z · ZR = dash (C) · − = Esc
    stick left/right = run · stick down = drop · stick up = interact only (talk, read, shop, forge, altar) */
-const PAD={on:false,id:'',prev:[],held:{},aT:0,aHeld:false,upPrev:false,dirPrev:{},toast:-9,menu:false};
+const PAD={xT:0,on:false,id:'',prev:[],held:{},aT:0,aHeld:false,upPrev:false,dirPrev:{},toast:-9,menu:false};
 const PB={B:0,A:1,Y:2,X:3,ZR:7,MINUS:8,UP:12,DOWN:13,LEFT:14,RIGHT:15};
 function padKey(k,down){window.dispatchEvent(new KeyboardEvent(down?'keydown':'keyup',{key:k,bubbles:true,cancelable:true}))}
 function padHold(k,v){v=!!v;if(!!PAD.held[k]!==v){PAD.held[k]=v;padKey(k,v)}}
@@ -3421,6 +3422,7 @@ function padPoll(){requestAnimationFrame(padPoll);let gp=null;try{for(const g of
   padHold('ArrowLeft',L);padHold('ArrowRight',R);padHold('ArrowDown',D);
   if(U&&!PAD.upPrev)padInteract();PAD.upPrev=U;
   padHold('ArrowUp',btn(PB.B));
+  if(btn(PB.X)&&tutSkippable()){if(!PAD.xT)PAD.xT=performance.now();if(performance.now()-PAD.xT>1000){PAD.xT=0;skipTutorial()}}else PAD.xT=0;
   if(hit(PB.Y))padTap('Shift');if(hit(PB.X))padTap('z');if(hit(PB.ZR))padTap('c');if(hit(PB.MINUS))padTap('Escape');
   /* A: a quick tap uses the time chip (1), holding it heals like holding X */
   if(btn(PB.A)){if(PAD.aT===0)PAD.aT=performance.now();if(PAD.aT>0&&!PAD.aHeld&&performance.now()-PAD.aT>280){PAD.aHeld=true;padHold('x',true)}}
@@ -3553,6 +3555,18 @@ function drawTutWorld(c,cam,t){
   c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,79,216,.8)';c.lineWidth=3;c.strokeRect(x-4,top-4,w+4,264);c.restore();
   if(k>.98&&!TUT.clanked&&clock-TUT.closeT<2){TUT.clanked=true;play('impact',{gain:.35,rate:.6});shakeT=.25}}}
 
+/* ---------- skipping the opening and tutorial: Esc, or hold X on a controller ---------- */
+function tutSkippable(){return SCENE==='play'&&!paused&&!me.dead&&(INTRO.on||(room===TUT_ROOM&&TUT.active))}
+function skipTutorial(){if(!tutSkippable())return;INTRO.on=false;HEADLESS=false;TUT.active=false;TUT.done=true;TUT.clanked=false;key.l=key.r=key.j=key.d=key.x=0;
+ HP.hp=HP.max;HP.slots.forEach(s=>{s.fill=1;s.flash=0;s.shake=0});me.healT=0;me.inv=30;me.atk=-1;me.vx=0;me.vy=0;me.kb=0;
+ setRoom(0);me.x=WALLW+70;me.y=FLOOR;me.ground=true;me.face=1;cam=0;TUT.closeT=clock;SAVE.room=0;play('impact',{gain:.15,rate:1.4})}
+function drawSkipHint(c){if(!tutSkippable())return;const k=PAD.xT?clamp((performance.now()-PAD.xT)/1000,0,1):0,x=WW-24,y=HH-26;c.save();
+ c.font='600 13px '+SERIF;c.textAlign='right';c.textBaseline='middle';const s='Esc  or  hold X (controller)  ·  skip tutorial',w=c.measureText(s).width;
+ rrect(c,x-w-48,y-15,w+60,30,9);c.fillStyle='rgba(10,6,20,.7)';c.fill();c.strokeStyle='rgba(255,255,255,.25)';c.lineWidth=1.2;c.stroke();
+ c.fillStyle='rgba(255,243,230,.85)';c.fillText(s,x-6,y+1);
+ c.strokeStyle='rgba(255,255,255,.25)';c.lineWidth=3;c.beginPath();c.arc(x-w-28,y,8,0,TAU);c.stroke();
+ if(k>0){c.strokeStyle='#ff4fd8';c.beginPath();c.arc(x-w-28,y,8,-Math.PI/2,-Math.PI/2+TAU*k);c.stroke()}c.restore()}
+
 function genRoom(safeX){genRoom0(safeX);if(room===SHOP_ROOM)ENM=[];if(PUZ_ROOMS[room]!==undefined){if(!isSewer())TER=[{x0:0,x1:WORLD,y:FLOOR}];initPuzzle()}else PZ=null}
 function genRoom0(safeX){CORPSES.length=0;if(SC[room].sewer){HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;genSewer(safeX);return}genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
  if(room===0&&bossBeaten&&!EV.done&&!CUT.on)startAlarm();
@@ -3682,7 +3696,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  drawAlarmScreen(g,clock);hudUpdate(dtms/1000);drawHud(g,clock);drawSoul(g,clock);drawParts2(g,clock);drawAbilityHud(g,clock);drawQuestHud(g,clock);drawTutHud(g,clock);drawBossBar(g,clock);drawDarkness(g,clock);
  barK+=((CUT.on?1:0)-barK)*.08;if(barK>.005){g.fillStyle='#000';g.fillRect(0,0,WW,48*barK);g.fillRect(0,HH-48*barK,WW,48*barK)}
  if(CUT.on&&CUT.t<.7){g.fillStyle='rgba(0,0,0,'+(1-CUT.t/.7)+')';g.fillRect(0,0,WW,HH)}
- drawTitle(g);drawChipBanner(g);drawPuzScreen(g);drawSignPanel(g);drawPauseBtn(g,ts/1000);drawForgeMenu(g,ts/1000);drawShop(g,ts/1000);drawTalk(g);drawOpening(g);drawPause(g,ts/1000);drawPadToast(g);
+ drawTitle(g);drawChipBanner(g);drawPuzScreen(g);drawSignPanel(g);drawPauseBtn(g,ts/1000);drawForgeMenu(g,ts/1000);drawShop(g,ts/1000);drawTalk(g);drawOpening(g);drawSkipHint(g);drawPause(g,ts/1000);drawPadToast(g);
  if(me.dead){g.fillStyle='rgba(10,4,16,.55)';g.fillRect(0,0,WW,HH);g.fillStyle='#fff3cf';g.textAlign='center';g.font='bold 30px "Press Start 2P","Courier New",monospace';g.fillText('Knocked out',WW/2,HH/2-6);g.font='16px "Space Mono","Courier New",monospace';g.fillStyle='#f0a868';g.fillText('Refilling your head...',WW/2,HH/2+28);g.textAlign='left'}
  requestAnimationFrame(loop)}
 /* ---- animation previews ---- */
@@ -3703,6 +3717,6 @@ setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimat
 function unlockAll(){UPG.far=true;UPG.chip=true;UPG.slow=UPG.stop=UPG.crit=UPG.dash=true;UPG.sword=4;UPG.heart=5;UPG.bat=true;UPG.harness=true;HP.max=10;HP.hp=10;HP.slots.forEach(s=>{s.fill=1;s.pop=1})}
 document.getElementById('bunlock').onclick=()=>{unlockAll();game.focus()};
 document.getElementById('bhurt').onclick=()=>{hurt();game.focus()};document.getElementById('bheal').onclick=()=>{heal();game.focus()};
-window.__demo={slashBlocked,INTRO,TUT,TUT_ROOM,startIntro,get HEADLESS(){return HEADLESS},PAD,get signOpen(){return signOpen},nearSign,QUEST,NEED,NPCS,KEYS,PR0,PR_BOSS,PR_GATE,talkNpc,get TALKN(){return TALKN},SHOTS,tryShoot,questReset,get wardenTalked(){return wardenTalked},set wardenTalked(v){wardenTalked=v},WWAVE,PIPE_A,PIPE_B,PRISON_A,TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
+window.__demo={slashBlocked,skipTutorial,INTRO,TUT,TUT_ROOM,startIntro,get HEADLESS(){return HEADLESS},PAD,get signOpen(){return signOpen},nearSign,QUEST,NEED,NPCS,KEYS,PR0,PR_BOSS,PR_GATE,talkNpc,get TALKN(){return TALKN},SHOTS,tryShoot,questReset,get wardenTalked(){return wardenTalked},set wardenTalked(v){wardenTalked=v},WWAVE,PIPE_A,PIPE_B,PRISON_A,TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
 
 </script>
