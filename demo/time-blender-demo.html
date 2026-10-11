@@ -1725,7 +1725,7 @@ function step(){clock+=1/60;
  /* combat: the slash hurts enemies, enemies hurt you */
  if(me.atk>=8&&me.atk<=20){for(const e of ENM){if(e.dead||e.hitId===me.atkId||e.state==='intro'||e.sub||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e),sx=me.x+me.atkFace*44,sy=me.y-36;
   let hit;if(e.type==='boss'){const hy=clamp(sy,e.y-80,e.y+85);hit=Math.hypot(e.x-sx,hy-sy)<=51+74&&(e.x-me.x)*me.atkFace>-70}else hit=Math.hypot(ec[0]-sx,ec[1]-sy)<=51+e.r*.9&&(ec[0]-me.x)*me.atkFace>-14;
-  if(hit){e.hitId=me.atkId;if(shieldBlocks(e,me.x)){clank(e);me.vx=-me.atkFace*4}else damageEnemy(e,critDamage(slashDmg()))}}}
+  if(hit&&slashBlocked(sx,sy,ec[0],ec[1]))hit=false;if(hit){e.hitId=me.atkId;slashRecoil();if(shieldBlocks(e,me.x)){clank(e);me.vx=-me.atkFace*6}else damageEnemy(e,critDamage(slashDmg()))}}}
  {const tm=timeMode();FRAMEN++;if(!tm||(tm==='slow'&&FRAMEN%3===0)){updateEnemies();updateBullets()}}updateDrops();updateShots();prisonStep();signStep();tutStep();if(timeMode()!=='stop')puzStep();
  if(me.inv<=0)for(const e of ENM){if(e.dead||e.sub||e.bg||(e.type==='boss'&&e.state!=='dash')||(e.type==='imp'&&e.phase!=='walk'))continue;const ec=enemyCenter(e);if(Math.hypot(ec[0]-me.x,ec[1]-(me.y-30))<16+e.r*.85){playerHit(e,ec);break}}
  if((room===0||(isSewer()&&SWI&&SWI.blockL)||puzLockL())&&me.x<WALLW+16){me.x=WALLW+16;me.vx=Math.max(0,me.vx)}if((room===FORGE_ROOM||(isSewer()&&SWI&&SWI.blockR)||puzLockR())&&me.x>WORLD-WALLW-16){me.x=WORLD-WALLW-16;me.vx=Math.min(0,me.vx)}if(EV.on&&room===0)me.x=clamp(me.x,WALLW+16,WORLD-60);
@@ -1828,7 +1828,7 @@ function updateEnemies(){for(let i=ENM.length-1;i>=0;i--){const e=ENM[i];if(e.de
  if(e.type==='imp'){updateImp(e);continue}
  if(SEWT[e.type]){SEWT[e.type].up(e);continue}
  e.flash=Math.max(0,e.flash-1/60);e.t+=1/60;if(e.cool>0)e.cool--;if(e.muz>0)e.muz-=1/60;
- if(e.kb>0){e.kb--;e.vx*=.8;if(e.type=='drone'){e.x+=e.vx;e.hx=e.x}else{e.x=clamp(e.x+e.vx,e.lo,e.hi)}continue}
+ if(e.kb>0){e.kb--;e.vx*=.8;if(e.type=='drone'){e.x+=e.vx;e.hx=e.x}else if(e.type=='spring'){const nx=clamp(e.x+e.vx,40,WORLD-40);if(groundAt(nx)>=e.y-10)e.x=nx;if(e.air){e.vy+=.62;e.y+=e.vy;const gy=groundAt(e.x);if(e.y>=gy){e.y=gy;e.air=false;e.vy=0}}}else{e.x=clamp(e.x+e.vx,e.lo,e.hi)}continue}
  if(e.type=='saw'){const sp=3.6;e.x+=e.face*sp;if(e.x<e.lo){e.x=e.lo;e.face=1}else if(e.x>e.hi){e.x=e.hi;e.face=-1}e.rot+=e.face*sp/e.r}
  else if(e.type=='spring'){
   if(e.air){e.vy+=.62;e.y+=e.vy;e.x+=e.vx;if(groundAt(e.x+e.face*10)<e.y-10){e.vx*=-.3;e.x-=e.face*4}
@@ -2538,8 +2538,14 @@ function puzzleLocked(){return !!(PZ&&!PZ.solved)}
 function puzLockR(){return puzzleLocked()&&PZ.fwd==='side'}
 function puzLockL(){return puzzleLocked()&&PZ.type==='waves'&&PZ.active}
 function pzBanner(s){PZB={s,t0:clock}}
+/* the slash cannot reach through a platform or through solid ground between the blade and the target */
+function slashBlocked(sx,sy,ex,ey){const y0=Math.min(sy,ey),y1=Math.max(sy,ey);
+ if(y1-y0>8)for(const p of PLAT){if(p.y<=y0+4||p.y>=y1-4)continue;const k=(p.y-sy)/(ey-sy),x=sx+(ex-sx)*k;if(x>=p.x0&&x<=p.x1)return true}
+ for(let i=1;i<6;i++){const x=sx+(ex-sx)*i/6,y=sy+(ey-sy)*i/6;if(y>groundAt(x)+4)return true}return false}
+/* landing a hit pushes you back a little, as if you bounce off */
+function slashRecoil(){if(me.recoilId===me.atkId)return;me.recoilId=me.atkId;me.vx=-me.atkFace*3.6;me.kb=Math.max(me.kb,6)}
 function slashHit(o,x,y,r){if(me.atk<8||me.atk>20||o.hid===me.atkId||me.dead)return false;const sx=me.x+me.atkFace*44,sy=me.y-36;
- if(Math.hypot(x-sx,y-sy)<=51+r&&(x-me.x)*me.atkFace>-24){o.hid=me.atkId;burst(x,y,4);play('impact',{gain:.18,rate:1.7});return true}return false}
+ if(Math.hypot(x-sx,y-sy)<=51+r&&(x-me.x)*me.atkFace>-24&&!slashBlocked(sx,sy,x,y)){o.hid=me.atkId;slashRecoil();burst(x,y,4);play('impact',{gain:.18,rate:1.7});return true}return false}
 function tone(i){if(!ac||!soundOn)return;const t0=ac.currentTime,o=ac.createOscillator();o.type='triangle';o.frequency.value=[392,494,587,698,880][i%5];const g2=ac.createGain();g2.gain.setValueAtTime(.09,t0);g2.gain.exponentialRampToValueAtTime(.001,t0+.5);o.connect(g2);g2.connect(ac.destination);o.start(t0);o.stop(t0+.55)}
 function buzz(){if(!ac||!soundOn)return;const t0=ac.currentTime,o=ac.createOscillator();o.type='square';o.frequency.value=110;const g2=ac.createGain();g2.gain.setValueAtTime(.06,t0);g2.gain.exponentialRampToValueAtTime(.001,t0+.45);o.connect(g2);g2.connect(ac.destination);o.start(t0);o.stop(t0+.5)}
 function solvePuzzle(){if(!PZ||PZ.solved)return;PZ.solved=true;PZ.openT=clock;PUZDONE[room]=true;chime();shakeT=.3;pzBanner('PUZZLE SOLVED');
@@ -2646,7 +2652,7 @@ SEWT.fish={up(e){const dt=1/60,G=560;e.t+=dt;e.flash=Math.max(0,e.flash-dt);if(e
   switch(e.state){
    case 'intro':e.st-=dt;if(e.st<=0){e.state='walk';e.cd=.8}break;
    case 'walk':if(Math.abs(dx)>30)e.face=dx>0?1:-1;if(Math.abs(dx)>170)e.x+=e.face*1.7*sp;e.cd-=dt;
-    if(e.cd<=0&&!me.dead){const o=['stab','rain','dive','wave'];let k=o[Math.floor(Math.random()*4)];if(k===e.last)k=o[(o.indexOf(k)+1)%4];e.last=k;e.st=0;e.n=0;e.state=k+'0';
+    if(e.cd<=0&&!me.dead){const o=['stab','rain','wave'];let k=o[Math.floor(Math.random()*3)];if(k===e.last)k=o[(o.indexOf(k)+1)%3];e.last=k;e.st=0;e.n=0;e.state=k+'0';
      if(k==='dive'){e.vx=((POOL.x0+POOL.x1)/2-e.x)/44;e.vy=-11;e.face=e.vx>0?1:-1;play('roll',{gain:.08,rate:.6,dur:.4})}else play('impact',{gain:.12,rate:.6})}break;
    case 'stab0':e.st+=dt;if(e.st>.6/sp){e.state='stab1';e.st=0;e.vx=e.face*15;play('slash',{gain:.3,rate:.7})}break;
    case 'stab1':e.st+=dt;e.x+=e.vx;e.vx*=.96;{const tx=e.x+e.face*112,ty=G-62;if(me.inv<=0&&!me.dead&&Math.hypot(me.x-tx,me.y-30-ty)<40)playerHit(e,[tx,ty])}if(e.st>.42){e.state='walk';e.cd=1.1/sp}break;
@@ -2657,7 +2663,7 @@ SEWT.fish={up(e){const dt=1/60,G=560;e.t+=dt;e.flash=Math.max(0,e.flash-dt);if(e
    case 'dive2':e.st+=dt;e.x=e.tx;if(e.st>.5){e.state='dive3';e.sub=false;e.y=G+40;e.vy=-17;burst(e.x,G,16);shakeT=.35;play('impact',{gain:.35,rate:.6})}break;
    case 'dive3':e.vy+=.6;e.y+=e.vy;if(e.vy>0&&e.y>=G){e.y=G;e.vy=0;e.x=clamp(e.x,e.lo,e.hi);e.state='walk';e.cd=1.2/sp;shakeT=.3}break;
    case 'wave0':e.st+=dt;if(e.st>.75){e.state='wave1';e.st=0;e.n=0}break;
-   case 'wave1':{e.st+=dt;const nW=e.phase===2?3:2;if(e.n<nW&&e.st>e.n*.6){e.n++;e.bolt=.25;FWAVES.push({x:e.x,dir:-1},{x:e.x,dir:1});shakeT=.25;play('laser',{gain:.12,rate:.5})}if(e.st>nW*.6+.6){e.state='walk';e.cd=1}}break}
+   case 'wave1':{e.st+=dt;const nW=2;if(e.n<nW&&e.st>e.n*.6){e.n++;e.bolt=.25;FWAVES.push({x:e.x,dir:-1},{x:e.x,dir:1});shakeT=.25;play('laser',{gain:.12,rate:.5})}if(e.st>nW*.6+.6){e.state='walk';e.cd=1}}break}
   if(!e.state.startsWith('dive'))e.y=G,e.x=clamp(e.x,e.lo,e.hi);
   for(let i=FWAVES.length-1;i>=0;i--){const w=FWAVES[i];w.x+=w.dir*(e.phase===2?8.5:7.2);if(w.x<WALLW||w.x>WORLD-WALLW){FWAVES.splice(i,1);continue}
    if(me.inv<=0&&!me.dead&&Math.abs(me.x-w.x)<22&&me.y>G-28&&me.y<G+12)playerHit(e,[w.x,G])}},
@@ -3437,7 +3443,7 @@ const TUT_ROOM=SC.findIndex(s=>s.tut),POD_X=300,CRATE={x0:760,x1:900,y:450},DUMM
 const INTRO={on:false,ph:'desk',t:0,x:470,vx:0,rot:0,fx:0,fy:0,fvy:0,off:0,ovy:0,wt:0};
 const TUT={active:false,step:0,moved:0,lastX:0,hits:0,doorT:0,closeT:-9,done:false,dw:0,stepT:0};
 let HEADLESS=false;
-const HEAD_R=18*2.1,DESK_Y=330,DESK_L=300,DESK_R=640,RIFT={x:790,y:372};
+const HEAD_R=18*2.1,DESK_Y=330,DESK_L=300,DESK_R=640,RIFT={x:772,y:470,rx:92,ry:21},FLOOR_Y=470;
 function tutReset(){TUT.active=true;TUT.step=0;TUT.moved=0;TUT.lastX=me.x;TUT.hits=0;TUT.doorT=0;TUT.done=false;TUT.dw=0;TUT.stepT=clock}
 function startIntro(){INTRO.on=true;INTRO.ph='desk';INTRO.t=0;INTRO.x=470;INTRO.vx=0;INTRO.rot=-.25;HEADLESS=true;key.l=key.r=key.j=key.d=key.x=0;TUT.active=false;TUT.done=false;TUT.closeT=-9}
 function introStep(dt){if(!INTRO.on)return;INTRO.t+=dt;const R=HEAD_R;
@@ -3445,32 +3451,45 @@ function introStep(dt){if(!INTRO.on)return;INTRO.t+=dt;const R=HEAD_R;
   /* the book pile on the left stops it */
   if(INTRO.x<DESK_L+R){INTRO.x=DESK_L+R;INTRO.vx=Math.abs(INTRO.vx)*.35;if(Math.abs(INTRO.vx)>.4)play('impact',{gain:.08,rate:2})}
   INTRO.rot+=INTRO.vx/R;
-  if(INTRO.x>DESK_R+4){INTRO.ph='fall';INTRO.fx=INTRO.x;INTRO.fy=DESK_Y-R;INTRO.fvy=0;INTRO.t=0;play('roll',{gain:.1,rate:.7,dur:.5})}}
- else if(INTRO.ph==='fall'){INTRO.fvy+=.42;INTRO.fy+=INTRO.fvy;INTRO.fx+=(RIFT.x-INTRO.fx)*.08+INTRO.vx*.3;INTRO.rot+=.08+INTRO.vx/R;
-  if(INTRO.fy>RIFT.y-10&&!INTRO.sucked){INTRO.sucked=true;play('laser',{gain:.22,rate:.4});shakeT=.4}
-  if(INTRO.t>1.25){INTRO.ph='warp';INTRO.t=0}}
+  if(INTRO.x>DESK_R+4){INTRO.ph='fall';INTRO.fx=INTRO.x;INTRO.fy=DESK_Y-R;INTRO.fvy=0;INTRO.t=0;INTRO.sink=false;INTRO.vx=Math.max(2.4,INTRO.vx);play('roll',{gain:.1,rate:.7,dur:.5})}}
+ else if(INTRO.ph==='fall'){/* off the desk, onto the floor, and into the hole in it */
+  INTRO.fvy+=.42;INTRO.fy+=INTRO.fvy;INTRO.fx+=INTRO.vx;INTRO.rot+=INTRO.vx/R;
+  const over=Math.abs(INTRO.fx-RIFT.x)<RIFT.rx-16;
+  if(!INTRO.sink&&INTRO.fy+R>=FLOOR_Y){if(over){INTRO.sink=true;INTRO.fvy=Math.max(INTRO.fvy,2)}else{INTRO.fy=FLOOR_Y-R;INTRO.fvy=0;INTRO.vx=Math.sign(RIFT.x-INTRO.fx)*2.2}}
+  if(INTRO.sink){INTRO.vx*=.9;INTRO.fx+=(RIFT.x-INTRO.fx)*.06;if(!INTRO.sucked){INTRO.sucked=true;play('laser',{gain:.22,rate:.4});shakeT=.4}}
+  if(INTRO.sink&&INTRO.fy-R>FLOOR_Y+30||INTRO.t>3.5){INTRO.ph='warp';INTRO.t=0}}
  else if(INTRO.ph==='warp'){if(INTRO.t>.9){INTRO.ph='drop';INTRO.t=0;INTRO.sucked=false;setRoom(TUT_ROOM);me.x=POD_X;me.y=560;me.vy=0;me.vx=0;me.face=1;me.ground=true;cam=0;INTRO.off=-560;INTRO.ovy=0}}
  else if(INTRO.ph==='drop'){INTRO.ovy+=.55;INTRO.off=Math.min(0,INTRO.off+INTRO.ovy);
   if(INTRO.off>=0){INTRO.on=false;HEADLESS=false;shakeT=.35;play('impact',{gain:.4,rate:1.4});play('land',{gain:.3});burst(me.x,me.y-50,14);tutReset()}}}
 /* ---------- drawing the desk scene (screen space, covers the whole view) ---------- */
 function drawHeadAt(c,x,y,rot,S,P){c.save();c.translate(x,y);c.rotate(rot);c.scale(S,-S);c.translate(-2,-59);heroHead(c,P,2.6);c.restore()}
-function drawRift(c,t,k){const x=RIFT.x,y=RIFT.y;c.save();
- c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,x,y,10,190,['rgba(255,40,40,.35)','rgba(160,0,20,.12)','rgba(80,0,10,0)']);c.fillRect(x-200,y-200,400,400);c.globalCompositeOperation='source-over';
- /* a jagged tear that slowly turns */
- const n=22,pts=[];for(let i=0;i<n;i++){const a=i/n*TAU,r=(i%2?46:70)+Math.sin(t*3+i*1.7)*8;pts.push([x+Math.cos(a+t*.4)*r*(1+k*.4),y+Math.sin(a+t*.4)*r*.62*(1+k*.4)])}
- c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();c.fillStyle=rgrad(c,x,y,4,80,['#000','#0a0006','#3a0008']);c.fill();
- c.strokeStyle='rgba(255,60,50,.9)';c.lineWidth=3;c.stroke();c.strokeStyle='rgba(120,240,255,.35)';c.lineWidth=1.2;c.stroke();
- for(let i=0;i<14;i++){const ph=(t*.7+i/14)%1,a=i*2.4+t,r=150*(1-ph);c.fillStyle='rgba(255,'+(80+i*8)+',80,'+(ph*.8)+')';c.beginPath();c.arc(x+Math.cos(a)*r,y+Math.sin(a)*r*.6,1.5+ph*2,0,TAU);c.fill()}
+function drawRift(c,t,k){const x=RIFT.x,y=RIFT.y,rx=RIFT.rx*(1+k*.15),ry=RIFT.ry*(1+k*.15);c.save();
+ /* light rising out of the hole */
+ c.globalCompositeOperation='lighter';c.fillStyle=lgrad(c,0,y-280,0,y,['rgba(120,240,255,0)','rgba(160,90,255,.14)','rgba(255,70,220,.32)']);c.beginPath();c.moveTo(x-rx*.9,y);c.lineTo(x+rx*.9,y);c.lineTo(x+rx*.45,y-280);c.lineTo(x-rx*.45,y-280);c.closePath();c.fill();
+ c.fillStyle=rgrad(c,x,y,4,rx*2.2,['rgba(255,80,230,.35)','rgba(90,220,255,.12)','rgba(60,120,255,0)']);c.beginPath();c.ellipse(x,y,rx*2.2,ry*3,0,0,TAU);c.fill();
+ /* cracks in the floor around it */
+ c.lineCap='round';for(let i=0;i<9;i++){const a=i/9*TAU+.3,l=rx*(1.15+.35*Math.sin(i*2.1)),fl=.5+.5*Math.sin(t*4+i);c.strokeStyle=i%2?'rgba(120,240,255,'+(.35+.4*fl)+')':'rgba(255,80,230,'+(.35+.4*fl)+')';c.lineWidth=1.6;
+  c.beginPath();c.moveTo(x+Math.cos(a)*rx*.95,y+Math.sin(a)*ry*.95);c.lineTo(x+Math.cos(a+.08)*l*.75,y+Math.sin(a+.08)*ry*1.5);c.lineTo(x+Math.cos(a-.05)*l,y+Math.sin(a-.05)*ry*1.9);c.stroke()}
+ c.globalCompositeOperation='source-over';
+ /* the hole: a dark void with turning neon rings */
+ c.beginPath();c.ellipse(x,y,rx,ry,0,0,TAU);c.fillStyle=rgrad(c,x,y+ry*.3,2,rx,['#000','#0c0420','#2a0a4a']);c.fill();
+ c.save();c.clip();c.globalCompositeOperation='lighter';for(let i=0;i<4;i++){const ph=(t*.5+i/4)%1,sc=1-ph;c.strokeStyle=i%2?'rgba(120,240,255,'+(.6*ph)+')':'rgba(255,80,230,'+(.6*ph)+')';c.lineWidth=2;c.setLineDash([14,10]);c.lineDashOffset=t*(i%2?40:-40);c.beginPath();c.ellipse(x,y+ry*.25*ph,rx*sc,ry*sc,0,0,TAU);c.stroke()}c.restore();
+ /* glowing rim */
+ c.globalCompositeOperation='lighter';c.setLineDash([]);c.strokeStyle=lgrad(c,x-rx,0,x+rx,0,['#ff50e6','#78f0ff','#a060ff','#ff50e6']);c.lineWidth=3;c.beginPath();c.ellipse(x,y,rx,ry,0,0,TAU);c.stroke();
+ c.strokeStyle='rgba(255,255,255,.5)';c.lineWidth=1;c.beginPath();c.ellipse(x,y,rx-3,ry-2,0,Math.PI*1.05,Math.PI*1.95);c.stroke();
+ /* sparks drifting up */
+ for(let i=0;i<16;i++){const ph=(t*.55+i/16)%1,sx=x+Math.sin(i*7.3)*rx*.7+Math.sin(t*2+i)*6,sy=y-ph*230;c.fillStyle=(i%2?'rgba(120,240,255,':'rgba(255,90,230,')+(1-ph)*.9+')';c.beginPath();c.arc(sx,sy,1.4+(1-ph)*1.6,0,TAU);c.fill()}
  c.restore()}
 function drawOpening(c){if(!INTRO.on||INTRO.ph==='drop')return;const t=INTRO.t+(INTRO.base||0),P=poseFor('idle',{t:clock,fill:1});P.tilt=0;P.bob=0;
  c.save();INTROBG.draw('office',c,clock,1/60);
  const k=INTRO.ph==='fall'?clamp(INTRO.t/1.2,0,1):INTRO.ph==='warp'?1:0;drawRift(c,clock,k);
  if(INTRO.ph==='desk')drawHeadAt(c,INTRO.x,DESK_Y-HEAD_R+1,INTRO.rot,2.1,P);
- else if(INTRO.ph==='fall'){const s=2.1*clamp(1-(INTRO.fy-(RIFT.y-30))/90,0,1);if(s>.05)drawHeadAt(c,INTRO.fx,INTRO.fy,INTRO.rot,s,P)}
+ else if(INTRO.ph==='fall'){c.save();if(INTRO.sink){c.beginPath();c.rect(0,0,WW,FLOOR_Y);c.ellipse(RIFT.x,RIFT.y,RIFT.rx,RIFT.ry,0,0,TAU);c.clip()}drawHeadAt(c,INTRO.fx,INTRO.fy,INTRO.rot,2.1,P);c.restore();
+  if(INTRO.sink){c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,80,230,.8)';c.lineWidth=3;c.beginPath();c.ellipse(RIFT.x,RIFT.y,RIFT.rx,RIFT.ry,0,0,Math.PI);c.stroke();c.restore()}}
  /* hint */
  if(INTRO.ph==='desk'){const a=clamp((INTRO.t-1)/.8,0,1)*(.75+.25*Math.sin(clock*3));c.globalAlpha=a;c.font='600 18px '+SERIF;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#f0e6e6';
   c.fillText('←  →   roll',WW/2,92);c.font='600 13px '+SERIF;c.fillStyle='rgba(240,200,200,.7)';c.fillText('A / D  ·  left stick',WW/2,116);c.globalAlpha=1}
- if(INTRO.ph==='warp'){const w=INTRO.t/.9;c.fillStyle='rgba(120,0,10,'+Math.min(1,w*2)+')';c.fillRect(0,0,WW,HH);if(w>.5){c.fillStyle='rgba(140,255,255,'+(w-.5)*2+')';c.fillRect(0,0,WW,HH)}}
+ if(INTRO.ph==='warp'){const w=INTRO.t/.9;c.fillStyle='rgba(60,0,90,'+Math.min(1,w*2)+')';c.fillRect(0,0,WW,HH);c.fillStyle='rgba(255,70,220,'+Math.min(.6,w)+')';c.fillRect(0,0,WW,HH);if(w>.5){c.fillStyle='rgba(140,255,255,'+(w-.5)*2+')';c.fillRect(0,0,WW,HH)}}
  c.restore()}
 /* the head falling into its body in the garage (world space, drawn right after the hero) */
 function drawIntroHead(c,sx,P){if(!INTRO.on||INTRO.ph!=='drop')return;c.save();c.translate(sx,me.y+INTRO.off);c.scale(me.face*SC_,-SC_);heroHead(c,P,2.6);c.restore()}
@@ -3684,6 +3703,6 @@ setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimat
 function unlockAll(){UPG.far=true;UPG.chip=true;UPG.slow=UPG.stop=UPG.crit=UPG.dash=true;UPG.sword=4;UPG.heart=5;UPG.bat=true;UPG.harness=true;HP.max=10;HP.hp=10;HP.slots.forEach(s=>{s.fill=1;s.pop=1})}
 document.getElementById('bunlock').onclick=()=>{unlockAll();game.focus()};
 document.getElementById('bhurt').onclick=()=>{hurt();game.focus()};document.getElementById('bheal').onclick=()=>{heal();game.focus()};
-window.__demo={INTRO,TUT,TUT_ROOM,startIntro,get HEADLESS(){return HEADLESS},PAD,get signOpen(){return signOpen},nearSign,QUEST,NEED,NPCS,KEYS,PR0,PR_BOSS,PR_GATE,talkNpc,get TALKN(){return TALKN},SHOTS,tryShoot,questReset,get wardenTalked(){return wardenTalked},set wardenTalked(v){wardenTalked=v},WWAVE,PIPE_A,PIPE_B,PRISON_A,TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
+window.__demo={slashBlocked,INTRO,TUT,TUT_ROOM,startIntro,get HEADLESS(){return HEADLESS},PAD,get signOpen(){return signOpen},nearSign,QUEST,NEED,NPCS,KEYS,PR0,PR_BOSS,PR_GATE,talkNpc,get TALKN(){return TALKN},SHOTS,tryShoot,questReset,get wardenTalked(){return wardenTalked},set wardenTalked(v){wardenTalked=v},WWAVE,PIPE_A,PIPE_B,PRISON_A,TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
 
 </script>
