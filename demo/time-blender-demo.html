@@ -2736,14 +2736,14 @@ SEWT.fishgod={up(e){const dt=1/60,G=560;e.t+=dt;e.flash=Math.max(0,e.flash-dt);e
    if(e.st>3){e.state='idle';e.cd=1;PZ.started=true;me.kb=0;pzBanner('STRIKE THE GLOWING EYE')}return}
   if(e.state==='idle'){e.cd-=dt;if(e.cd<=0&&!me.dead){const o=['rain','spears','pillars','waves'];let k=o[Math.floor(Math.random()*4)];if(k===e.last)k=o[(o.indexOf(k)+1)%4];e.last=k;e.state=k;e.st=0;e.n=0;e.roar=.5;play('impact',{gain:.2,rate:.45})}return}
   e.st+=dt;
-  if(e.state==='rain'){const per=e.phase===2?.15:.2;while(e.n*per<e.st-.5&&e.st<3){e.n++;spawnTri(e)}if(e.st>3.4){e.state='idle';e.cd=1.1/sp}}
+  if(e.state==='rain'){const per=e.phase===2?.3:.4;while(e.n*per<e.st-.5&&e.st<3){e.n++;spawnTri(e)}if(e.st>3.4){e.state='idle';e.cd=1.1/sp}}
   else if(e.state==='spears'){/* pairs of giant tridents from left and right at the height you stand */
    const rounds=e.phase===2?3:2;if(e.n<rounds&&e.st>e.n*1.05){e.n++;const y=clamp(me.y-34,G-200,G-20);GFX.spears.push({y,t0:clock,side:-1},{y,t0:clock+.12,side:1})}
    if(e.st>rounds*1.05+1){e.state='idle';e.cd=1.1/sp}}
   else if(e.state==='pillars'){/* red warning pillars, then giant tridents burst out of the floor there */
    const rounds=2;if(e.n<rounds&&e.st>e.n*1.6){e.n++;const gap=e.phase===2?170:190,off=e.n%2?0:gap/2,xs=[];for(let x=ARL+50+off;x<ARR-40;x+=gap)xs.push(x);for(const x of xs)GFX.pillars.push({x,t0:clock})}
    if(e.st>rounds*1.6+1.2){e.state='idle';e.cd=1/sp}}
-  else if(e.state==='waves'){const n=e.phase===2?4:3,gap=1.25;if(e.n<n&&e.st>.6+e.n*gap){e.n++;e.bolt=.25;const ph2=e.phase===2;
+  else if(e.state==='waves'){const n=2,gap=1.25;if(e.n<n&&e.st>.6+e.n*gap){e.n++;e.bolt=.25;const ph2=e.phase===2;
    /* two slow waves along the floor, one each way, and one slow wave running along every platform */
    GWAVES.push({x:clamp(e.hx,ARL+40,ARR-40),dir:-1,y:G,lo:ARL,hi:ARR,sp:ph2?4.8:4},{x:clamp(e.hx,ARL+40,ARR-40),dir:1,y:G,lo:ARL,hi:ARR,sp:ph2?4.8:4});
    PLAT.forEach((p,i)=>{const d=(i+e.n)%2?1:-1;GWAVES.push({x:d>0?p.x0+6:p.x1-6,dir:d,y:p.y,lo:p.x0,hi:p.x1,sp:ph2?3:2.5})});shakeT=.2;play('laser',{gain:.12,rate:.5})}if(e.st>.6+n*gap+2.2){e.state='idle';e.cd=1/sp}}},
