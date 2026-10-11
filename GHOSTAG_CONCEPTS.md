@@ -49,7 +49,7 @@ zodra het prototype goed voelt.
 
 - **Engine:** Phaser **3.90.0**, **no-build** (geen bundler). `vendor/phaser.min.js` is
   gevendord; alle scripts via `<script>`-tags in `index.html` met **cache-busting
-  `?v=NN`** (nu v73 — dit nummer bij elke release ophogen).
+  `?v=NN`** (nu v74 — dit nummer bij elke release ophogen).
 - **Backend:** **Supabase** (auth + Realtime). Client via `js/auth.js` (`Auth.client`,
   `@supabase/supabase-js@2`).
 - **Opslag:** vooral **localStorage** (highscores, coins, skins, personage, difficulty,
@@ -230,18 +230,30 @@ wereld?), moeilijkheid/afstand-balans, meer obstakeltypes, muziek/SFX, en uitein
 
 - **SFX:** minimale oscillator-"blips" in `js/audio.js` (in de White Diver o.a. een
   bubbel-"bloop").
-- **Achtergrondmuziek: "Cell Block Lullaby"** — rustig, melancholisch **gevangenis-thema**
-  (sfeer-referentie: Hollow Knight, maar met een **eigen, originele melodie**). Volledig
-  gegenereerd met WebAudio in `js/audio.js` (`startMusic`/`stopMusic`), geen audiobestanden.
-  - D mineur, 3/4-maat, 66 bpm. Vorm: intro → A → A' → B → "adempauze" → (loop, ~76 s).
-  - Instrumenten: zachte piano (melodie + rollende linkerhand), langzame strijkers-akkoorden,
-    lage D-drone met "koude lucht", speeldoos-belletjes, en elke 2e ronde neemt een **cello**
-    de melodie over (octaaf lager).
-  - Gevangenis-sfeer: verre gevangenisklok, waterdruppels, af en toe metalen gekletter
-    (celdeur/ketting) — alles in een stenen-hal-galm (convolution reverb).
-  - Zwelt **licht** aan als de Spook dichtbij is (`setMusicIntensity`), maar blijft rustig.
-  - Score/akkoorden staan als data in `SFX._theme` → makkelijk aan te passen.
-- Nog te ontwikkelen: eventueel muziek per biome/sfeer en betere SFX. Let op: no-build +
+- **Achtergrondmuziek: 3 thema's**, allemaal Hollow Knight als **sfeer-referentie** maar met
+  **eigen, originele melodieën**. Volledig gegenereerd met WebAudio in `js/audio.js`
+  (`SFX.startMusic(thema)` / `stopMusic`), geen audiobestanden. Elk thema heeft de vorm
+  intro → A → A' → B → "adempauze" → (loop), en elke 2e ronde neemt een ander instrument
+  de melodie over.
+  1. **`prison` — "Cell Block Lullaby"** (D mineur, 3/4, 66 bpm, loop ~76 s): zachte piano +
+     rollende linkerhand, langzame strijkers, lage D-drone met "koude lucht",
+     speeldoos-belletjes; 2e ronde **cello**. Sfeer: verre gevangenisklok, waterdruppels,
+     metalen gekletter (celdeur/ketting).
+  2. **`sewer` — "Drain Tunnels"** (E dorisch, 4/4, 84 bpm, loop ~80 s): verende
+     **pizzicato**-bas, klarinet-melodie (2e ronde **marimba** met water-"blub"), strijkers
+     met een onderwater-filterwobble. Sfeer: stromend water, druppels met tunnel-echo,
+     opborrelende belletjes.
+  3. **`factory` — "Cogwork Hall"** (C mineur, 4/4, 76 bpm, loop ~88 s): tikkend
+     celesta-ostinato (draaiende tandwielen), trage machine-"puls" + tikjes, lage hoorn,
+     trillende strijkers; melodie op **altviool** (2e ronde gedempte **hoorn**). Sfeer:
+     stoom-sissers, verre hamer op een aambeeld, fabrieksfluit in de adempauze.
+  - Alles in een stenen-hal-galm (convolution reverb); zwelt **licht** aan als de Spook
+    dichtbij is (`setMusicIntensity`), maar blijft rustig.
+  - **Welk thema waar:** per biome via `music:` in `Biomes` (`config.js`). Nu: Forest →
+    sewer, Graveyard → prison, Snow → prison, City → factory. Bij nieuwe maps
+    (gevangenis/riool/fabriek) gewoon `music:` zetten.
+  - Noten/akkoorden/tempo staan als data in `SFX._themes` → makkelijk aan te passen.
+- Nog te ontwikkelen: betere SFX. Let op: no-build +
   Artifact → audio bij voorkeur klein/ingebed of gegenereerd (WebAudio), geen zware
   externe files.
 
@@ -326,9 +338,9 @@ wipes). White Diver: `ghostrun.best`.
 ## 17. Open vragen voor jou (vul aan wanneer je wilt)
 1. **Verhaal/lore:** is er al een richting (wie/wat is het spookje en de Spook, waarom de
    jacht)? Nu is er geen canon.
-2. **Muziek:** ✅ gekozen: rustig, melancholisch gevangenis-thema (Hollow Knight als
-   sfeer-referentie), zie §12. Open: moet elk biome een eigen variant krijgen? En hoort
-   "gevangenis" ook in de lore/als map?
+2. **Muziek:** ✅ gekozen: rustige, Hollow Knight-achtige thema's (gevangenis, riool,
+   fabriek), zie §12. Open: komen gevangenis/riool/fabriek ook als maps/lore in het spel,
+   en welk thema hoort bij welke bestaande map?
 3. **White Diver:** moet de sprite zélf over het scherm bewegen, of vooral de wereld
    (camera)? En moet dit uiteindelijk een personage of een aparte modus in het hoofdspel
    worden?

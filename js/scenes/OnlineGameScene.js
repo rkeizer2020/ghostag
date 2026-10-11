@@ -80,7 +80,7 @@ class OnlineGameScene extends Phaser.Scene {
     this.lastStateSent = 0;
     this.localTimerBase = this.time.now;
 
-    SFX.startMusic && SFX.startMusic();
+    SFX.startMusic && SFX.startMusic(this.biome.music);
     this.events.once('shutdown', () => { this._unbindNet(); SFX.stopMusic && SFX.stopMusic(); });
   }
 

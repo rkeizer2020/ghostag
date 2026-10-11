@@ -288,27 +288,28 @@ const GAME = {
 // Randomly-chosen map themes. Each run picks one. Every biome swaps the
 // ground, trees, fog and background tint for a different look; gameplay is
 // identical across them.
+// music: background theme from SFX._themes ('prison' | 'sewer' | 'factory')
 const Biomes = {
   LIST: {
     forest: {
       key: 'forest', label: 'Forest', icon: '🌲',
       bg: 0x1c130b, ground: 'ground', tree: 'tree', fog: 'fog',
-      firefly: 0xbfe6ff, snowfall: false,
+      firefly: 0xbfe6ff, snowfall: false, music: 'sewer',
     },
     graveyard: {
       key: 'graveyard', label: 'Graveyard', icon: '🪦',
       bg: 0x0e0f13, ground: 'ground_graveyard', tree: 'tree_graveyard', fog: 'fog_graveyard',
-      firefly: 0x9fffc0, snowfall: false,
+      firefly: 0x9fffc0, snowfall: false, music: 'prison',
     },
     snow: {
       key: 'snow', label: 'Snow', icon: '❄️',
       bg: 0x1a2431, ground: 'ground_snow', tree: 'tree_snow', fog: 'fog_snow',
-      firefly: 0xffffff, snowfall: true,
+      firefly: 0xffffff, snowfall: true, music: 'prison',
     },
     city: {
       key: 'city', label: 'City', icon: '🏙️',
       bg: 0x12141d, ground: 'ground_city', tree: 'tree_city', fog: 'fog_city',
-      firefly: 0xffe6a0, snowfall: false, vending: true,
+      firefly: 0xffe6a0, snowfall: false, vending: true, music: 'factory',
     },
   },
   ORDER: ['forest', 'graveyard', 'snow', 'city'],

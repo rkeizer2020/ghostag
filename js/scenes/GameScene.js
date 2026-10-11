@@ -221,7 +221,7 @@ class GameScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-P', () => this.togglePause());
 
     // background music for the chase; stops when the scene ends
-    SFX.startMusic();
+    SFX.startMusic(this.biome.music);
     this.events.once('shutdown', () => SFX.stopMusic());
   }
 
