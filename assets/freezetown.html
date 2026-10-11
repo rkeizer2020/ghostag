@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Freezetown Backgrounds</title>
+<style>
+:root{--bg:#070a14;--card:#0d1220;--line:#1c2438;--fg:#e4eaf6;--muted:#97a3bd;--dim:#66728d;--acc:#8fd3ff;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg)}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;padding:28px 16px 48px;overflow-x:hidden}
+header,main{max-width:1440px;margin-inline:auto}
+header{margin-bottom:24px}
+h1{font-size:clamp(24px,4vw,34px);font-weight:650;letter-spacing:.01em;margin:0 0 6px}
+header p{margin:0;color:var(--muted);max-width:72ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr));gap:20px}
+figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+canvas{display:block;width:100%;aspect-ratio:16/9;background:#03050c}
+figcaption{padding:12px 14px 14px;display:flex;flex-direction:column;gap:4px}
+.t{display:flex;align-items:baseline;gap:10px;min-width:0}
+.n{font-variant-numeric:tabular-nums;color:var(--acc);font-size:13px;font-weight:600;letter-spacing:.06em;opacity:.8}
+h2{font-size:16px;font-weight:600;margin:0;overflow-wrap:anywhere}
+figcaption p{margin:0;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<header>
+<h1>Freezetown Backgrounds</h1>
+<p>Eight painted night scenes for the snowy Freezetown biome, each drawn live at 960&times;540 by the canvas engine below, with falling snow at three depths, drifting mist and soft moonlight, aurora and lantern glow.</p>
+</header>
+<main><div class="grid" id="grid"></div></main>
+<script>
+/* ===== Freezetown paintings: snowy night backgrounds for the FREEZETOWN biome (deep night blues, icy cyan, lavender, white snow and pale moonlight; warm amber only for village lights and fires) ===== */
+const FROST=(()=>{
+const W=960,H=540,TAU=Math.PI*2,FY=470;
+
+let c=null;
+let seed=1;const R=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646};const rr=(a,b)=>a+R()*(b-a);
+const lg=(x0,y0,x1,y1,st)=>{const g=c.createLinearGradient(x0,y0,x1,y1);st.forEach((s,i)=>g.addColorStop(i/(st.length-1),s));return g};
+const rg=(x,y,r0,r1,st)=>{const g=c.createRadialGradient(x,y,r0,x,y,r1);st.forEach((s,i)=>g.addColorStop(i/(st.length-1),s));return g};
+/* linear gradient with explicit stop positions: st=[[pos,colour],...] */
+const lgp=(x0,y0,x1,y1,st)=>{const g=c.createLinearGradient(x0,y0,x1,y1);st.forEach(s=>g.addColorStop(s[0],s[1]));return g};
+const P2=()=>new Path2D();
+const blob=(pts,p)=>{p=p||P2();const n=pts.length;for(let i=0;i<=n;i++){const a=pts[i%n],q=pts[(i+1)%n],mx=(a[0]+q[0])/2,my=(a[1]+q[1])/2;i?p.quadraticCurveTo(a[0],a[1],mx,my):p.moveTo(mx,my)}p.closePath();return p};
+const rock=(cx,cy,rx,ry,j,n)=>{const pts=[];n=n||11;for(let i=0;i<n;i++){const a=i/n*TAU,k=1+rr(-j,j);pts.push([cx+Math.cos(a)*rx*k,cy+Math.sin(a)*ry*k])}return pts};
+const add=(f)=>{c.save();c.globalCompositeOperation='lighter';f();c.restore()};
+const A=(r,g,b,a)=>'rgba('+(r|0)+','+(g|0)+','+(b|0)+','+(a===undefined?1:a)+')';
+/* B(v,a): the cold ramp, deep night blue at low v rising to lavender-white at high v */
+const B=(v,a)=>A(v*(.42+.55*v/255),v*(.58+.4*v/255),Math.min(255,v),a);
+const SN=(a)=>A(232,238,252,a),MN=(a)=>A(236,240,255,a),IC=(a)=>A(130,215,255,a),LV=(a)=>A(176,164,228,a),AM=(a)=>A(255,178,92,a),WN=(a)=>A(255,214,148,a);
+const poly=(p,pts)=>{p.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)p.lineTo(pts[i][0],pts[i][1]);p.closePath();return p};
+const seg=(p,a,b)=>{p.moveTo(a[0],a[1]);p.lineTo(b[0],b[1])};
+const mod=(a,m)=>((a%m)+m)%m;
+/* soft ellipse from a unit radial gradient */
+const ell=(g,x,y,rx,ry,a)=>{c.globalAlpha=a;c.fillStyle=g;c.save();c.translate(x,y);c.scale(rx,ry);c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore()};
+const crack=(p,x,y,ang,len,br)=>{p.moveTo(x,y);let l=0;while(l<len){const s=rr(6,16);ang+=rr(-.5,.5);x+=Math.cos(ang)*s;y+=Math.sin(ang)*s;p.lineTo(x,y);l+=s;if(br>0&&R()<.18){crack(p,x,y,ang+rr(-1,1),len*.4,br-1);p.moveTo(x,y)}}};
+/* tapered icicle hanging from (x,y), added to p */
+const icicle=(p,x,y,w,l,bend)=>{bend=bend||0;p.moveTo(x-w/2,y);p.quadraticCurveTo(x-w*.3,y+l*.5,x+bend,y+l);p.quadraticCurveTo(x+w*.3,y+l*.5,x+w/2,y);p.closePath()};
+
+/* cached generic gradients (shape only; strength comes from globalAlpha) */
+let FOG=null,DOT=null,WARM=null,CYG=null,SHD=null,VIG=null,FLOOR=null;
+function caches(){if(FOG)return;FOG=rg(0,0,0,1,[A(196,210,240,1),A(170,186,228,.45),A(150,166,214,0)]);DOT=rg(0,0,0,1,[MN(1),MN(.25),MN(0)]);
+ WARM=rg(0,0,0,1,[A(255,222,160,1),A(255,158,70,.32),A(255,110,40,0)]);CYG=rg(0,0,0,1,[A(200,248,255,1),A(90,190,255,.3),A(50,120,255,0)]);SHD=rg(0,0,0,1,[A(14,20,60,.7),A(14,20,60,.28),A(14,20,60,0)]);
+ VIG=rg(W/2,H*.48,H*.3,W*.72,[A(2,4,16,0),A(2,4,16,.3),A(1,2,10,.74)]);
+ FLOOR=lgp(0,FY-44,0,H,[[0,A(8,14,34,0)],[.35,A(8,14,34,.5)],[.6,A(6,10,28,.86)],[1,A(4,7,20,.96)]])}
+
+/* =================== shared painting helpers =================== */
+/* snowy pine: tiers of drooping boughs added to p, the moonlit snow shelves on each tier added to s */
+function pine(p,s,x,y,h,w){const n=Math.max(3,Math.min(7,Math.round(h/(h<40?12:22)))),top=y-h;
+ p.rect(x-w*.04,y-h*.15,w*.08,h*.17);
+ for(let i=0;i<n;i++){const k0=i/n,k1=(i+1)/n,yt=top+h*(.86*k0-(i?.07:0)),yb=top+h*(.12+.8*k1),hw=w*.5*(.22+.78*k1)*rr(.86,1.1),dy=yb-yt;
+  if(h<50){poly(p,[[x,yt],[x-hw,yb],[x-hw*.3,yb-dy*.08],[x+hw*.3,yb-dy*.08],[x+hw,yb]]);if(s)poly(s,[[x,yt],[x-hw*.9,yb-dy*.06],[x-hw*.2,yb-dy*.32],[x+hw*.55,yb-dy*.2]]);continue}
+  p.moveTo(x,yt);p.quadraticCurveTo(x-hw*.3,yt+dy*.55,x-hw,yb);
+  const m=h<40?1:Math.max(2,Math.round(hw/11));for(let j=1;j<=m;j++){const xa=x-hw+2*hw*(j-.5)/m,xb=x-hw+2*hw*j/m;p.quadraticCurveTo(xa,yb+dy*.12,xb,yb-(j<m?dy*.06:0))}
+  p.quadraticCurveTo(x+hw*.3,yt+dy*.55,x,yt);p.closePath();
+  if(s){s.moveTo(x,yt);s.quadraticCurveTo(x-hw*.3,yt+dy*.52,x-hw*.95,yb-dy*.04);s.quadraticCurveTo(x-hw*.62,yb-dy*.2,x-hw*.3,yb-dy*(.26+rr(-.05,.05)));
+   s.quadraticCurveTo(x,yb-dy*.42,x+hw*.35,yb-dy*.24);s.quadraticCurveTo(x+hw*.62,yb-dy*.12,x+hw*.84,yb-dy*.14);s.quadraticCurveTo(x+hw*.24,yt+dy*.45,x,yt);s.closePath()}}}
+/* a row of pines along a base line; gap(x) leaves clearings */
+function forest(x0,x1,base,hmin,hmax,dens,gap){const p=P2(),s=P2();let x=x0;while(x<x1){const h=rr(hmin,hmax);if(!gap||!gap(x))pine(p,s,x,base+rr(-3,3),h,h*rr(.38,.5));x+=h*rr(.16,.4)/dens}return {p,s}}
+/* a far treeline: one zigzag of pine silhouettes (cheap straight lines), tiny snow caps on the tips added to s */
+function treeline(x0,x1,base,hmin,hmax,gap){const p=P2(),s=P2();p.moveTo(x0,base+4);let x=x0;while(x<x1){const h=rr(hmin,hmax),w=h*rr(.42,.56);if(gap&&gap(x)){x+=w;p.lineTo(x,base+4);continue}const y=base+rr(-2,2);
+  p.lineTo(x,y);p.lineTo(x+w*.3,y-h*.45);p.lineTo(x+w*.22,y-h*.47);p.lineTo(x+w*.5,y-h);p.lineTo(x+w*.78,y-h*.47);p.lineTo(x+w*.7,y-h*.45);p.lineTo(x+w,y);
+  poly(s,[[x+w*.5,y-h],[x+w*.34,y-h*.68],[x+w*.48,y-h*.74],[x+w*.64,y-h*.7]]);poly(s,[[x+w*.25,y-h*.46],[x+w*.08,y-h*.12],[x+w*.4,y-h*.3]]);x+=w*rr(.5,.95)}
+ p.lineTo(x1,base+4);p.closePath();return {p,s}}
+/* rolling snow ground: wavy top edge from x0 to x1, closed down to y1 */
+function hill(y,amp,y1,n,ph){const p=P2(),f=rr(.004,.007);p.moveTo(-20,y1);for(let x=-20;x<=W+20;x+=20)p.lineTo(x,y+Math.sin(x*f+ph)*amp+Math.sin(x*f*2.7+ph*1.7)*amp*.35);p.lineTo(W+20,y1);p.closePath();return p}
+/* a mountain range: jagged ridge (midpoint displacement), snow caps, and the faces turned away from the light in shadow (lit=1: light from the left) */
+function range(x0,x1,base,yHi,yLo,n,capD,lit){const ctrl=[[x0,base-(base-yLo)*.3]],pk=[];
+ for(let i=0;i<n;i++){const x=x0+(x1-x0)*(i+rr(.3,.7))/n,y=rr(yHi,yLo),q=ctrl[ctrl.length-1];
+  if(i){const px=pk[i-1],vy=Math.min(base-8,Math.max(px[1],y)+rr(.2,.45)*(x-px[0]));ctrl.push([(px[0]+x)/2+rr(-.12,.12)*(x-px[0]),vy])}
+  pk.push([x,y]);ctrl.push([x,y])}
+ ctrl.push([x1,base-(base-yLo)*.3]);
+ let pts=ctrl;for(let it=0;it<4;it++){const o=[];for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1],d=Math.abs(b[0]-a[0]);o.push(a,[(a[0]+b[0])/2+rr(-.06,.06)*d,(a[1]+b[1])/2+rr(-.2,.2)*d])}o.push(pts[pts.length-1]);pts=o}
+ const M={p:P2(),cap:P2(),sh:P2(),base,top:yHi};M.p.moveTo(x0,H);pts.forEach(q=>M.p.lineTo(q[0],q[1]));M.p.lineTo(x1,H);M.p.closePath();
+ for(let k=0;k<n;k++){const pi=(1+2*k)*16,P=pts[pi];if(!P)continue;const ys=P[1]+capD*rr(.6,1.3);let j=pi,e=pi;while(j>0&&pts[j-1][1]<ys)j--;while(e<pts.length-1&&pts[e+1][1]<ys)e++;
+  const cp=pts.slice(j,e+1),m=Math.max(3,Math.round((pts[e][0]-pts[j][0])/9));for(let i=1;i<m;i++)cp.push([pts[e][0]+(pts[j][0]-pts[e][0])*i/m,ys+rr(-6,6)+(R()<.3?rr(8,26):0)]);poly(M.cap,cp);
+  const dir=lit>0?1:-1;let v=pi;while(v+dir>0&&v+dir<pts.length-1&&Math.abs(v-pi)<16&&!(pts[v+dir][1]<pts[v][1]-4&&Math.abs(v-pi)>3))v+=dir;
+  const sp=pts.slice(Math.min(pi,v),Math.max(pi,v)+1);if(dir<0)sp.reverse();const cx=P[0]+dir*rr(2,14);sp.push([pts[v][0],H],[cx+dir*rr(0,30),H],[cx,P[1]+(H-P[1])*.4]);poly(M.sh,sp)}
+ return M}
+function drawRange(M,col,cap,shA,hz){c.fillStyle=hz||col;c.fill(M.p);c.fillStyle=cap;c.fill(M.cap);c.fillStyle=lg(0,M.top,0,M.base,[A(10,16,48,shA),A(10,16,48,shA*.5),A(10,16,48,0)]);c.fill(M.sh)}
+/* stars, the moon, aurora curtains */
+function stars(S,t){const ps=[P2(),P2(),P2(),P2(),P2()];for(const s of S.stars){const a=s[4]*(.55+.45*Math.sin(t*s[5]+s[3]));ps[Math.min(4,(a*5)|0)].rect(s[0],s[1],s[2],s[2])}
+ add(()=>{c.fillStyle=MN(1);for(let k=0;k<5;k++){c.globalAlpha=(k+.6)/5;c.fill(ps[k])}})}
+function moon(x,y,r,t,k){k=k||1;add(()=>{ell(DOT,x,y,r*6,r*6,.15*k);ell(DOT,x,y,r*3.4,r*3.4,.5*k)});
+ c.fillStyle=rg(x-r*.3,y-r*.3,r*.1,r*1.05,[A(250,252,255),A(226,232,250),A(190,198,232)]);c.beginPath();c.arc(x,y,r,0,TAU);c.fill();
+ c.fillStyle=A(160,170,214,.38);c.beginPath();c.arc(x-r*.28,y-r*.12,r*.22,0,TAU);c.arc(x+r*.25,y+r*.3,r*.16,0,TAU);c.arc(x+r*.18,y-r*.38,r*.1,0,TAU);c.arc(x-r*.05,y+r*.5,r*.09,0,TAU);c.fill()}
+function mkAurora(list){return list.map(b=>Object.assign({g:lgp(0,0,0,1,[[0,A(b.c[0],b.c[1],b.c[2],0)],[.55,A(b.c[0],b.c[1],b.c[2],.22)],[.88,A(b.c[0],b.c[1],b.c[2],.85)],[1,A(b.c[0],b.c[1],b.c[2],0)]])},b))}
+function aurora(list,t){add(()=>{for(const b of list){const st=b.st||9;for(let x=b.x0;x<b.x1;x+=st){const u=(x-b.x0)/(b.x1-b.x0),env=Math.sin(u*Math.PI),
+   y=b.y+Math.sin(x*.0055+t*b.sp+b.ph)*b.amp+Math.sin(x*.016-t*b.sp*1.6+b.ph*2)*b.amp*.32,h=b.h*(.55+.45*Math.sin(x*.009+t*.23+b.ph))*(.5+.5*env);
+   c.globalAlpha=.56*b.a*env*(.5+.5*Math.sin(x*.045+t*.9+b.ph)*Math.sin(x*.013-t*.4));if(c.globalAlpha<=.01)continue;c.fillStyle=b.g;c.save();c.translate(x-st*.45,y-h);c.scale(st*1.9,h);c.fillRect(0,0,1,1);c.restore()}}})}
+/* glints on snow and ice */
+function glints(list,t){add(()=>{c.fillStyle=MN(1);for(const g of list){const s=Math.sin(t*g[3]+g[2]);if(s<.86)continue;const k=(s-.86)/.14;c.globalAlpha=k*.9;const r=g[4]*k;c.fillRect(g[0]-r,g[1]-.5,r*2,1);c.fillRect(g[0]-.5,g[1]-r,1,r*2)}})}
+const mkGlints=(n,x0,x1,y0,y1)=>Array.from({length:n},()=>[rr(x0,x1),rr(y0,y1),rr(0,TAU),rr(.6,1.6),rr(2,4.5)]);
+/* drifting cloud puffs */
+const mkClouds=(n,y0,y1,a0,a1,sp)=>{const out=[];for(let i=0;i<n;i++){const w=rr(110,220);out.push({x:rr(0,W+400),y:rr(y0,y1),s:rr(2,6)*(sp||1),a:rr(a0,a1),pf:Array.from({length:5},()=>[rr(-w,w),rr(-12,10),rr(50,110),rr(14,30)])})}return out};
+function clouds(list,t){add(()=>{c.fillStyle=FOG;for(const k of list){const x=mod(k.x+t*k.s,W+400)-200;c.globalAlpha=k.a;for(const p of k.pf){c.save();c.translate(x+p[0],k.y+p[1]);c.scale(p[2],p[3]);c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore()}}})}
+/* wind gusts: thin bright streaks racing over the snow */
+const mkGusts=(n,y0,y1,v0,v1)=>Array.from({length:n},()=>({x:rr(0,W),y:rr(y0,y1),l:rr(60,220),v:rr(v0,v1),ph:rr(0,TAU),a:rr(.1,.24)}));
+function gusts(list,t){add(()=>{c.lineCap='round';c.lineWidth=1.6;c.strokeStyle=SN(1);for(const g of list){const x=mod(g.x+t*g.v,W+g.l*2)-g.l,y=g.y+Math.sin(t*.7+g.ph)*6;
+  c.globalAlpha=g.a*(.6+.4*Math.sin(t*1.3+g.ph));c.beginPath();c.moveTo(x,y);c.quadraticCurveTo(x+g.l*.5,y+Math.sin(t*2.1+g.ph)*5,x+g.l,y-2);c.stroke()}})}
+/* warm window: glow, pane gradient, mullions */
+function windowLit(x,y,w,h,t,ph,k){const fl=(.9+.06*Math.sin(t*1.9+ph)+.04*Math.sin(t*7.3+ph*2))*(k||1);
+ add(()=>{ell(WARM,x+w/2,y+h/2,w*2.6,h*2.2,.32*fl)});c.fillStyle=lg(0,y,0,y+h,[WN(fl),AM(.95*fl)]);c.fillRect(x,y,w,h);
+ c.fillStyle=A(30,20,30,.9);c.fillRect(x+w/2-1,y,2,h);c.fillRect(x,y+h*.45,w,2);c.strokeStyle=A(20,16,28);c.lineWidth=2;c.strokeRect(x,y,w,h)}
+/* street lamp with a warm lantern, light cone and a pool on the snow */
+function lampPost(x,base,h,t,ph){const y=base-h,fl=.9+.06*Math.sin(t*2.3+ph)+.04*Math.sin(t*8.1+ph*2);
+ add(()=>{c.globalAlpha=.07*fl;c.fillStyle=WN(1);c.beginPath();c.moveTo(x-6,y-8);c.lineTo(x+6,y-8);c.lineTo(x+70,base);c.lineTo(x-70,base);c.closePath();c.fill();ell(WARM,x,base+2,90,12,.35*fl)});
+ c.fillStyle=A(10,12,26);c.fillRect(x-2.5,y,5,h);c.fillRect(x-6,base-10,12,10);c.fillRect(x-8,y-2,16,4);c.fillRect(x-7,y-6,14,4);
+ c.fillStyle=lg(0,y-26,0,y-6,[WN(fl),AM(fl)]);c.fillRect(x-6,y-26,12,20);c.strokeStyle=A(10,12,26);c.lineWidth=1.6;c.strokeRect(x-6,y-26,12,20);c.beginPath();c.moveTo(x,y-26);c.lineTo(x,y-6);c.stroke();
+ c.fillStyle=A(10,12,26);c.beginPath();c.moveTo(x-10,y-26);c.lineTo(x,y-36);c.lineTo(x+10,y-26);c.closePath();c.fill();c.fillStyle=SN(.85);c.beginPath();c.ellipse(x-1,y-30,7,3.2,-.35,Math.PI,TAU);c.fill();
+ add(()=>{ell(WARM,x,y-16,62,62,.55*fl);ell(WARM,x,y-16,16,16,.6*fl)})}
+/* chimney smoke: puffs rising and leaning with the wind */
+function smoke(x,y,t,ph,a,lean){add(()=>{c.fillStyle=FOG;for(let i=0;i<7;i++){const k=mod(t*.06+i/7+ph,1);c.globalAlpha=(a||.16)*Math.sin(k*Math.PI)*(1-k*.4);
+  c.save();c.translate(x+k*(lean||60)+Math.sin(t*.5+i+ph)*6*k,y-k*150);c.scale(10+k*40,8+k*26);c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore()}})}
+
+/* =================== the shared frame =================== */
+function makeFrame(S,o){
+ seed=S.seed;S.backG=lg(0,0,0,H,o.sky);
+ const Lt=o.light;S.glowG=rg(Lt.x,Lt.y,6,Lt.r,Lt.c==='cy'?[A(190,240,255,1),A(90,170,230,.42),A(40,90,170,.14),A(20,40,90,0)]:Lt.c==='au'?[A(150,255,210,1),A(70,200,190,.4),A(30,110,140,.14),A(10,40,70,0)]:[MN(1),A(170,180,230,.45),A(90,100,170,.16),A(40,50,110,0)]);
+ S.stars=[];for(let i=0;i<(o.stars||0);i++){const b=R()<.08;S.stars.push([rr(0,W),(R()**1.5)*(o.starY||300),b?rr(1.4,2.2):rr(.5,1.3),rr(0,TAU),b?rr(.8,1):rr(.3,.8),rr(.6,2.4)])}
+ const sn=o.snow||{};S.wind=sn.wind===undefined?14:sn.wind;
+ S.snow=[[100,.5,1.1,12,22,5,12],[60,1.1,1.9,26,40,10,20],[26,2.1,3.3,50,76,16,30]].map(L=>{const n=Math.round(L[0]*(sn.n||1)),a=[];for(let i=0;i<n;i++)a.push({x:rr(0,W+60),y:rr(0,H+40),r:rr(L[1],L[2]),v:rr(L[3],L[4])*(sn.v||1),a:rr(L[5],L[6]),f:rr(.4,1.1),ph:rr(0,TAU)});return a});
+ S.ed=[0,1].map(s=>{const k=(o.edge||[])[s],e={ph:rr(0,TAU)};if(k)EDGE[k].init(e);return e});
+ (o.shafts||[]).forEach(s=>{s.g=lg(0,s[5]||0,0,s[6]||FY,[MN(1),A(190,215,255,.45),A(160,190,255,0)])});
+}
+function glow(S,t){const Lt=S.o.light,fl=.94+.04*Math.sin(t*.6)+.02*Math.sin(t*1.7);
+ add(()=>{c.globalAlpha=Math.min(1,Lt.a*fl);c.fillStyle=S.glowG;c.fillRect(Math.max(0,Lt.x-Lt.r),Math.max(0,Lt.y-Lt.r),Math.min(W,Lt.r*2),Math.min(H,Lt.r*2))})}
+function fog(t,y,a,sp,h,n){n=n||4;const span=W+600;add(()=>{c.fillStyle=FOG;for(let i=0;i<n;i++){const x=mod(i*span/n+t*sp,span)-300,yy=y+Math.sin(t*.2+i*2)*8;
+  c.globalAlpha=a*(.8+.2*Math.sin(t*.3+i));c.save();c.translate(x,yy);c.scale(300,h||60);c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore()}})}
+function shafts(S,t){const list=S.o.shafts;if(!list||!list.length)return;add(()=>{for(const s of list){const [x0,w,ph,k,lean,y0,y1]=s,a=(.07+.035*Math.sin(t*.45+ph))*(k||1),sw=Math.sin(t*.18+ph)*10,yA=y0||0,yB=y1||FY;
+  c.globalAlpha=a;c.fillStyle=s.g;c.beginPath();c.moveTo(x0-w*.5,yA);c.lineTo(x0+w*.5,yA);c.lineTo(x0+(lean||0)+w*1.5+sw,yB);c.lineTo(x0+(lean||0)-w*1.5+sw,yB);c.closePath();c.fill()}})}
+/* falling snow, three depths: k=0 far (small, slow), 1 middle, 2 near (big, fast, soft halo) */
+function snowLayer(S,t,k){const L=S.snow[k];if(!L.length)return;const wd=S.wind,st=S.o.snow&&S.o.snow.streak,p=P2(),h=k===2&&!st?P2():null,sx=W+60,sy=H+40;
+ for(const f of L){const y=mod(f.y+t*f.v,sy)-20,x=mod(f.x+t*wd*f.v/40+Math.sin(t*f.f+f.ph)*f.a,sx)-30;
+  if(st){const dx=wd*f.v/40*st,dy=f.v*st;p.moveTo(x,y);p.lineTo(x-dx,y-dy)}else{p.moveTo(x+f.r,y);p.arc(x,y,f.r,0,TAU);if(h){h.moveTo(x+f.r*2.6,y);h.arc(x,y,f.r*2.6,0,TAU)}}}
+ const al=[.5,.68,.85][k]*(S.o.snowA||1);
+ if(st){c.save();c.lineCap='round';c.strokeStyle=SN(al*.85);c.lineWidth=[1,1.7,2.8][k];c.stroke(p);c.restore()}
+ else{c.fillStyle=SN(al);c.fill(p);if(h){c.fillStyle=SN(.1);c.fill(h)}}}
+function floorShade(){c.fillStyle=FLOOR;c.fillRect(0,FY-44,W,H-FY+44)}
+function vignette(){c.fillStyle=VIG;c.fillRect(0,0,W,H)}
+
+/* near foreground silhouettes at the left/right edges (the right one is the mirror image); init uses the seeded random */
+const EDGE={
+ /* a huge snow-laden pine cut by the frame, a smaller one beside it */
+ pine:{init(e){e.p=P2();e.s=P2();pine(e.p,e.s,rr(-6,14),H+30,rr(580,660),rr(190,220));pine(e.p,e.s,rr(104,122),H+24,rr(230,290),rr(92,112));e.g=lg(0,0,260,0,[A(2,4,12,.55),A(2,4,12,0)])},
+  draw(S,t,e){c.fillStyle=e.g;c.fillRect(0,0,260,H);c.fillStyle=A(4,6,16);c.fill(e.p);c.fillStyle=A(110,130,190,.2);c.fill(e.s)}},
+ /* the corner of a cottage: snowy eave with icicles, a warm window and a hanging lantern */
+ eaves:{init(e){const w=e.w=rr(62,72),ex=w+54,ey=rr(104,116);e.ex=ex;e.ey=ey;e.board=poly(P2(),[[-20,ey-76],[ex,ey-6],[ex,ey+6],[-20,ey-62]]);
+   const sl=(ey-6-(ey-76))/(ex+20),pts=[[ex+12,ey+10],[ex+14,ey-2]];for(let x=ex;x>-30;x-=rr(16,26))pts.push([x,ey-6-(ex-x)*sl-rr(16,24)]);pts.push([-30,ey-100],[-30,ey-60]);for(let x=-20;x<ex;x+=30)pts.push([x,ey-73+(x+20)*sl]);e.snow=blob(pts);
+   e.ice=P2();for(let x=6;x<ex-4;x+=rr(7,12))icicle(e.ice,x,ey-62+(x+20)*sl+4,rr(3,6),rr(8,44)*(x>ex-40?.5:1));
+   e.wall=P2();e.wall.rect(0,ey-60,w,H);e.pl=P2();for(let x=12;x<w;x+=13)seg(e.pl,[x,ey-40],[x,H]);e.wallG=lg(0,0,w,0,[A(8,8,18),A(18,16,30),A(30,28,46)]);e.lx=ex-14},
+  draw(S,t,e){c.fillStyle=lg(e.w,0,e.w+90,0,[A(2,4,12,.5),A(2,4,12,0)]);c.fillRect(e.w,0,90,H);c.fillStyle=e.wallG;c.fill(e.wall);c.strokeStyle=A(0,0,8,.5);c.lineWidth=1.4;c.stroke(e.pl);
+   windowLit(14,e.ey+120,e.w-30,62,t,e.ph,.85);c.fillStyle=A(10,10,20);c.fillRect(8,e.ey+182,e.w-18,7);c.fillStyle=SN(.75);c.beginPath();c.ellipse(e.w/2-1,e.ey+182,e.w/2-6,4,0,Math.PI,TAU);c.fill();
+   c.fillStyle=A(12,10,22);c.fill(e.board);c.fillStyle=lg(0,e.ey-110,0,e.ey+10,[SN(.95),A(150,166,214,.95)]);c.fill(e.snow);c.fillStyle=lg(0,e.ey-60,0,e.ey+40,[A(150,200,240,.85),A(200,236,255,.5)]);c.fill(e.ice);
+   const sw=Math.sin(t*.8+e.ph)*3,lx=e.lx+sw,ly=e.ey+52;c.strokeStyle=A(10,10,22);c.lineWidth=1.4;c.beginPath();c.moveTo(e.lx,e.ey+2);c.lineTo(lx,ly-14);c.stroke();
+   const fl=.9+.06*Math.sin(t*2.6+e.ph)+.04*Math.sin(t*9+e.ph);c.fillStyle=A(10,10,22);c.fillRect(lx-7,ly-16,14,4);c.fillRect(lx-6,ly+10,12,3);c.fillStyle=lg(0,ly-12,0,ly+10,[WN(fl),AM(fl)]);c.fillRect(lx-5,ly-12,10,22);
+   add(()=>{ell(WARM,lx,ly,70,70,.5*fl);ell(WARM,lx,ly,14,18,.7*fl)})}},
+ /* a faceted ice wall with an icicle ledge on top */
+ ice:{init(e){const pts=[[-10,-10]];let x=rr(70,96);for(let y=-10;y<H+40;y+=rr(36,64)){pts.push([x,y]);x=Math.max(42,Math.min(128,x+rr(-28,28)))}pts.push([-10,H+40]);e.p=poly(P2(),pts);
+   e.rim=P2();e.fl=P2();e.fd=P2();for(let i=1;i<pts.length-2;i++){const a=pts[i],b=pts[i+1],m=[rr(6,34),(a[1]+b[1])/2+rr(-12,12)];seg(e.rim,a,b);poly(R()<.5?e.fl:e.fd,[a,b,m])}
+   e.crk=P2();for(let i=0;i<4;i++)crack(e.crk,rr(10,60),rr(40,H),rr(-1.9,-1.2),rr(60,140),1);
+   const lw=rr(170,230),lp=[[-10,-10],[lw+20,-10]];for(let x=lw;x>-10;x-=rr(18,30))lp.push([x,rr(18,34)]);e.ledge=poly(P2(),lp);e.ice=P2();for(let x=4;x<lw;x+=rr(8,15)){const l=rr(14,90)*(1-x/lw*.6);icicle(e.ice,x,20,rr(5,10),l,rr(-2,2))}
+   e.g=lg(0,0,130,0,[A(2,6,18),A(6,18,44),A(26,62,108)])},
+  draw(S,t,e){c.fillStyle=lg(90,0,190,0,[A(2,6,16,.5),A(2,6,16,0)]);c.fillRect(90,0,100,H);c.fillStyle=e.g;c.fill(e.p);c.fillStyle=A(150,210,255,.06);c.fill(e.fl);c.fillStyle=A(0,4,16,.25);c.fill(e.fd);
+   c.strokeStyle=A(150,220,255,.18);c.lineWidth=1;c.stroke(e.crk);c.strokeStyle=A(170,230,255,.32);c.lineWidth=1.6;c.stroke(e.rim);
+   c.fillStyle=A(8,22,48);c.fill(e.ledge);c.fillStyle=lg(0,0,0,110,[A(60,120,180,.95),A(150,215,255,.75),A(220,245,255,.35)]);c.fill(e.ice);
+   add(()=>{c.globalAlpha=.25+.1*Math.sin(t*.7+e.ph);c.fillStyle=IC(.6);c.fill(e.ice)})}},
+ /* a frozen stone pillar with a snowy capital, icicles and one glowing rune */
+ pillar:{init(e){e.w=rr(58,70);e.j=P2();for(let y=150;y<FY;y+=rr(56,70))seg(e.j,[0,y],[e.w,y]);e.ice=P2();for(let x=-6;x<e.w+16;x+=rr(6,10))icicle(e.ice,x,96,rr(4,7),rr(8,46));
+   e.snow=blob([[-14,66],[e.w*.3,58+rr(-3,3)],[e.w*.7,60+rr(-3,3)],[e.w+18,62],[e.w+20,74],[-14,74]]);e.rune=P2();const rx=e.w/2,ry=rr(250,300);e.ry=ry;e.rune.moveTo(rx,ry-18);e.rune.lineTo(rx,ry+18);e.rune.moveTo(rx-9,ry-8);e.rune.lineTo(rx,ry);e.rune.lineTo(rx+9,ry-8);e.rune.moveTo(rx-9,ry+12);e.rune.lineTo(rx+9,ry+4);
+   e.g=lg(0,0,e.w+10,0,[A(6,10,24),A(20,28,54),A(42,56,96),A(14,18,40)])},
+  draw(S,t,e){c.fillStyle=lg(e.w,0,e.w+80,0,[A(2,4,14,.5),A(2,4,14,0)]);c.fillRect(e.w,0,80,H);c.fillStyle=e.g;c.fillRect(0,0,e.w,H);c.strokeStyle=A(0,0,10,.55);c.lineWidth=1.6;c.stroke(e.j);
+   c.fillStyle=A(170,210,255,.14);c.fillRect(e.w-9,100,2,FY-100);c.fillStyle=A(8,12,28);c.fillRect(-10,72,e.w+28,26);c.fillRect(-6,96,e.w+20,6);c.fillRect(-10,FY-30,e.w+26,30);
+   c.fillStyle=SN(.85);c.fill(e.snow);c.fillStyle=lg(0,96,0,150,[A(90,160,220,.9),A(190,236,255,.4)]);c.fill(e.ice);
+   const p=.5+.5*Math.sin(t*.9+e.ph);c.strokeStyle=A(40,70,110);c.lineWidth=3;c.stroke(e.rune);add(()=>{c.strokeStyle=IC(.35+.4*p);c.lineWidth=1.6;c.stroke(e.rune);ell(CYG,e.w/2,e.ry,40,46,.18+.14*p)})}},
+ /* a snowy crag rising from the bottom corner: angular steps, moonlit facets, thick snow caps on every ledge */
+ crag:{init(e){const top=rr(250,300),w=rr(110,140),pts=[[-20,H+20],[-20,top]];let x=-20,y=top;
+   while(x<w){x+=rr(18,40);y+=R()<.22?-rr(4,12):rr(6,30)*(.5+x/w);pts.push([x,y])}pts.push([w+rr(20,40),FY-rr(10,30)],[w+rr(50,80),H+20]);e.p=poly(P2(),pts);
+   e.f=P2();e.snow=P2();e.rim=P2();for(let i=1;i<pts.length-2;i++){const a=pts[i],b=pts[i+1],m=[(a[0]+b[0])/2,(a[1]+b[1])/2];seg(e.rim,a,b);
+    poly(e.f,[a,b,[b[0]-rr(6,24),b[1]+rr(30,70)],[a[0]+rr(0,10),a[1]+rr(24,60)]]);
+    if((b[1]-a[1])/(b[0]-a[0])<.9)blob([[a[0]-5,a[1]+3],[a[0]+1,a[1]-4],[m[0],m[1]-rr(5,9)],[b[0]-1,b[1]-4],[b[0]+5,b[1]+3],[m[0],m[1]+rr(5,10)]],e.snow)}
+   e.crk=P2();for(let i=0;i<4;i++)crack(e.crk,rr(0,w),rr(top+50,FY),rr(1.2,2),rr(40,80),1);e.g=lg(0,top,w,FY,[A(20,26,50),A(10,14,32),A(4,6,16)])},
+  draw(S,t,e){c.fillStyle=lg(60,0,200,0,[A(2,4,14,.4),A(2,4,14,0)]);c.fillRect(0,0,200,H);c.fillStyle=e.g;c.fill(e.p);c.save();c.clip(e.p);c.fillStyle=A(110,130,190,.07);c.fill(e.f);c.restore();
+   c.strokeStyle=A(0,0,8,.6);c.lineWidth=1.4;c.stroke(e.crk);c.strokeStyle=A(130,150,210,.3);c.lineWidth=1.5;c.stroke(e.rim);c.fillStyle=lg(0,200,0,FY,[SN(.92),A(150,164,214,.88)]);c.fill(e.snow)}},
+ /* two leaning fence posts with a snapped rail */
+ fence:{init(e){e.posts=[[rr(26,44),rr(-.14,-.05),rr(200,240)],[rr(118,140),rr(.05,.16),rr(150,190)]];const pt=(i,h)=>{const [x,a]=e.posts[i];return [x+Math.sin(a)*h,FY+30-Math.cos(a)*h]};
+   e.r1=[pt(0,170),pt(1,130)];const a=pt(0,90),b=pt(1,70);e.r2=[a,[a[0]+(b[0]-a[0])*.55,a[1]+(b[1]-a[1])*.55+4]];e.r3=[b,[b[0]-24,b[1]+70]]},
+  draw(S,t,e){c.lineCap='round';for(const r of[e.r1,e.r2,e.r3]){c.strokeStyle=A(8,10,22);c.lineWidth=9;c.beginPath();c.moveTo(r[0][0],r[0][1]);c.lineTo(r[1][0],r[1][1]);c.stroke()}
+   c.strokeStyle=SN(.55);c.lineWidth=3;for(const r of[e.r1,e.r2]){c.beginPath();c.moveTo(r[0][0],r[0][1]-4);c.lineTo(r[1][0],r[1][1]-4);c.stroke()}c.lineCap='butt';
+   for(const [x,a,h] of e.posts){c.save();c.translate(x,FY+30);c.rotate(a);c.fillStyle=A(8,10,22);c.fillRect(-9,-h,18,h+10);c.fillStyle=A(150,170,220,.16);c.fillRect(4,-h+8,2,h-12);
+    c.fillStyle=SN(.85);c.beginPath();c.ellipse(0,-h,13,6,0,Math.PI,TAU);c.fill();c.restore()}}}
+};
+function edges(S,t){const e=S.o.edge||[];for(let s=0;s<2;s++){const k=e[s];if(!k)continue;c.save();if(s){c.translate(W,0);c.scale(-1,1)}EDGE[k].draw(S,t,S.ed[s]);c.restore()}}
+/* a cottage seen from the long side: plank walls, warm windows, a door, a chimney and a heavy rounded blanket of snow on the roof with icicles under the eave */
+function cottage(x,base,w,wh,rh,nw,chx){const top=base-wh,ov=rr(10,16),ap=top-rh,T=rr(8,12),k={x,base,w,top,ap,ph:rr(0,TAU),win:[]};
+ k.wall=P2();k.wall.rect(x,top,w,wh);k.pl=P2();for(let y=top+9;y<base;y+=9)seg(k.pl,[x,y],[x+w,y]);seg(k.pl,[x+5,top],[x+5,base]);seg(k.pl,[x+w-5,top],[x+w-5,base]);
+ k.wallG=lg(x,0,x+w,0,[A(30,26,40),A(44,38,56),A(56,50,70)]);k.board=P2();k.board.rect(x-ov,top-5,w+ov*2,9);
+ const wx=nw>1?[.14,.68]:[.2],dx=nw>1?.42:.62;for(const u of wx)k.win.push([x+w*u,top+wh*.24]);k.door=[x+w*dx,base-42,24,42];
+ k.sill=P2();for(const [a,b] of k.win)k.sill.ellipse(a+12,b+29,15,3.5,0,Math.PI,TAU);
+ const cx=x+w*chx;k.chim=P2();k.chim.rect(cx-9,ap-26,18,rh);k.cap=P2();k.cap.rect(cx-12,ap-30,24,6);k.smk=[cx,ap-38];k.chimS=blob([[cx-15,ap-29],[cx-9,ap-38],[cx+3,ap-40],[cx+15,ap-32],[cx+15,ap-27],[cx-15,ap-27]]);
+ const hip=w*rr(.14,.2),pts=[[x-ov-6,top+7],[x-ov-11,top-4],[x-ov+hip*.3,ap+rh*.45],[x+hip*.4,ap-T*.8]];
+ for(let xx=x+hip;xx<x+w-hip;xx+=rr(18,30))pts.push([xx,ap-T+rr(-3,3)]);pts.push([x+w-hip*.4,ap-T*.8],[x+w+ov-hip*.3,ap+rh*.45],[x+w+ov+11,top-4],[x+w+ov+6,top+7]);
+ for(let xx=x+w+ov-6;xx>x-ov+6;xx-=rr(12,20))pts.push([xx,top+3+(R()<.4?rr(2,7):0)]);k.snow=blob(pts);k.snowG=lg(0,ap-T,0,top+8,[SN(1),A(206,216,242),A(150,164,210)]);
+ k.ice=P2();for(let xx=x-ov+6;xx<x+w+ov-6;xx+=rr(6,11))icicle(k.ice,xx,top+4,rr(3,5),R()<.15?rr(18,30):rr(4,14),rr(-1,1));
+ k.drift=blob([[x-24,base+8],[x-10,base-rr(8,14)],[x+w*.3,base-rr(4,10)],[x+w*.7,base-rr(6,12)],[x+w+10,base-rr(8,14)],[x+w+26,base+8]]);return k}
+function drawCottage(k,t){c.fillStyle=k.wallG;c.fill(k.wall);c.strokeStyle=A(0,0,10,.45);c.lineWidth=1.2;c.stroke(k.pl);c.fillStyle=lg(0,k.top,0,k.top+22,[A(4,6,18,.6),A(4,6,18,0)]);c.fillRect(k.x,k.top,k.w,22);
+ for(const [wx,wy] of k.win)windowLit(wx,wy,24,28,t,k.ph+wx);c.fillStyle=SN(.85);c.fill(k.sill);
+ const [dx,dy,dw,dh]=k.door;c.fillStyle=A(22,16,24);c.fillRect(dx,dy,dw,dh);c.strokeStyle=A(8,6,14);c.lineWidth=1;c.strokeRect(dx,dy,dw,dh);c.fillStyle=AM(.7);c.fillRect(dx+dw-6,dy+dh*.55,2.5,2.5);
+ add(()=>{ell(WARM,dx+dw/2,dy-8,14,6,.35)});c.fillStyle=A(30,30,46);c.fill(k.chim);c.fillStyle=A(14,14,26);c.fill(k.cap);
+ c.fillStyle=A(12,10,22);c.fill(k.board);c.fillStyle=k.snowG;c.fill(k.snow);c.fillStyle=SN(.92);c.fill(k.chimS);c.fillStyle=lg(0,k.top,0,k.top+30,[A(140,190,235,.9),A(210,240,255,.45)]);c.fill(k.ice);
+ c.fillStyle=lg(0,k.base-16,0,k.base+8,[A(180,192,230),A(110,124,170)]);c.fill(k.drift)}
+
+/* frosty stone blocks: mortar lines, a few lighter and a few darker stones, all as Path2D built once */
+function stones(x,y,w,h,bw,bh){const m=P2(),l=P2(),d=P2();
+ for(let r=0,yy=y;yy<y+h;yy+=bh,r++){if(yy>y){m.moveTo(x,yy);m.lineTo(x+w,yy)}const y1=Math.min(yy+bh,y+h);let xx=x-(r%2?bw*.5:0)-rr(0,bw*.25);
+  while(xx<x+w){const ww=bw*rr(.75,1.3);if(xx>x){m.moveTo(xx,yy);m.lineTo(xx,y1)}const x0=Math.max(x,xx),x1=Math.min(x+w,xx+ww),q=R();
+   if(x1-x0>4){if(q<.2)l.rect(x0+1.5,yy+1.5,x1-x0-3,y1-yy-3);else if(q<.42)d.rect(x0+1.5,yy+1.5,x1-x0-3,y1-yy-3)}xx+=ww}}
+ return {m,l,d}}
+function drawStones(s,a){c.fillStyle=A(170,200,255,.05*a);c.fill(s.l);c.fillStyle=A(0,4,16,.24*a);c.fill(s.d);c.strokeStyle=A(0,4,16,.5*a);c.lineWidth=1.4;c.stroke(s.m);
+ c.save();c.translate(0,1.4);c.strokeStyle=A(170,200,255,.07*a);c.lineWidth=1;c.stroke(s.m);c.restore()}
+/* a carved rune: three strokes on a 3x3 grid */
+function glyph(p,x,y,s){const h=s*.6,w=s*.42,n=1+((R()*2.4)|0);p.moveTo(x,y-h);p.lineTo(x,y+h);
+ for(let i=0;i<n;i++){const yy=y+h*rr(-1,.5),sd=R()<.5?-1:1,dy=h*rr(.3,.6)*(R()<.5?-1:1);p.moveTo(x,yy);p.lineTo(x+sd*w,yy+dy);if(R()<.35)p.lineTo(x,yy+dy*2)}}
+
+/* a gnarled dead tree: tapered limbs added to p, snow along the upper side of the near-horizontal limbs added to s; limbs lean with the wind (to the right) */
+function branch(p,s,x,y,a,len,w,d){const x2=x+Math.cos(a)*len,y2=y+Math.sin(a)*len,nx=-Math.sin(a),ny=Math.cos(a),w2=w*.64;
+ poly(p,[[x+nx*w/2,y+ny*w/2],[x2+nx*w2/2,y2+ny*w2/2],[x2-nx*w2/2,y2-ny*w2/2],[x-nx*w/2,y-ny*w/2]]);p.moveTo(x2+w2/2,y2);p.arc(x2,y2,w2/2,0,TAU);
+ if(s&&w>1.6&&Math.abs(Math.cos(a))>.35){const u=ny<0?1:-1,ox=nx*u,oy=ny*u;poly(s,[[x+ox*w*.5,y+oy*w*.5],[x2+ox*w2*.5,y2+oy*w2*.5],[x2+ox*(w2*.5+1.6),y2+oy*(w2*.5+1.6)],[x+ox*(w*.5+2.4),y+oy*(w*.5+2.4)]])}
+ if(d>0){branch(p,s,x2,y2,a+rr(-.28,.28)+.08,len*rr(.74,.88),w2,d-1);const k=d>2?1:R()<.5?1:2;for(let i=0;i<k;i++){const sd=R()<.45?-1:1;branch(p,s,x2,y2,a+sd*rr(.5,1.05)+.12,len*rr(.5,.72),w2*.82,d-1-(R()<.35?1:0))}}}
+
+/* =================== the middle of each scene =================== */
+const MID={
+ /* 0: the village at night */
+ village:{init(S){seed=S.seed+5;
+   S.m1=range(-80,1040,350,120,200,6,46,-1);S.m2=range(-60,1020,358,206,262,8,28,-1);
+   S.cap1=lg(0,120,0,250,[SN(.95),A(150,166,214,.9)]);S.cap2=lg(0,200,0,300,[A(190,200,236,.9),A(110,124,176,.85)]);
+   S.hz1=lg(0,150,0,350,[B(96),A(88,94,146)]);S.hz2=lg(0,220,0,358,[B(66),A(70,78,126)]);
+   S.farH=hill(352,5,H,1,1.3);S.farG=lg(0,340,0,420,[B(96),B(54)]);S.ff=treeline(220,760,354,14,28,x=>x>390&&x<560);
+   /* the church: a nave, a clock tower with a snowy spire */
+   S.nave=P2();S.nave.rect(398,300,134,56);S.naveR=poly(P2(),[[388,304],[465,256],[542,304]]);S.naveS=blob([[384,306],[392,298],[465,248],[538,298],[546,306],[465,262]]);
+   S.tower=P2();S.tower.rect(446,166,38,190);S.tower.rect(441,206,48,6);S.tower.rect(441,166,48,6);S.spire=poly(P2(),[[438,168],[465,86],[492,168]]);
+   S.spireL=poly(P2(),[[465,86],[492,168],[468,168]]);S.cross=P2();S.cross.rect(464,68,2.4,20);S.cross.rect(459,74,12,2.4);S.belfry=P2();for(const x of[452,469]){S.belfry.moveTo(x,204);S.belfry.lineTo(x,184);S.belfry.arc(x+4.5,184,4.5,Math.PI,0);S.belfry.lineTo(x+9,204);S.belfry.closePath()}
+   S.cw=[[408,314],[514,314]];S.spS=P2();for(const y of[118,140,158])S.spS.rect(465-(y-86)*.33,y,(y-86)*.66,2.2);
+   /* far houses on the hill */
+   S.fh=P2();S.fhR=P2();S.fhW=[];for(const [x,w,h] of[[262,44,20],[318,34,16],[356,30,18],[574,40,20],[624,30,16],[668,48,22],[728,36,16]]){const b=356-rr(0,4);S.fh.rect(x,b-h,w,h);
+    blob([[x-5,b-h+3],[x+w*.2,b-h-rr(9,13)],[x+w*.8,b-h-rr(9,13)],[x+w+5,b-h+3]],S.fhR);if(R()<.75)S.fhW.push([x+w*rr(.2,.7),b-h+5,rr(0,TAU)])}
+   /* mid ground, pines, cottages */
+   S.gnd=hill(404,5,H,1,.4);S.gndG=lg(0,396,0,FY,[B(126),B(78),B(40)]);
+   S.pn=P2();S.pnS=P2();for(const [x,h] of[[322,128],[354,96],[604,110],[792,176],[836,124],[106,150]])pine(S.pn,S.pnS,x,412,h,h*.46);
+   S.cot=[cottage(150,416,168,90,46,2,.78),cottage(640,410,136,78,40,1,.24)];
+   S.bulbs=[];for(let i=1;i<14;i++){const u=i/14;S.bulbs.push([395+190*u,306+Math.sin(u*Math.PI)*30,rr(0,TAU),i%3])}
+   S.bank=blob([[-40,FY+20],[-40,450],[140,442],[300,452],[480,446],[660,454],[820,444],[1000,450],[1000,FY+20]]);S.bankG=lg(0,438,0,FY,[B(104),B(54)]);
+   S.gl=mkGlints(26,140,820,412,462)},
+  far(S,t){stars(S,t);moon(720,108,42,t);drawRange(S.m1,B(96),S.cap1,.42,S.hz1);drawRange(S.m2,B(66),S.cap2,.4,S.hz2);fog(t,330,.07,6,60);
+   c.fillStyle=S.farG;c.fill(S.farH);c.fillStyle=B(40);c.fill(S.ff.p);c.fillStyle=B(118,.7);c.fill(S.ff.s);
+   /* church */
+   c.fillStyle=B(36);c.fill(S.nave);c.fill(S.naveR);c.fill(S.tower);c.fill(S.spire);c.fill(S.cross);c.fillStyle=B(56,.8);c.fill(S.spireL);c.fillStyle=B(150);c.fill(S.naveS);c.fillStyle=B(140,.8);c.fill(S.spS);
+   c.fillStyle=A(14,12,26);c.fill(S.belfry);for(const [x,y] of S.cw)windowLit(x,y,12,26,t,x,.55);
+   const fl=.92+.05*Math.sin(t*.7);c.fillStyle=WN(.9*fl);c.beginPath();c.arc(465,232,11,0,TAU);c.fill();add(()=>{ell(WARM,465,232,46,46,.38*fl)});
+   c.strokeStyle=A(40,30,40);c.lineWidth=1.6;c.beginPath();const m=t*.02,h=t*.0017+2;c.moveTo(465,232);c.lineTo(465+Math.cos(m)*8,232+Math.sin(m)*8);c.moveTo(465,232);c.lineTo(465+Math.cos(h)*5.5,232+Math.sin(h)*5.5);c.stroke();
+   c.fillStyle=B(34);c.fill(S.fh);c.fillStyle=B(132);c.fill(S.fhR);for(const [x,y,p] of S.fhW){c.fillStyle=WN(.85);c.fillRect(x,y,4,5);add(()=>{ell(WARM,x+2,y+2.5,12,10,.4+.08*Math.sin(t*1.5+p))})}
+   fog(t,362,.06,-5,40,3)},
+  draw(S,t){c.fillStyle=S.gndG;c.fill(S.gnd);c.fillStyle=B(22);c.fill(S.pn);c.fillStyle=B(170,.85);c.fill(S.pnS);
+   for(const k of S.cot){drawCottage(k,t);smoke(k.smk[0],k.smk[1],t,k.ph,.3,70)}
+   c.strokeStyle=A(12,12,26,.9);c.lineWidth=1;c.beginPath();c.moveTo(395,306);c.quadraticCurveTo(490,366,585,306);c.stroke();
+   add(()=>{for(const [x,y,p,k] of S.bulbs){const a=.6+.4*Math.sin(t*1.8+p);c.globalAlpha=a;c.fillStyle=k?WN(1):AM(1);c.beginPath();c.arc(x,y+2,1.8,0,TAU);c.fill();ell(WARM,x,y+2,9,9,.4*a)}});
+   lampPost(395,422,112,t,0);lampPost(585,418,108,t,2);
+   c.fillStyle=S.bankG;c.fill(S.bank);glints(S.gl,t)}},
+ /* 1: an open snowfield, pine forests receding into the mist */
+ field:{init(S){seed=S.seed+5;
+   S.m0=range(-80,1040,322,64,170,4,84,1);S.m1=range(-60,1020,338,150,228,6,46,1);
+   S.cap0=lg(0,64,0,250,[SN(.92),A(168,180,226,.86)]);S.cap1=lg(0,150,0,300,[A(214,222,246,.95),A(128,142,196,.9)]);
+   S.hz0=lg(0,90,0,322,[B(82),A(108,114,168)]);S.hz1=lg(0,170,0,338,[B(62),A(92,100,156)]);
+   S.rows=[[334,16,28,1.1,76,150,.55],[356,26,44,1.0,56,164,.6],[382,40,68,.95,38,176,.62],[414,66,124,.9,20,186,.62]].map(([b,h0,h1,d,v,sv,sa],i)=>{
+     const gap=i===3?(x=>x>340&&x<650):i===2?(x=>x>440&&x<540):null;
+     return {f:i<2?treeline(-20,W+20,b,h0,h1,gap):forest(-20,W+20,b,h0,h1,d,gap),b,v,sv,sa,hl:hill(b-2,3+i*2,i<3?b+60:H,1,i*1.7),hg:lg(0,b-12,0,b+60,[B(124+i*8),B(74+i*6)])}});
+   S.fieldP=hill(426,9,H,1,2.2);S.fieldG=lg(0,412,0,FY,[B(170),B(118),B(58)]);
+   S.shr=P2();S.tw=P2();for(const [x,y] of[[250,438],[690,442],[560,454],[420,446]]){blob(rock(x,y,rr(16,28),rr(7,11),.25,9),S.shr);for(let i=0;i<6;i++){const a=-Math.PI/2+rr(-.9,.9),l=rr(12,26);seg(S.tw,[x+rr(-10,10),y-3],[x+Math.cos(a)*l,y-3+Math.sin(a)*l])}}
+   S.gl=mkGlints(44,120,840,424,466)},
+  far(S,t){stars(S,t);moon(210,92,30,t,.9);drawRange(S.m0,B(82),S.cap0,.36,S.hz0);drawRange(S.m1,B(62),S.cap1,.36,S.hz1);
+   for(let i=0;i<S.rows.length;i++){const r=S.rows[i];c.fillStyle=r.hg;c.fill(r.hl);c.fillStyle=B(r.v);c.fill(r.f.p);c.fillStyle=B(r.sv,r.sa);c.fill(r.f.s);if(i<3)fog(t,r.b+4,.13-i*.02,(i%2?-1:1)*(5+i*2),26+i*6,4)}},
+  draw(S,t){c.fillStyle=S.fieldG;c.fill(S.fieldP);add(()=>{ell(DOT,250,440,440,30,.13)});c.strokeStyle=A(16,20,38,.9);c.lineWidth=1.2;c.stroke(S.tw);c.fillStyle=B(186);c.fill(S.shr);glints(S.gl,t)}},
+ /* 2: down in a glacier crevasse: towering ice walls lit from a sliver of sky far above */
+ crevasse:{init(S){seed=S.seed+5;S.L=[];const cols=[[84,146,196],[56,110,162],[36,80,134],[22,54,100],[10,30,66]];
+   for(let k=0;k<5;k++){const g0=26+k*42,g1=64+k*74,amp=6+k*5,lay={p:P2(),fl:P2(),fd:P2(),st:P2(),rim:P2(),ice:P2(),k};
+    for(const s of[-1,1]){const pts=[];let y=-30;while(y<H+30){pts.push([480+s*(g0+(g1-g0)*y/H+rr(-amp,amp)),y]);y+=rr(24,46)+k*6}
+     for(let i=1;i<pts.length-1;i++)if(R()<.24){pts[i][0]-=s*rr(10,22);if(pts[i][1]<FY-40){const n=(rr(2,6))|0;for(let j=0;j<n;j++)icicle(lay.ice,pts[i][0]+s*rr(3,26),pts[i][1]+2,rr(3,6)*(1+k*.2),rr(10,38)*(1+k*.25),0)}}
+     poly(lay.p,[[480+s*700,-30],...pts,[480+s*700,H+30]]);
+     for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1];poly(R()<.5?lay.fl:lay.fd,[a,b,[a[0]+s*rr(20,60+k*24),(a[1]+b[1])/2+rr(-10,10)]]);seg(lay.rim,a,b);
+      if(R()<.55){const yy=(a[1]+b[1])/2,x0=(a[0]+b[0])/2;lay.st.moveTo(x0,yy);lay.st.quadraticCurveTo(x0+s*80,yy+rr(-10,10),x0+s*rr(140,320),yy+rr(-16,16))}}
+     for(let i=0;i<2+k;i++){const q=pts[1+((R()*(pts.length-3))|0)];crack(lay.st,q[0]+s*rr(10,50),q[1],Math.PI/2+rr(-.5,.5),rr(40,120),1)}}
+    const [r,g,b]=cols[k];lay.g=lg(0,0,0,H,[A(r*1.6,g*1.35,b*1.18),A(r,g,b),A(r*.45,g*.5,b*.6)]);lay.ra=.5-k*.06;S.L.push(lay)}
+   S.br=P2();S.br.moveTo(360,214);S.br.quadraticCurveTo(480,176,600,214);S.br.lineTo(600,228);S.br.quadraticCurveTo(480,196,360,228);S.br.closePath();
+   S.brS=P2();S.brS.moveTo(358,215);S.brS.quadraticCurveTo(480,170,602,215);S.brS.quadraticCurveTo(480,184,358,215);S.brS.closePath();S.brI=P2();for(let x=376;x<590;x+=rr(8,14)){const u=(x-360)/240;icicle(S.brI,x,214-Math.sin(u*Math.PI)*30+12,rr(3,5),rr(6,22))}
+   S.sky=lg(0,0,0,60,[A(220,240,255,.9),A(160,210,245,0)]);S.pitG=rg(0,0,0,1,[A(1,4,16,.92),A(1,4,16,.6),A(1,4,16,0)]);
+   S.gl=mkGlints(30,140,820,40,420)},
+  far(S,t){add(()=>{c.fillStyle=S.sky;c.fillRect(380,0,200,60)});},
+  draw(S,t){for(const L of S.L){c.fillStyle=L.g;c.fill(L.p);if(L.k>1){c.fillStyle=A(170,225,255,.07);c.fill(L.fl);c.fillStyle=A(0,6,22,.22);c.fill(L.fd)}c.strokeStyle=A(170,225,255,.13);c.lineWidth=1;c.stroke(L.st);
+    c.strokeStyle=A(190,238,255,L.ra);c.lineWidth=1.4;c.stroke(L.rim);c.fillStyle=lg(0,0,0,H,[A(200,240,255,.8),A(110,170,225,.6)]);c.fill(L.ice);
+    if(L.k===1){c.fillStyle=A(46,96,150);c.fill(S.br);c.fillStyle=A(200,226,250,.9);c.fill(S.brS);c.fillStyle=A(170,220,255,.6);c.fill(S.brI)}
+    if(L.k===1||L.k===3)fog(t,140+L.k*70,.07,(L.k%2?-1:1)*4,80,3)}
+   add(()=>{ell(CYG,480,40,200,120,.18+.04*Math.sin(t*.4))});glints(S.gl,t);ell(S.pitG,480,FY+10,330,170,1);c.globalAlpha=1}},
+ /* 3: an ice cavern: huge icicles from the roof, glowing crystal clusters, a frozen waterfall at the back */
+ cavern:{init(S){seed=S.seed+5;
+   S.bw=P2();S.bw2=P2();for(let i=0;i<9;i++)blob(rock(rr(0,W),rr(80,400),rr(90,170),rr(60,120),.3,10),i%2?S.bw:S.bw2);
+   const wl=[],wr=[];for(let y=10;y<=404;y+=18){const u=(y-10)/394,wob=Math.sin(y*.05)*4;wl.push([440-u*u*40+wob+rr(-2,2),y]);wr.push([520+u*u*42-wob+rr(-2,2),y])}
+   S.wf=poly(P2(),[...wl,[340,420],[620,420],...wr.reverse()]);S.wfs=P2();for(let i=0;i<14;i++){const x=448+i*5+rr(-2,2);S.wfs.moveTo(x,14);S.wfs.bezierCurveTo(x+rr(-6,6),180,x+(x-480)*.3+rr(-6,6),300,x+(x-480)*.9,404)}
+   S.wfG=lg(0,10,0,420,[A(200,236,255,.9),A(118,186,234,.88),A(62,128,198,.9),A(96,166,224,.9)]);S.wfr=P2();for(const y of[104,166,230,292,348]){S.wfr.moveTo(380,y);S.wfr.quadraticCurveTo(480,y+16,580,y)}
+   S.ceil=P2();const cp=[[-20,-20],[980,-20]];for(let x=980;x>-20;x-=rr(26,44))cp.push([x,rr(26,70)+(Math.abs(x-480)<90?-14:0)]);poly(S.ceil,cp);S.cpts=cp.slice(2);
+   S.unit=P2();S.unit.moveTo(-.5,0);S.unit.quadraticCurveTo(-.3,.55,0,1);S.unit.quadraticCurveTo(.3,.55,.5,0);S.unit.closePath();
+   S.uhl=P2();S.uhl.moveTo(-.27,.03);S.uhl.quadraticCurveTo(-.17,.5,-.03,.92);S.uhl.quadraticCurveTo(-.12,.5,-.17,.03);S.uhl.closePath();
+   S.uG=lg(-.5,0,.5,0,[A(26,64,124,.96),A(160,220,255,.96),A(96,166,226,.94),A(40,94,164,.96),A(18,46,96,.96)]);
+   S.icl=[];for(let x=24;x<940;x+=rr(30,58)){const mid=Math.abs(x-480)<120,base=S.cpts.reduce((b,p)=>Math.abs(p[0]-x)<Math.abs(b[0]-x)?p:b)[1]-4;
+    S.icl.push({x,y:base,w:rr(16,42)*(mid?.7:1),l:(mid?rr(50,110):rr(90,220))*(x<120||x>840?1.2:1),ph:rr(0,TAU)})}
+   S.drips=S.icl.filter(()=>R()<.35).map(k=>({x:k.x,y:k.y+k.l,t:rr(0,4),per:rr(2.6,4.6)}));
+   S.cr=[[220,404,1],[738,398,1.15],[606,436,.5],[360,438,.45],[120,196,.55],[856,170,.5]].map(([x,y,s])=>{const body=P2(),lit=P2(),ln=P2();
+    for(let i=0;i<6;i++){const a=-Math.PI/2+rr(-.95,.95)*(i?1:.2)+(y<300?Math.PI:0),l=rr(26,64)*s*(i?1:1.4),w=rr(13,22)*s*(i?1:1.25),ca=Math.cos(a),sa=Math.sin(a),bx=x+rr(-14,14)*s,P=(u,v)=>[bx-sa*v+ca*u,y+ca*v+sa*u];
+     poly(body,[P(0,-w/2),P(l*.8,-w/2),P(l,0),P(l*.8,w/2),P(0,w/2)]);poly(lit,[P(0,-w/2),P(l*.8,-w/2),P(l,0),P(0,0)]);seg(ln,P(0,0),P(l,0))}
+    return {body,lit,ln,x,y,s,dir:y<300?1:-1,ph:rr(0,TAU)}});
+   S.fl=hill(432,7,H,1,.8);S.flG=lg(0,420,0,FY,[A(40,80,130),A(14,30,62)]);S.pool=P2();S.pool.ellipse(480,424,170,14,0,0,TAU);
+   S.mounds=P2();for(const [x,h,w] of[[90,70,60],[160,40,40],[830,80,64],[900,50,44],[300,30,30],[660,34,30]])blob([[x-w,440],[x-w*.4,440-h*.7],[x,440-h],[x+w*.4,440-h*.6],[x+w,440]],S.mounds);
+   S.gl=mkGlints(30,60,900,60,440)},
+  far(S,t){c.fillStyle=A(10,22,48);c.fill(S.bw);c.fillStyle=A(14,30,62);c.fill(S.bw2);c.strokeStyle=A(120,190,240,.08);c.lineWidth=2;c.stroke(S.bw2);
+   add(()=>{ell(CYG,480,230,230,280,.32+.04*Math.sin(t*.5));ell(DOT,480,60,110,50,.6)});
+   c.fillStyle=S.wfG;c.fill(S.wf);c.save();c.clip(S.wf);c.strokeStyle=A(230,250,255,.24);c.lineWidth=1.4;c.stroke(S.wfs);c.strokeStyle=A(10,40,96,.22);c.lineWidth=6;c.stroke(S.wfr);c.save();c.translate(0,-3);c.strokeStyle=A(235,250,255,.3);c.lineWidth=1.5;c.stroke(S.wfr);c.restore();
+   add(()=>{for(let i=0;i<3;i++)ell(CYG,480,mod(t*36+i*140,420)+40,110,26,.28)});c.restore()},
+  draw(S,t,dt){c.fillStyle=S.flG;c.fill(S.fl);c.fillStyle=lg(0,410,0,438,[A(170,225,255,.55),A(60,120,190,.35)]);c.fill(S.pool);add(()=>{ell(CYG,480,424,180,12,.25)});
+   c.fillStyle=lg(0,360,0,440,[A(110,170,225),A(30,66,120)]);c.fill(S.mounds);
+   for(const k of S.cr){const p=.5+.5*Math.sin(t*.8+k.ph);add(()=>{ell(CYG,k.x,k.y+k.dir*34*k.s,110*k.s,110*k.s,.26+.12*p);if(k.dir<0)ell(CYG,k.x,k.y+4,130*k.s,16*k.s,.3+.1*p)});
+    c.fillStyle=A(40,110,190,.95);c.fill(k.body);c.fillStyle=A(170,235,255,.35+.15*p);c.fill(k.lit);c.strokeStyle=A(225,250,255,.55);c.lineWidth=1;c.stroke(k.ln)}
+   c.fillStyle=A(6,12,30);c.fill(S.ceil);
+   for(const k of S.icl){c.save();c.translate(k.x,k.y);c.scale(k.w,k.l);c.fillStyle=S.uG;c.fill(S.unit);c.fillStyle=MN(.4);c.fill(S.uhl);c.restore()}
+   add(()=>{for(const k of S.icl){const g=Math.max(0,Math.sin(t*.5+k.ph));ell(CYG,k.x,k.y+k.l*.85,k.w*1.2,k.w*1.2,.2*g*g)}});
+   for(const d of S.drips){d.t+=dt;const u=(d.t%d.per)/d.per,y=d.y+u*u*(430-d.y);if(y<426){c.fillStyle=A(200,240,255,.75);c.beginPath();c.ellipse(d.x,y,1.4,3,0,0,TAU);c.fill()}}
+   glints(S.gl,t)}},
+ /* 4: a frozen temple hall: pillars, a great arch onto the snow, rows of icicle chimes and glowing runes */
+ temple:{init(S){seed=S.seed+5;S.wall=stones(0,0,W,FY,64,32);
+   S.arch=P2();S.arch.moveTo(380,FY);S.arch.lineTo(380,214);S.arch.arc(480,214,100,Math.PI,0);S.arch.lineTo(580,FY);S.arch.closePath();
+   S.ring=P2();S.ring.moveTo(342,FY);S.ring.lineTo(342,214);S.ring.arc(480,214,138,Math.PI,0);S.ring.lineTo(618,FY);S.ring.lineTo(580,FY);S.ring.lineTo(580,214);S.ring.arc(480,214,100,0,Math.PI,true);S.ring.lineTo(380,FY);S.ring.closePath();
+   S.vs=P2();for(let i=0;i<=12;i++){const a=Math.PI+i/12*Math.PI;seg(S.vs,[480+Math.cos(a)*100,214+Math.sin(a)*100],[480+Math.cos(a)*138,214+Math.sin(a)*138])}for(let y=244;y<FY;y+=40){seg(S.vs,[342,y],[380,y]);seg(S.vs,[580,y],[618,y])}
+   S.out=range(380,580,330,214,262,3,20,1);S.outG=lg(0,110,0,FY,[A(100,132,194),A(66,92,152),A(40,58,112)]);S.outS=hill(326,4,H,1,0);
+   S.rr=P2();for(let i=0;i<9;i++){const a=Math.PI+.28+i/8*(Math.PI-.56);glyph(S.rr,480+Math.cos(a)*160,214+Math.sin(a)*160,17)}
+   S.px=[150,290,670,810];S.pan=P2();for(const x of S.px)S.pan.rect(x-15,166,30,132);S.pil=P2();S.pj=P2();S.cap=P2();S.pr=P2();S.pice=P2();S.psn=P2();
+   for(const x of S.px){S.pil.rect(x-26,50,52,FY-60);for(let y=110;y<FY-30;y+=rr(58,70))seg(S.pj,[x-26,y],[x+26,y]);S.cap.rect(x-36,40,72,18);S.cap.rect(x-31,58,62,6);S.cap.rect(x-36,FY-40,72,22);
+    for(let k=0;k<3;k++)glyph(S.pr,x,198+k*42,22);for(let xx=x-34;xx<x+36;xx+=rr(6,10))icicle(S.pice,xx,64,rr(3,6),rr(6,34));
+    blob([[x-40,42],[x-30,33],[x,30+rr(-2,2)],[x+30,33],[x+40,42],[x,44]],S.psn);blob([[x-48,FY-10],[x-40,FY-28],[x-20,FY-36],[x,FY-29],[x+22,FY-34],[x+42,FY-24],[x+50,FY-10]],S.psn)}
+   S.pG=lg(-26,0,26,0,[A(14,20,44),A(36,48,86),A(54,70,116),A(20,26,54)]);
+   S.beams=[[290,670,66],[150,290,108],[670,810,108]];S.bm=P2();S.bsn=P2();for(const [a,b,y] of S.beams){S.bm.rect(a,y-8,b-a,10);blob([[a,y-7],[a+(b-a)*.3,y-12],[b-(b-a)*.3,y-12],[b,y-7],[(a+b)/2,y-6]],S.bsn)}
+   S.ch=[];let n=0;for(let x=318;x<=642;x+=27,n++)S.ch.push({x,y:66,s:rr(8,12),l:38+n*6.5,w:13,i:n});for(const [a] of[[150],[670]])for(let k=0;k<5;k++)S.ch.push({x:a+22+k*24,y:108,s:rr(6,10),l:28+k*7,w:10,i:3+k*2});
+   S.unit=P2();S.unit.moveTo(-.5,0);S.unit.quadraticCurveTo(-.3,.55,0,1);S.unit.quadraticCurveTo(.3,.55,.5,0);S.unit.closePath();S.uG=lg(-.5,0,.5,0,[A(40,90,160,.95),A(190,236,255,.96),A(110,180,236,.94),A(36,80,150,.95)]);
+   S.trim=P2();S.trim.rect(0,0,W,22);S.trim.rect(0,22,W,6);S.tsn=blob([[-10,4],[200,-2],[480,2],[760,-2],[970,4],[970,10],[-10,10]]);
+   S.dais=P2();S.dais.rect(352,438,256,12);S.dais.rect(334,450,292,12);S.dsn=P2();for(const [x,w,y] of[[352,256,438],[334,292,450]])blob([[x,y+2],[x+20,y-3],[x+w*.5,y-2],[x+w-20,y-3],[x+w,y+2]],S.dsn);
+   S.flG=lg(0,400,0,FY,[A(24,34,66),A(12,18,40)])},
+  far(S,t){c.fillStyle=lg(0,0,0,FY,[A(22,28,58),A(30,38,74),A(20,26,52)]);c.fillRect(0,0,W,FY);drawStones(S.wall,1);
+   c.save();c.clip(S.arch);c.fillStyle=S.outG;c.fillRect(380,110,200,FY-110);add(()=>{ell(DOT,480,230,130,140,.15+.03*Math.sin(t*.4))});drawRange(S.out,A(52,72,126),A(196,210,242,.85),.32);c.fillStyle=lg(0,320,0,420,[A(92,108,160),A(44,56,100)]);c.fill(S.outS);c.restore();
+   c.fillStyle=A(30,40,76);c.fill(S.ring);c.strokeStyle=A(6,10,26,.8);c.lineWidth=2;c.stroke(S.vs);c.fillStyle=A(170,200,255,.05);c.fill(S.vs);
+   const p=.5+.5*Math.sin(t*.7);c.lineCap='round';c.strokeStyle=A(10,16,36);c.lineWidth=3.4;c.stroke(S.rr);add(()=>{c.strokeStyle=IC(.5+.35*p);c.lineWidth=1.8;c.stroke(S.rr)});c.lineCap='butt'},
+  draw(S,t){c.fillStyle=S.flG;c.fillRect(0,400,W,FY-400);add(()=>{ell(DOT,480,446,200,26,.16)});c.fillStyle=A(30,42,80);c.fill(S.dais);c.fillStyle=SN(.6);c.fill(S.dsn);
+   for(const x of S.px){c.save();c.translate(x,0);c.fillStyle=S.pG;c.fillRect(-26,50,52,FY-60);c.restore()}c.strokeStyle=A(2,6,20,.55);c.lineWidth=1.5;c.stroke(S.pj);c.fillStyle=A(16,22,46);c.fill(S.cap);
+   const p=.5+.5*Math.sin(t*.9);c.lineCap='round';c.strokeStyle=A(6,10,28);c.lineWidth=3.4;c.stroke(S.pr);c.fillStyle=A(4,8,24,.45);c.fill(S.pan);c.strokeStyle=A(130,170,230,.14);c.lineWidth=1;c.stroke(S.pan);c.strokeStyle=A(4,8,24);c.lineWidth=4.4;c.stroke(S.pr);add(()=>{c.strokeStyle=IC(.55+.4*p);c.lineWidth=2;c.stroke(S.pr);for(const x of S.px)ell(CYG,x,232,46,90,.08+.08*p)});c.lineCap='butt';
+   c.fillStyle=SN(.82);c.fill(S.psn);c.fillStyle=lg(0,64,0,100,[A(120,180,235,.9),A(200,240,255,.45)]);c.fill(S.pice);
+   c.fillStyle=A(14,18,38);c.fill(S.bm);c.fillStyle=SN(.75);c.fill(S.bsn);
+   for(const k of S.ch){const v=Math.max(0,Math.sin(t*1.1-k.i*.55)),g=v**8,a=Math.sin(t*.9+k.i*.7)*.035;c.save();c.translate(k.x,k.y);c.rotate(a);c.strokeStyle=A(150,170,210,.5);c.lineWidth=1;c.beginPath();c.moveTo(0,0);c.lineTo(0,k.s);c.stroke();
+    c.fillStyle=A(170,220,255,.85);c.beginPath();c.ellipse(0,k.s+2,k.w*.55,3.4,0,0,TAU);c.fill();c.translate(0,k.s+2);c.save();c.scale(k.w,k.l);c.fillStyle=S.uG;c.fill(S.unit);c.restore();
+    if(g>.01)add(()=>{c.globalAlpha=g*.7;c.fillStyle=IC(1);c.save();c.scale(k.w*.5,k.l);c.fill(S.unit);c.restore();ell(CYG,0,k.l*.55,k.w*2.6,k.l*.8,g*.5)});c.restore()}},
+  post(S,t){c.fillStyle=lg(0,0,0,28,[A(6,8,22),A(18,24,48)]);c.fill(S.trim);c.fillStyle=SN(.55);c.fill(S.tsn)}},
+ /* 5: a vast frozen lake under the aurora, the mountains mirrored in the ice */
+ lake:{init(S){seed=S.seed+5;
+   S.au=mkAurora([{x0:-60,x1:1020,y:176,amp:34,h:130,c:[70,255,170],a:.62,sp:.11,ph:0},{x0:120,x1:1000,y:116,amp:26,h:92,c:[60,226,236],a:.5,sp:.08,ph:2.1},{x0:-60,x1:640,y:220,amp:18,h:70,c:[130,255,200],a:.4,sp:.14,ph:4.2},{x0:300,x1:1020,y:74,amp:20,h:60,c:[150,120,255],a:.3,sp:.07,ph:1}]);
+   S.agG=rg(0,0,0,1,[A(90,255,190,1),A(60,220,200,.3),A(40,160,200,0)]);
+   S.m=range(-60,1020,304,178,258,7,34,1);S.mc=lg(0,178,0,300,[SN(.9),A(150,170,215,.85)]);S.mhz=lg(0,190,0,304,[B(58),A(58,92,126)]);
+   S.shore=treeline(-20,W+20,307,6,15);S.sh=hill(304,2,314,1,0);S.iceG=lg(0,306,0,FY,[A(58,98,132),A(32,60,96),A(14,28,58)]);
+   S.cr=P2();for(let i=0;i<10;i++){const y=rr(322,462),k=(y-300)/170;crack(S.cr,rr(0,W),y/.4,R()<.5?rr(-.25,.25):Math.PI+rr(-.25,.25),rr(80,260)*k+40,2)}
+   S.patch=P2();for(let i=0;i<16;i++){const y=rr(314,462),k=(y-300)/170;blob(rock(rr(0,W),y,rr(30,120)*(.35+k),rr(1.6,5)*(.4+k),.35,9),S.patch)}
+   S.gu=mkGusts(20,318,464,160,320);S.gl=mkGlints(34,0,W,312,464)},
+  far(S,t){stars(S,t);aurora(S.au,t);drawRange(S.m,B(58),S.mc,.38,S.mhz);c.fillStyle=B(36);c.fill(S.sh);c.fillStyle=B(20);c.fill(S.shore.p);c.fillStyle=B(120,.45);c.fill(S.shore.s)},
+  draw(S,t){c.fillStyle=S.iceG;c.fillRect(0,307,W,FY-297);
+   c.save();c.beginPath();c.rect(0,307,W,FY-307);c.clip();c.translate(0,614);c.scale(1,-1);c.globalAlpha=.3;drawRange(S.m,B(58),S.mc,.38);c.restore();
+   c.fillStyle=lg(0,307,0,318,[A(8,14,30,.7),A(8,14,30,0)]);c.fillRect(0,307,W,11);
+   add(()=>{for(const b of S.au)for(let x=b.x0+30;x<b.x1;x+=56){const u=(x-b.x0)/(b.x1-b.x0),y=b.y+Math.sin(x*.0055+t*b.sp+b.ph)*b.amp,ry=318+(300-y)*.42;ell(S.agG,x,ry,26,40+b.h*.25,b.a*.22*Math.sin(u*Math.PI)*(.6+.4*Math.sin(x*.045+t*.9+b.ph)))}
+    ell(DOT,480,318,540,12,.18)});
+   c.fillStyle=SN(.13);c.fill(S.patch);c.save();c.scale(1,.4);c.strokeStyle=A(4,10,26,.45);c.lineWidth=2.4;c.stroke(S.cr);c.strokeStyle=A(190,228,255,.26);c.lineWidth=1;c.stroke(S.cr);c.restore();
+   add(()=>{c.fillStyle=FOG;for(let i=0;i<12;i++){const x=mod(i*137+t*150,W+320)-160,y=332+(i*53%132)+Math.sin(t+i)*4;c.globalAlpha=.08+.04*Math.sin(t*1.7+i);c.save();c.translate(x,y);c.scale(80+(i%3)*44,3+(i%2)*3);c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore()}});
+   gusts(S.gu,t);glints(S.gl,t)}},
+ /* 6: a high windy plateau: wind-carved drifts with cornices, a snapped fence and a lone dead tree */
+ drifts:{init(S){seed=S.seed+5;S.cl=mkClouds(11,20,230,.07,.16,5);S.m=range(-60,1020,344,264,308,9,16,1);S.mc=lg(0,264,0,330,[A(176,184,224,.8),A(130,138,190,.72)]);S.mhz=lg(0,250,0,344,[B(96),A(110,116,170)]);
+   const mk=(base,cr,L)=>{const f=x=>{let y=base;for(const q of cr){if(x>q.x-q.w&&x<=q.x){const u=(x-q.x+q.w)/q.w;y=Math.min(y,base-q.h*u*u*(3-2*u))}else if(x>q.x&&x<q.x+L){const u=(x-q.x)/L;y=Math.min(y,base-q.h*(1-u)*(1-u))}}return y};
+     const p=P2();p.moveTo(-20,H);let ci=0;for(let x=-20;x<=W+20;x+=6){p.lineTo(x,f(x));const q=cr[ci];if(q&&x<=q.x&&x+6>q.x){const cy=f(q.x);p.lineTo(q.x,cy);p.quadraticCurveTo(q.x+14,cy-3,q.x+15,cy+5);p.quadraticCurveTo(q.x+10,cy+10,q.x+3,cy+9);ci++}}
+     p.lineTo(W+20,H);p.closePath();const sh=cr.map(q=>({x:q.x,y:f(q.x),L,h:q.h}));
+     const rp=P2();for(const q of cr)for(let i=0;i<4;i++){const x0=q.x-q.w*rr(.15,.9),y0=f(x0)+rr(4,12);rp.moveTo(x0,y0);rp.quadraticCurveTo(x0+30,y0-rr(1,4),x0+rr(46,76),f(x0+60)+rr(3,9))}
+     return {p,f,sh,rp,cr}};
+   S.d0=mk(374,[{x:150,w:180,h:26},{x:420,w:200,h:34},{x:700,w:200,h:24},{x:930,w:160,h:30}],70);
+   S.d1=mk(426,[{x:250,w:230,h:56},{x:610,w:260,h:44},{x:880,w:200,h:50}],90);
+   S.d2=mk(464,[{x:130,w:200,h:28},{x:520,w:260,h:20},{x:830,w:220,h:32}],80);
+   S.g0=lg(0,330,0,420,[B(176),B(112)]);S.g1=lg(0,360,0,460,[B(216),B(150),B(84)]);S.g2=lg(0,420,0,FY,[B(150),B(92),B(52)]);
+   S.tree=P2();S.tsn=P2();const tx=574,ty=S.d1.f(574)+8;S.tx=tx;S.ty=ty;poly(S.tree,[[tx-16,ty+4],[tx-6,ty-20],[tx+6,ty-20],[tx+18,ty+4]]);branch(S.tree,S.tsn,tx,ty-4,-Math.PI/2+.04,44,16,6);
+   S.fp=[];for(const [x,h,a] of[[318,46,.12],[362,40,.2],[408,44,.16],[452,34,.34]])S.fp.push({x,y:S.d1.f(x)+8,h,a});const pt=(i,k)=>{const q=S.fp[i];return [q.x+Math.sin(q.a)*q.h*k,q.y-Math.cos(q.a)*q.h*k]};
+   S.rail=P2();seg(S.rail,pt(0,.8),pt(1,.8));seg(S.rail,pt(1,.8),pt(2,.78));seg(S.rail,pt(0,.42),pt(1,.42));const b=pt(2,.4);seg(S.rail,pt(1,.42),[b[0]-14,b[1]+6]);seg(S.rail,pt(2,.75),[pt(2,.75)[0]+22,pt(2,.75)[1]+26]);
+   S.spd=[];for(const d of[S.d0,S.d1])for(const q of d.cr)S.spd.push({x:q.x+12,y:d.f(q.x)-2,ph:rr(0,1),k:d===S.d1?1:.6});
+   S.gu=mkGusts(24,250,460,320,560)},
+  far(S,t){moon(760,96,30,t,.7);clouds(S.cl,t);drawRange(S.m,B(96),S.mc,.3,S.mhz)},
+  draw(S,t){for(const [d,g] of[[S.d0,S.g0],[S.d1,S.g1]]){c.fillStyle=g;c.fill(d.p);c.save();c.clip(d.p);for(const s of d.sh)ell(SHD,s.x+s.L*.3,s.y+s.h*.4,s.L*.75,s.h*.6,.85);c.restore();c.strokeStyle=SN(.22);c.lineWidth=1.2;c.stroke(d.rp);c.strokeStyle=SN(.4);c.lineWidth=1.5;c.stroke(d.p);
+    if(d===S.d0)fog(t,384,.06,30,30)}
+   c.save();c.translate(S.tx,S.ty);c.rotate(Math.sin(t*1.3)*.006+Math.sin(t*3.1)*.002);c.translate(-S.tx,-S.ty);c.fillStyle=A(12,14,30);c.fill(S.tree);c.fillStyle=SN(.6);c.fill(S.tsn);c.restore();
+   c.lineCap='round';c.strokeStyle=A(14,16,32);c.lineWidth=4;c.stroke(S.rail);c.strokeStyle=SN(.45);c.lineWidth=1.4;c.save();c.translate(0,-2);c.stroke(S.rail);c.restore();c.lineCap='butt';
+   for(const q of S.fp){c.save();c.translate(q.x,q.y);c.rotate(q.a);c.fillStyle=A(14,16,32);c.fillRect(-4,-q.h,8,q.h+4);c.fillStyle=SN(.8);c.beginPath();c.ellipse(0,-q.h,6,3,0,Math.PI,TAU);c.fill();c.restore()}
+   add(()=>{c.fillStyle=FOG;for(const s of S.spd)for(let i=0;i<6;i++){const k=mod(t*.55+i/6+s.ph,1);c.globalAlpha=.24*s.k*(1-k)*Math.min(1,k*6);c.save();c.translate(s.x+k*180,s.y-Math.sin(k*Math.PI)*16+k*18);c.scale(10+k*60,4+k*12);c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore()}});
+   c.fillStyle=S.g2;c.fill(S.d2.p);c.save();c.clip(S.d2.p);for(const s of S.d2.sh)ell(SHD,s.x+s.L*.3,s.y+s.h*.4,s.L*.75,s.h*.6,.8);c.restore();c.strokeStyle=SN(.25);c.lineWidth=1.4;c.stroke(S.d2.p);c.strokeStyle=SN(.16);c.lineWidth=1.2;c.stroke(S.d2.rp);gusts(S.gu,t)}},
+ /* 7: the summit: a sea of clouds below, sharp peaks, a stone shrine and lantern under a huge aurora */
+ summit:{init(S){seed=S.seed+5;
+   S.au=mkAurora([{x0:-60,x1:1020,y:156,amp:40,h:150,c:[70,255,170],a:.56,sp:.1,ph:0},{x0:-60,x1:1020,y:100,amp:30,h:120,c:[60,230,230],a:.45,sp:.08,ph:1.7},{x0:80,x1:1020,y:62,amp:24,h:90,c:[160,110,255],a:.36,sp:.06,ph:3.3},{x0:-60,x1:720,y:214,amp:22,h:80,c:[120,255,200],a:.3,sp:.13,ph:5}]);
+   S.mw=Array.from({length:16},(_,i)=>{const u=i/15;return [40+u*880+rr(-30,30),268-u*210+rr(-18,18),rr(60,120),rr(18,34)]});
+   S.pkL=range(-60,340,400,150,236,3,64,-1);S.pkR=range(620,1020,400,124,226,3,74,-1);S.pkF=range(250,730,392,250,304,4,26,-1);
+   S.capG=lg(0,120,0,300,[SN(.95),A(170,180,226,.9)]);S.hzP=lg(0,150,0,400,[B(56),A(104,104,164)]);S.hzF=lg(0,240,0,392,[B(46),A(112,110,170)]);
+   S.cl=[[338,20,38,6,A(150,156,212),A(70,76,130),A(206,210,246)],[378,26,56,11,A(128,134,194),A(52,58,110),A(186,190,236)],[424,30,70,18,A(104,110,170),A(30,36,78),A(160,166,220)]].map(([y,r0,r1,sp,top,bot,rim],k)=>{const p=P2(),pf=[];for(let x=0;x<W;x+=rr(r0*.9,r0*1.5))pf.push([x,y+rr(-8,8),rr(r0,r1)]);
+     for(const o of[0,W,2*W])for(const [x,yy,r] of pf)if(o<2*W||x<r1){p.moveTo(x+o-r,yy);p.arc(x+o,yy,r,Math.PI,TAU)}const f=P2();f.addPath(p);f.rect(0,y,2*W+r1,(k<2?y+58:H)-y);return {p,f,sp,rim,g:lg(0,y-r1,0,y+50,[top,bot]),y}});
+   const top=[[360,H],[372,452],[420,430],[470,412],[512,402],[600,400],[690,398],[740,404],[800,414],[860,430],[930,448],[980,460],[980,H]];S.rk=poly(P2(),top);
+   const sp=[];for(let i=1;i<top.length-2;i++)sp.push([top[i][0],top[i][1]-rr(2,5)]);for(let i=top.length-3;i>=1;i--)sp.push([top[i][0]+rr(-4,4),top[i][1]+rr(6,14)]);S.rkS=blob(sp);
+   S.rkC=P2();for(let i=0;i<6;i++)crack(S.rkC,rr(400,940),rr(420,470),rr(1.2,2),rr(30,70),1);S.rkG=lg(0,396,0,FY,[A(30,34,60),A(12,14,32)]);
+   const sx=560;S.sx=sx;S.plat=P2();S.plat.rect(sx-66,388,132,12);S.plat.rect(sx-58,380,116,9);
+   S.body=P2();S.body.rect(sx-42,336,84,46);S.door=P2();S.door.moveTo(sx-14,381);S.door.lineTo(sx-14,358);S.door.arc(sx,358,14,Math.PI,0);S.door.lineTo(sx+14,381);S.door.closePath();
+   S.post=P2();for(const x of[sx-46,sx+38])S.post.rect(x,334,8,48);
+   S.roof=P2();S.roof.moveTo(sx-80,334);S.roof.quadraticCurveTo(sx-44,338,sx-24,312);S.roof.lineTo(sx,300);S.roof.lineTo(sx+24,312);S.roof.quadraticCurveTo(sx+44,338,sx+80,334);S.roof.lineTo(sx+76,342);S.roof.quadraticCurveTo(sx+40,344,sx,334);S.roof.quadraticCurveTo(sx-40,344,sx-76,342);S.roof.closePath();
+   S.rsn=blob([[sx-84,333],[sx-60,328],[sx-34,314],[sx-16,300],[sx,292],[sx+16,300],[sx+34,314],[sx+60,328],[sx+84,333],[sx+70,334],[sx+40,330],[sx+22,312],[sx,302],[sx-22,312],[sx-40,330],[sx-70,334]]);
+   S.fin=P2();S.fin.rect(sx-2,282,4,20);S.fin.arc(sx,282,4,0,TAU);
+   const lx=650;S.lx=lx;S.lan=P2();S.lan.rect(lx-11,384,22,14);S.lan.rect(lx-4,360,8,24);S.lan.rect(lx-13,354,26,6);poly(S.lan,[[lx-20,344],[lx-8,334],[lx+8,334],[lx+20,344],[lx+14,346],[lx-14,346]]);S.lan.arc(lx,330,4,0,TAU);
+   S.lsn=blob([[lx-22,344],[lx-10,334],[lx,331],[lx+10,334],[lx+22,344],[lx,340]]);
+   S.pole=[760,404,300];S.flags=[];for(let i=0;i<10;i++){const u=(i+.5)/10;S.flags.push({u,col:i%5,ph:rr(0,TAU)})}
+   S.gl=mkGlints(20,400,940,400,450)},
+  far(S,t){add(()=>{c.fillStyle=FOG;for(const m of S.mw){c.globalAlpha=.05;c.save();c.translate(m[0],m[1]);c.rotate(-.22);c.scale(m[2],m[3]);c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore()}});
+   stars(S,t);aurora(S.au,t);drawRange(S.pkL,B(56),S.capG,.42,S.hzP);drawRange(S.pkR,B(56),S.capG,.42,S.hzP);
+   const L=S.cl,cl=k=>{c.save();c.translate(-mod(t*L[k].sp,W),0);c.fillStyle=L[k].rim;c.fill(L[k].p);c.translate(0,2);c.globalAlpha=.55;c.fillStyle=L[k].g;c.fill(L[k].p);c.globalAlpha=1;c.translate(0,3);c.fill(L[k].f);c.restore()};cl(0);drawRange(S.pkF,B(46),S.capG,.4,S.hzF);
+   fog(t,352,.1,6,36,3);cl(1);fog(t,398,.09,-8,36,3);cl(2);add(()=>{ell(DOT,480,370,560,40,.08)})},
+  draw(S,t){const sx=S.sx,lx=S.lx,fl=.88+.07*Math.sin(t*2.4)+.05*Math.sin(t*7.9);
+   c.fillStyle=S.rkG;c.fill(S.rk);c.strokeStyle=A(0,0,10,.6);c.lineWidth=1.2;c.stroke(S.rkC);c.fillStyle=lg(0,390,0,470,[SN(.92),A(140,150,200,.85)]);c.fill(S.rkS);
+   c.fillStyle=A(26,28,50);c.fill(S.plat);c.fillStyle=A(20,22,42);c.fill(S.body);c.fillStyle=lg(0,344,0,381,[A(255,190,110,.8*fl),A(140,70,40,.9)]);c.fill(S.door);add(()=>{ell(WARM,sx,368,40,30,.3*fl)});
+   c.fillStyle=A(12,12,28);c.fill(S.post);c.fill(S.roof);c.fill(S.fin);c.fillStyle=lg(0,290,0,336,[SN(.98),A(170,180,224)]);c.fill(S.rsn);c.fillStyle=SN(.7);c.fillRect(sx-64,379,128,2.5);
+   const [px,pb,pt]=S.pole,sx2=sx+82,sy2=334,sw=Math.sin(t*.9)*3,rope=u=>[sx2+(px-sx2)*u,sy2+(pt-sy2)*u+Math.sin(u*Math.PI)*(22+sw)];
+   c.fillStyle=A(12,12,28);c.fillRect(px-3,pt,6,pb-pt);c.strokeStyle=A(20,20,40);c.lineWidth=1.2;c.beginPath();for(let u=0;u<=1;u+=.1){const q=rope(u);u?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])}c.stroke();
+   const fc=[LV(.75),IC(.65),A(214,150,120,.7),SN(.7),A(140,206,170,.65)];for(const f of S.flags){const [x,y]=rope(f.u),k=Math.sin(t*3.2+f.ph)*3+4;c.fillStyle=fc[f.col];c.beginPath();c.moveTo(x-5,y);c.lineTo(x+5,y);c.lineTo(x+5+k,y+14);c.lineTo(x-5+k,y+13+Math.sin(t*4+f.ph));c.closePath();c.fill()}
+   add(()=>{ell(WARM,lx,352,120,110,.32*fl);ell(WARM,lx,398,90,10,.3*fl)});c.fillStyle=A(26,28,50);c.fill(S.lan);c.fillStyle=lg(0,346,0,354,[WN(fl),AM(fl)]);c.fillRect(lx-8,346,16,8);c.fillStyle=SN(.9);c.fill(S.lsn);add(()=>{ell(WARM,lx,350,22,14,.7*fl)});
+   glints(S.gl,t)}}
+};
+
+/* =================== the eight scenes =================== */
+const SCENES=[
+ {name:'Freezetown',mid:'village',d:'A snowy village at night: cosy cottages under thick snow with glowing windows and chimney smoke, a clock tower, lamp posts and pines beneath a big moon.',
+  light:{x:720,y:110,r:440,a:.3},o:{sky:[A(4,7,22),A(10,18,46),A(26,38,80),A(64,66,118),A(40,44,82)],stars:150,starY:280,edge:['pine','eaves'],fogY:340}},
+ {name:'Pine Snowfield',mid:'field',d:'An open moonlit snowfield; rows of snow-laden pines recede into bands of mist below tall snow-capped mountains.',
+  light:{x:210,y:94,r:460,a:.32},o:{sky:[A(4,8,24),A(12,22,52),A(34,48,92),A(86,86,140),A(60,66,110)],stars:130,starY:260,edge:['pine','pine'],fogY:420}},
+ {name:'Glacier Crevasse',mid:'crevasse',d:'Deep inside a glacier: towering, cracked blue-white ice walls close in overhead, a snow bridge spans the gap and pale light falls from a sliver of sky.',
+  light:{x:480,y:0,r:560,a:.45,c:'cy'},o:{sky:[A(170,214,240),A(70,130,190),A(20,50,100),A(6,16,40),A(3,8,22)],edge:['ice','ice'],late:1,fogY:300,snow:{n:.8},shafts:[[480,70,0,1.1,0,0,FY],[440,30,1.5,.8,-50,0,FY],[524,26,3,.7,60,0,FY]]}},
+ {name:'Icicle Cavern',mid:'cavern',d:'An ice cave hung with huge icicles; clusters of blue crystals glow and pulse while a frozen waterfall shimmers at the back.',
+  light:{x:480,y:220,r:420,a:.3,c:'cy'},o:{sky:[A(4,8,22),A(8,18,42),A(12,30,64),A(8,20,46),A(4,10,26)],edge:['ice','ice'],fogY:330,snow:{n:.55,v:.8},snowA:.75}},
+ {name:'Chime Temple',mid:'temple',d:'A frozen temple hall: frosted pillars, a great arch onto the snow, rows of icicle chimes that light up one after another and faintly glowing carved runes.',
+  light:{x:480,y:260,r:420,a:.24,c:'cy'},o:{sky:[A(10,14,34),A(20,26,56),A(16,20,44)],edge:['pillar','pillar'],fogY:360,snow:{n:.6},shafts:[[480,150,0,.6,0,110,FY]]}},
+ {name:'Frozen Lake',mid:'lake',d:'A vast frozen lake under a green and teal aurora; the distant mountains are mirrored in the cracked ice as wind blows streaks of snow across it.',
+  light:{x:480,y:150,r:520,a:.22,c:'au'},o:{sky:[A(2,6,18),A(6,16,38),A(14,36,62),A(26,60,84),A(20,40,64)],stars:170,starY:300,edge:['crag','pine'],fogY:310,snow:{wind:70}}},
+ {name:'Windy Drifts',mid:'drifts',d:'A high, windswept plateau: big drifts with overhanging cornices, spindrift streaming off the crests, a snapped fence and a lone dead tree leaning in the gale.',
+  light:{x:760,y:96,r:420,a:.26},o:{sky:[A(14,18,42),A(30,38,74),A(60,64,110),A(96,96,146),A(70,74,120)],edge:['fence','crag'],fogY:350,snow:{wind:170,streak:.05,n:1.3}}},
+ {name:'Summit Shrine',mid:'summit',d:'The summit above a sea of clouds: sharp peaks, a snowed-in stone shrine with a warm lantern and prayer flags, under a huge aurora and a sky full of stars.',
+  light:{x:480,y:120,r:560,a:.2,c:'au'},o:{sky:[A(2,4,16),A(6,12,34),A(16,30,64),A(46,52,104),A(60,62,116)],stars:240,starY:360,edge:['crag','crag'],fogY:300,snow:{n:.7,wind:24}}}
+];
+SCENES.forEach((s,i)=>{s.seed=211+i*977;s.o=Object.assign({},s.o||{},{light:s.light})});
+function build(S){caches();makeFrame(S,S.o);MID[S.mid].init(S);S.built=true}
+function draw(S,t,dt){const M=MID[S.mid],o=S.o;c.save();c.fillStyle=S.backG;c.fillRect(0,0,W,H);
+ if(M.far)M.far(S,t,dt);if(!o.late)glow(S,t);snowLayer(S,t,0);fog(t,o.fogY||320,.06,8,64);
+ M.draw(S,t,dt);if(o.late)glow(S,t);shafts(S,t);snowLayer(S,t,1);fog(t,440,.07,-14,48);if(M.post)M.post(S,t,dt);
+ floorShade();edges(S,t);snowLayer(S,t,2);vignette();c.restore()}
+return {SCENES,draw(i,ctx,t,dt){const S=SCENES[i];c=ctx;if(!S.built)build(S);draw(S,t||0,dt||0)}};
+})();
+
+</script>
+<script>
+(()=>{
+const grid=document.getElementById('grid'),items=[],reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+FROST.SCENES.forEach((s,i)=>{const f=document.createElement('figure');const cv=document.createElement('canvas');cv.setAttribute('role','img');cv.setAttribute('aria-label',s.name+': '+s.d);
+ const cap=document.createElement('figcaption');const t=document.createElement('div');t.className='t';const n=document.createElement('span');n.className='n';n.textContent=String(i);
+ const h=document.createElement('h2');h.textContent=s.name;t.append(n,h);const p=document.createElement('p');p.textContent=s.d;cap.append(t,p);f.append(cv,cap);grid.append(f);
+ items.push({i,cv,ctx:cv.getContext('2d'),vis:false,w:0,h:0,drawn:false})});
+function fit(it){const r=it.cv.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1),w=Math.max(1,Math.round(r.width*d)),h=Math.max(1,Math.round(r.height*d));
+ if(w!==it.w||h!==it.h){it.cv.width=w;it.cv.height=h;it.w=w;it.h=h;it.drawn=false}}
+function paint(it,t,dt){fit(it);const c=it.ctx;c.setTransform(it.w/960,0,0,it.h/540,0,0);FROST.draw(it.i,c,t,dt);it.drawn=true}
+const io=new IntersectionObserver(es=>{for(const e of es){const it=items.find(x=>x.cv===e.target);it.vis=e.isIntersecting}},{rootMargin:'100px'});
+items.forEach(it=>io.observe(it.cv));
+let last=performance.now();
+function frame(now){const dt=Math.min(.05,(now-last)/1000),t=now/1000;last=now;
+ for(const it of items){if(!it.vis)continue;if(reduce){fit(it);if(it.drawn)continue;paint(it,4,0);continue}paint(it,t,dt)}
+ requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
