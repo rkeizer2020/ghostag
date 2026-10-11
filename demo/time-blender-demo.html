@@ -1621,7 +1621,7 @@ return {SCENES,draw(i,ctx,t,dt){const S=SCENES[i];if(!S.built)build(S);c=ctx;dra
 })();
 const FACT_N=SC.length;
 [7,0,1,2,3,4,5,6,8,9,10,11,12,13,14].forEach((p,k)=>add({name:k?SEWER.SCENES[p].name:'Long Corridor',sewer:true,paint:p,wall:()=>{}}));
-add({name:'Drain Pipe',sewer:true,pipe:1,paint:0,wall:()=>{}});add({name:'Pipe Shaft',sewer:true,pipe:2,paint:0,wall:()=>{}});[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,19,18].forEach(b=>add({name:PRISON.SCENES[b].name,sewer:true,prison:b,paint:0,wall:()=>{}}));add({name:'The Garage',sewer:true,tut:1,paint:0,wall:()=>{}});add({name:'Scrap Cell',sewer:true,gorgi:1,paint:0,wall:()=>{}});for(let i=0;i<8;i++)add({name:FROST.SCENES[i].name,sewer:true,frost:i,paint:0,wall:()=>{}});
+add({name:'Drain Pipe',sewer:true,pipe:1,paint:0,wall:()=>{}});add({name:'Pipe Shaft',sewer:true,pipe:2,paint:0,wall:()=>{}});[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,19,18].forEach(b=>add({name:PRISON.SCENES[b].name,sewer:true,prison:b,paint:0,wall:()=>{}}));add({name:'The Garage',sewer:true,tut:1,paint:0,wall:()=>{}});add({name:'Scrap Cell',sewer:true,gorgi:1,paint:0,wall:()=>{}});for(let i=0;i<9;i++){const sc=i<2?0:i-1;add({name:i===1?'Freezetown Square':FROST.SCENES[sc].name,sewer:true,frost:i,fsc:sc,paint:0,wall:()=>{}})}
 /* ---- pre-rendering and the scrolling, layered draw ---- */
 function prepScene(sc,Q){if(sc._wall||sc.sewer)return;const cv=document.createElement('canvas');cv.width=(WW+160)*Q;cv.height=(HH+80)*Q;const c=cv.getContext('2d');c.setTransform(Q,0,0,Q,80*Q,40*Q);sc.wall(c);sc._wall=cv}
 function tile(c,shift,fn){const s=((shift%WW)+WW)%WW;c.save();c.translate(-s,0);fn();c.restore();c.save();c.translate(WW-s,0);fn();c.restore()}
@@ -2994,7 +2994,7 @@ function pipeCeil(){if(room!==PIPE_A)return;if(Math.abs(me.x-PBR)<96)return;if(m
 /* ---------- drawing ---------- */
 const IRON=['#151a19','#2c3331','#3c4542','#2a302e','#121615'];
 function hsh(n){n=Math.sin(n*127.1)*43758.5453;return n-Math.floor(n)}
-function drawExtraBack(c,t){const s=SC[room];if(s.frost!==undefined){const px=(cam/(WORLD-WW))*40,py=(camYmax?camY/camYmax:0)*30;c.save();c.translate(-px,-py);c.scale(1.09,1.09);FROST.draw(s.frost,c,t,1/60);c.restore();c.fillStyle='rgba(6,10,24,.12)';c.fillRect(0,0,WW,HH);return true}if(s.gorgi){drawGorgiBack(c,t);return true}if(s.tut){const px=(cam/(WORLD-WW))*40;c.save();c.translate(-px,0);c.scale(1.09,1.09);INTROBG.draw('garage',c,t,0);c.restore();c.fillStyle='rgba(4,2,12,.18)';c.fillRect(0,0,WW,HH);return true}
+function drawExtraBack(c,t){const s=SC[room];if(s.frost!==undefined){const px=(cam/(WORLD-WW))*40,py=(camYmax?camY/camYmax:0)*30;c.save();c.translate(-px,-py);c.scale(1.09,1.09);FROST.draw(s.fsc,c,t,1/60);c.restore();c.fillStyle='rgba(6,10,24,.12)';c.fillRect(0,0,WW,HH);return true}if(s.gorgi){drawGorgiBack(c,t);return true}if(s.tut){const px=(cam/(WORLD-WW))*40;c.save();c.translate(-px,0);c.scale(1.09,1.09);INTROBG.draw('garage',c,t,0);c.restore();c.fillStyle='rgba(4,2,12,.18)';c.fillRect(0,0,WW,HH);return true}
  if(s.prison!==undefined){const px=(cam/(WORLD-WW))*40,py=(camYmax?camY/camYmax:0)*30;c.save();c.translate(-px,-py);c.scale(1.09,1.09);PRISON.draw(s.prison,c,t,0);c.restore();c.fillStyle='rgba(6,6,8,.22)';c.fillRect(0,0,WW,HH);return true}
  if(!s.pipe)return false;
  c.fillStyle='#070909';c.fillRect(0,0,WW,HH);
@@ -3716,11 +3716,14 @@ function drawGorgiBar(c){if(room!==GORGI_ROOM)return;const e=ENM.find(q=>q.type=
  else for(let i=0;i<3;i++){const on=i>=e.hits;rrect(c,x+4+i*(w-8)/3,y+4,(w-8)/3-4,10,5);c.fillStyle=on?'#ff4a5a':'#3a2030';c.fill()}c.restore()}
 
 /* ===================== FREEZETOWN =====================
-   The snow biome behind the prison. Room 1 is the village of Freezetown with two villagers;
+   The snow biome behind the prison. The first two rooms are the village of Freezetown: cottages, an inn,
+   a market stall, the town tree and eight villagers;
    after it come snowfields, a glacier, an icicle cavern, a chime temple, a frozen lake, windy drifts
    and the summit. New here: slippery ice, wind gusts, falling icicles, snow mites and ice wraiths,
    and three puzzles: sliding ice blocks, an icicle melody and a growing snowball. */
-const FT0=SC.findIndex(s=>s.frost===0),FT_N=8,FT_LAST=FT0+FT_N-1;
+const FT0=SC.findIndex(s=>s.frost===0),FT_N=9,FT_LAST=FT0+FT_N-1;
+/* rooms 0 and 1 are the village; the other rooms use the layout tables below by their painted scene number */
+function fsk(r){const k=r-FT0;return k<2?0:k-1}
 function isFrost(r){return r>=FT0&&r<FT0+FT_N}
 function roomNext(r){return r===PR_LAST?FT0:r+1}
 function roomPrev(r){return r===FT0?PR_LAST:r-1}
@@ -3732,7 +3735,7 @@ function iceAt(x){return isFrost(room)&&FROSTST.ice.some(([a,b])=>x>=a&&x<=b)}
 function onIceNow(){return isFrost(room)&&me.ground&&iceAt(me.x)&&Math.abs(me.y-groundAt(me.x))<3}
 /* ---------- rooms ---------- */
 function frostInfo(r){const k=r-FT0;return {holes:[],tops:[],blockL:false,blockR:k===FT_N-1}}
-function genFrost(safeX){const k=room-FT0;camYmin=0;WL=null;
+function genFrost(safeX){const k=fsk(room);camYmin=0;WL=null;
  let sd=(room*6151+19)%2147483647||1;const sr=()=>{sd=(sd*16807)%2147483647;return (sd-1)/2147483646},srr=(a,b)=>a+sr()*(b-a);
  let segs=[];
  if(FT_FLAT[k]||k===5)segs=[{x0:0,x1:WORLD,y:560}];
@@ -3749,7 +3752,7 @@ function genFrost(safeX){const k=room-FT0;camYmin=0;WL=null;
  const list=(FT_EN[k]||'').split('').filter(Boolean),far=x=>Math.abs(x-safeX)>420;
  list.forEach(ch=>{let x=0;for(let n=0;n<30;n++){x=srr(300,WORLD-300);if(far(x))break}const s=segs.find(q=>x>=q.x0&&x<q.x1)||segs[0];
   ENM.push(ch==='w'?mkWraith(x,s.y-170):mkMite(x,s.y))});
- if(k===0&&!FROSTST.welcomed){FROSTST.welcomed=true;pzBanner('FREEZETOWN')}}
+ if(room===FT0&&!FROSTST.welcomed){FROSTST.welcomed=true;pzBanner('FREEZETOWN')}}
 
 /* ---------- enemies: snow mites hop at you, ice wraiths float and throw shards ---------- */
 function mkMite(x,y){return mkS('snowmite',x,y,60,WORLD-60,16,4,{air:false,vy:0,hop:rnd(.4,1),face:-1})}
@@ -3781,23 +3784,175 @@ SEWT.wraith={up(e){const dt=1/60;e.t+=dt;e.flash=Math.max(0,e.flash-dt);if(e.coo
 function drawShard(c,b,cam){const a=Math.atan2(b.vy,b.vx);c.save();c.translate(b.x-cam,b.y);c.rotate(a);c.globalCompositeOperation='lighter';c.fillStyle='rgba(140,230,255,.35)';c.beginPath();c.ellipse(-6,0,16,5,0,0,TAU);c.fill();c.globalCompositeOperation='source-over';
  c.beginPath();c.moveTo(10,0);c.lineTo(-6,-4);c.lineTo(-10,0);c.lineTo(-6,4);c.closePath();c.fillStyle='#e6f7ff';c.fill();c.strokeStyle='#5a8ab0';c.lineWidth=1.4;c.stroke();c.restore()}
 
-/* ---------- the village: two villagers ---------- */
-const FT_VILLAGERS=[{x:640,id:'bolt',lines:["Brr... you came out of the prison? Nobody comes out of there.","Welcome to Freezetown. Warm your bolts by the fire.","The road east climbs to the summit. Old puzzles guard it."]},
- {x:1340,id:'kid',lines:["Hi! Wanna hear a secret?","A snowball gets bigger when it rolls over snow. Not over ice!","And ice blocks slide forever if you hit them hard."]}];
-function villagerHere(){if(room!==FT0)return null;return FT_VILLAGERS.find(v=>Math.abs(me.x-v.x)<110)||null}
+/* ---------- the village: two rooms of cottages, an inn, a market stall, the town tree and eight villagers ---------- */
+function isVillage(r){return isFrost(r)&&r-FT0<2}
+const FT_HOUSES={
+ 0:[{x:480,w:240,h:150,wall:'#7a5638',roof:'#4a3040',win:[-64,64],door:0,chim:66,wood:1},
+    {x:1110,w:270,h:172,wall:'#4e6080',roof:'#2e3450',win:[-82,82],door:0,chim:-78,wreath:1},
+    {x:1770,w:220,h:140,wall:'#8a4a40',roof:'#3a2e3e',win:[58],door:-42,chim:48}],
+ 1:[{x:300,w:380,h:250,wall:'#7a5638',roof:'#3e2a36',inn:1,win:[-122,122],win2:[-122,0,122],door:0,chim:118},
+    {x:1730,w:220,h:150,wall:'#5a7058',roof:'#2e3a40',win:[-56,56],door:0,chim:-58,wreath:1}]};
+/* a second, smaller row further back that scrolls slower: depth between the painting and the street */
+const FT_BACK={0:[{x:300,s:.52,w:230,h:150},{x:830,s:.46,w:260,h:170},{x:1330,s:.56,w:220,h:140},{x:1720,s:.48,w:250,h:160}],
+ 1:[{x:700,s:.5,w:240,h:160},{x:1150,s:.44,w:300,h:190,tower:1},{x:1560,s:.54,w:220,h:140}]};
+function ftWindow(c,x,y,w,h,t,far,seed){const fl=.86+.14*Math.sin(t*3.1+seed*1.7)*Math.sin(t*1.3+seed);
+ if(!far){c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,x+w/2,y+h/2,4,86,['rgba(255,190,110,'+(.26*fl)+')','rgba(255,160,80,0)']);c.beginPath();c.arc(x+w/2,y+h/2,86,0,TAU);c.fill();c.restore()}
+ rrect(c,x,y,w,h,far?2:4);c.fillStyle=lgrad(c,0,y,0,y+h,far?['#e0a868','#b07040']:['#ffe2a4','#ffb262']);c.globalAlpha=far?.85:fl;c.fill();c.globalAlpha=1;
+ c.strokeStyle=far?'#141a2a':'#2a1c22';c.lineWidth=far?2.4:3;c.stroke();c.beginPath();c.moveTo(x+w/2,y);c.lineTo(x+w/2,y+h);c.moveTo(x,y+h*.45);c.lineTo(x+w,y+h*.45);c.lineWidth=far?1.8:2.4;c.stroke();
+ c.fillStyle=far?'#a4b4d0':'#f4f9ff';c.beginPath();c.ellipse(x+w/2,y+h+1,w/2+7,5,0,Math.PI,0);c.fill();c.fillRect(x-7,y+h,w+14,4)}
+/* one cottage, drawn around (0,0) = middle of its base; far ones are dimmer and simpler */
+function drawCottage(c,H,x,b,t,far,s){const w=H.w,h=H.h,rh=Math.round(w*.42),L=-w/2,R=w/2,top=-h,ov=20;
+ const wall=far?'#28324c':H.wall||'#6a5a4a',roof=far?'#1a2136':H.roof||'#3a2e3e',snowF=far?['#c4d2ea','#8a9cc0']:['#ffffff','#dbe8f4','#b4c8dc'],oc=far?'#0e1322':OUT,lw=far?2.4:2.6;
+ c.save();c.translate(x,b);if(s)c.scale(s,s);c.lineJoin='round';
+ /* chimney and its smoke, behind the roof */
+ if(H.chim!==undefined){const cx=H.chim,ry=top-rh*(1-Math.abs(cx)/(w/2+ov)),ct=ry-38;
+  c.save();for(let i=0;i<6;i++){const k=(t*.22+i/6+x*.0007)%1,px=cx+Math.sin(t*.8+i*2)*5+k*k*46,py=ct-8-k*130,r=7+k*20;c.fillStyle='rgba('+(far?'150,160,190,':'200,206,224,')+((1-k)*(far?.18:.3))+')';c.beginPath();c.arc(px,py,r,0,TAU);c.fill()}c.restore();
+  c.beginPath();c.rect(cx-14,ct,28,ry-ct+14);c.fillStyle=far?'#20283e':'#5a4a4e';c.fill();c.strokeStyle=oc;c.lineWidth=lw;c.stroke();
+  if(!far){c.strokeStyle='rgba(0,0,0,.22)';c.lineWidth=1.4;for(let yy=ct+10;yy<ry;yy+=10){c.beginPath();c.moveTo(cx-14,yy);c.lineTo(cx+14,yy);c.stroke()}}
+  c.fillStyle=far?'#b4c4e0':'#f6fbff';c.beginPath();c.ellipse(cx,ct,18,7,0,Math.PI,0);c.fill();c.fillRect(cx-18,ct-1,36,4)}
+ if(H.tower){/* a little clock tower behind the far row */
+  c.beginPath();c.rect(-34,top-rh-150,68,170);c.fillStyle='#222a40';c.fill();c.strokeStyle=oc;c.lineWidth=lw;c.stroke();
+  c.beginPath();c.moveTo(-46,top-rh-148);c.lineTo(0,top-rh-230);c.lineTo(46,top-rh-148);c.closePath();c.fillStyle='#161c2e';c.fill();c.stroke();
+  c.fillStyle='#b4c4e0';c.beginPath();c.moveTo(-40,top-rh-150);c.lineTo(0,top-rh-224);c.lineTo(10,top-rh-206);c.lineTo(-24,top-rh-152);c.closePath();c.fill();
+  c.beginPath();c.arc(0,top-rh-110,20,0,TAU);c.fillStyle='#e8d8a8';c.fill();c.stroke();c.strokeStyle='#2a2430';c.lineWidth=3;c.beginPath();c.moveTo(0,top-rh-110);c.lineTo(0,top-rh-124);c.moveTo(0,top-rh-110);c.lineTo(9,top-rh-106);c.stroke()}
+ /* walls */
+ c.beginPath();c.rect(L,top,w,h);c.fillStyle=wall;c.fill();
+ if(!far){c.strokeStyle='rgba(0,0,0,.16)';c.lineWidth=1.4;for(let yy=top+15;yy<-16;yy+=15){c.beginPath();c.moveTo(L,yy);c.lineTo(R,yy);c.stroke()}
+  c.fillStyle=lgrad(c,0,top,0,0,['rgba(255,230,200,.06)','rgba(8,10,30,0)','rgba(8,10,30,.32)']);c.fillRect(L,top,w,h);c.fillStyle='rgba(0,0,0,.24)';c.fillRect(L,top,9,h);c.fillRect(R-9,top,9,h);
+  if(H.inn){c.fillStyle='rgba(0,0,0,.3)';c.fillRect(L,top+h*.46,w,9)}}
+ c.beginPath();c.rect(L,top,w,h);c.strokeStyle=oc;c.lineWidth=lw;c.stroke();
+ /* gable with a round attic window */
+ c.beginPath();c.moveTo(L,top);c.lineTo(0,top-rh+12);c.lineTo(R,top);c.closePath();c.fillStyle=far?'#222b42':wall;c.fill();if(!far){c.fillStyle='rgba(0,0,0,.16)';c.fill()}c.strokeStyle=oc;c.lineWidth=lw;c.stroke();
+ {const ay=top-rh*.4,ar=Math.min(15,rh*.16);c.save();if(!far){c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,0,ay,2,50,['rgba(255,190,110,.2)','rgba(255,160,80,0)']);c.beginPath();c.arc(0,ay,50,0,TAU);c.fill();c.globalCompositeOperation='source-over'}
+  c.beginPath();c.arc(0,ay,ar,0,TAU);c.fillStyle=far?'#c89058':'#ffd590';c.fill();c.strokeStyle=oc;c.lineWidth=far?2:2.6;c.stroke();c.beginPath();c.moveTo(-ar,ay);c.lineTo(ar,ay);c.moveTo(0,ay-ar);c.lineTo(0,ay+ar);c.lineWidth=1.8;c.stroke();c.restore()}
+ /* windows with shutters */
+ const row=(list,wy)=>{for(const [i,wx] of list.entries()){if(!far){c.fillStyle=roof;for(const sd of[-1,1]){c.beginPath();c.rect(sd<0?wx-19-15:wx+19+3,wy,12,46);c.fill();c.strokeStyle=OUT;c.lineWidth=1.8;c.stroke()}}ftWindow(c,wx-19,wy,38,46,t,far,i+x*.01)}};
+ if(H.inn){row(H.win,-118);row(H.win2,top+34)}else row(H.win||[],top+Math.min(40,h*.26));
+ /* door */
+ if(H.door!==undefined){const dx=H.door,dw=48,dh=80,dy=-16-dh;c.beginPath();c.moveTo(dx-dw/2,-16);c.lineTo(dx-dw/2,dy+dw/2);c.arc(dx,dy+dw/2,dw/2,Math.PI,0);c.lineTo(dx+dw/2,-16);c.closePath();c.fillStyle=far?'#141a2a':'#3e2a22';c.fill();c.strokeStyle=oc;c.lineWidth=lw;c.stroke();
+  if(!far){c.save();c.clip();c.strokeStyle='rgba(0,0,0,.3)';c.lineWidth=1.6;for(let k=-1;k<=1;k++){c.beginPath();c.moveTo(dx+k*13,dy);c.lineTo(dx+k*13,-16);c.stroke()}c.restore();
+   c.fillStyle='#e8c060';c.beginPath();c.arc(dx+13,dy+dh*.58,3,0,TAU);c.fill();
+   /* little lantern over the door */
+   const lx=dx+dw/2+14,ly=dy+4,fl=.8+.2*Math.sin(t*6+x);c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,lx,ly,2,70,['rgba(255,200,120,'+(.4*fl)+')','rgba(255,170,90,0)']);c.beginPath();c.arc(lx,ly,70,0,TAU);c.fill();c.restore();
+   c.strokeStyle=OUT;c.lineWidth=2;c.beginPath();c.moveTo(lx-10,ly-14);c.lineTo(lx,ly-14);c.lineTo(lx,ly-8);c.stroke();rrect(c,lx-6,ly-8,12,16,3);c.fillStyle='rgba(255,214,140,'+fl+')';c.fill();c.stroke();
+   if(H.wreath){c.save();c.lineWidth=7;c.strokeStyle='#2e5a3a';c.beginPath();c.arc(dx,dy+26,11,0,TAU);c.stroke();c.lineWidth=2;c.strokeStyle='#1a3424';c.stroke();c.fillStyle='#c83a3a';c.beginPath();c.moveTo(dx,dy+36);c.lineTo(dx-6,dy+44);c.lineTo(dx+6,dy+44);c.closePath();c.fill();for(const a of[.6,2.2,3.9,5.2]){c.fillStyle='#ff6a5a';c.beginPath();c.arc(dx+Math.cos(a)*11,dy+26+Math.sin(a)*11,2.2,0,TAU);c.fill()}c.restore()}}
+  c.fillStyle=far?'#a4b4d0':'#f2f8ff';c.beginPath();c.ellipse(dx,-14,dw/2+12,7,0,Math.PI,0);c.fill()}
+ /* stone foundation */
+ c.beginPath();c.rect(L-5,-16,w+10,16);c.fillStyle=far?'#1c2236':'#545a6a';c.fill();c.strokeStyle=oc;c.lineWidth=lw;c.stroke();
+ if(!far){c.strokeStyle='rgba(0,0,0,.3)';c.lineWidth=1.4;for(let xx=L+18;xx<R;xx+=34){c.beginPath();c.moveTo(xx,-16);c.lineTo(xx,0);c.stroke()}}
+ /* roof: a thick band along both slopes, buried under snow */
+ c.beginPath();c.moveTo(L-ov,top+10);c.lineTo(0,top-rh-16);c.lineTo(R+ov,top+10);c.lineTo(R+ov-12,top+16);c.lineTo(0,top-rh+4);c.lineTo(L-ov+12,top+16);c.closePath();c.fillStyle=roof;c.fill();c.strokeStyle=oc;c.lineWidth=lw;c.stroke();
+ c.beginPath();c.moveTo(L-ov-8,top+12);for(let i=0;i<=10;i++){const q=i/10;c.lineTo(L-ov-8+(ov+8+w/2)*q,top+12-(rh+38)*q+Math.sin(i*1.9)*3)}
+ for(let i=1;i<=10;i++){const q=i/10;c.lineTo((R+ov+8)*q,top-rh-26+(rh+38)*q+Math.sin(i*2.3)*3)}
+ for(let i=10;i>=0;i--){const q=i/10;c.lineTo((R+ov)*q,top-rh-12+(rh+22)*q+(i%2?5:1))}
+ for(let i=0;i<=10;i++){const q=i/10;c.lineTo((L-ov)*q,top-rh-12+(rh+22)*q+(i%2?5:1))}c.closePath();
+ c.fillStyle=lgrad(c,0,top-rh-30,0,top+14,snowF);c.fill();c.strokeStyle=far?'rgba(14,19,34,.8)':'rgba(40,60,90,.6)';c.lineWidth=far?2:1.8;c.stroke();
+ /* icicles under the eaves */
+ if(!far){c.fillStyle='rgba(210,236,255,.9)';c.strokeStyle='rgba(60,100,140,.6)';c.lineWidth=1;for(const sd of[-1,1])for(let i=0;i<4;i++){const ix=sd*(w/2+ov-6-i*9),il=8+((i*7+x)%11);c.beginPath();c.moveTo(ix-3,top+12+i*2);c.lineTo(ix+3,top+12+i*2);c.lineTo(ix,top+12+i*2+il);c.closePath();c.fill();c.stroke()}}
+ /* the inn's hanging sign */
+ if(H.inn){const sx=R+8,sy=top+34,sw=Math.sin(t*1.4)*.04;c.strokeStyle=OUT;c.lineWidth=4;c.beginPath();c.moveTo(R,sy);c.lineTo(sx+118,sy);c.stroke();c.lineWidth=2;c.beginPath();c.moveTo(R,sy+26);c.lineTo(R+30,sy);c.stroke();
+  c.save();c.translate(sx+62,sy);c.rotate(sw);c.strokeStyle='#2a2a30';c.lineWidth=1.6;c.beginPath();c.moveTo(-44,0);c.lineTo(-44,14);c.moveTo(44,0);c.lineTo(44,14);c.stroke();
+  rrect(c,-58,14,116,48,7);fillOut(c,lgrad(c,0,14,0,62,['#9a7448','#6a4a2a']),2.4);c.fillStyle='#f6fbff';c.beginPath();c.ellipse(0,15,58,5,0,Math.PI,0);c.fill();
+  c.fillStyle='#fff0c8';c.textAlign='center';c.textBaseline='middle';c.font='700 13px '+SERIF;c.fillText('THE WARM',0,30);c.fillText('BOLT',0,48);c.restore()}
+ /* a stack of firewood */
+ if(H.wood&&!far){for(let r=0;r<3;r++)for(let i=0;i<4-r;i++){const lx=L-34-i*15-r*7.5,ly=-10-r*14;c.beginPath();c.arc(lx,ly,7.5,0,TAU);fillOut(c,'#8a5a32',1.6);c.fillStyle='#c89060';c.beginPath();c.arc(lx,ly,3.5,0,TAU);c.fill()}
+  c.fillStyle='#f4f9ff';c.beginPath();c.ellipse(L-56,-48,32,6,0,Math.PI,0);c.fill()}
+ /* snow banked against the walls */
+ c.fillStyle=far?'#9aaccc':'#eef5fc';for(const [ox,rw] of[[L+10,34],[R-12,40],[L+w*.3,22]]){c.beginPath();c.ellipse(ox,0,rw,10,0,Math.PI,0);c.fill()}
+ if(far){c.fillStyle='rgba(20,30,60,.28)';c.fillRect(L-ov-10,top-rh-40,w+2*ov+20,h+rh+40)}
+ c.restore()}
+function drawTownTree(c,x,y,t){c.save();c.fillStyle='#3a2a22';c.fillRect(x-12,y-40,24,40);c.strokeStyle=OUT;c.lineWidth=2.4;c.strokeRect(x-12,y-40,24,40);
+ const tiers=[[y-30,120,110],[y-120,96,100],[y-200,70,92]];
+ for(const [by,hw,th] of tiers){c.beginPath();c.moveTo(x-hw,by);c.quadraticCurveTo(x-hw*.4,by-th*.35,x,by-th);c.quadraticCurveTo(x+hw*.4,by-th*.35,x+hw,by);c.quadraticCurveTo(x,by+12,x-hw,by);c.closePath();fillOut(c,lgrad(c,0,by-th,0,by,['#2e5a4a','#1c3a34']),2.4);
+  c.fillStyle='#f4f9ff';c.beginPath();c.moveTo(x-hw*.8,by-th*.12);c.quadraticCurveTo(x-hw*.35,by-th*.45,x,by-th+6);c.quadraticCurveTo(x+hw*.35,by-th*.45,x+hw*.8,by-th*.12);c.quadraticCurveTo(x+hw*.4,by-th*.3,x,by-th*.5);c.quadraticCurveTo(x-hw*.4,by-th*.3,x-hw*.8,by-th*.12);c.fill()}
+ /* strings of lights */
+ const cols=['#ff6a5a','#ffd84a','#6ad8ff','#9aff8a'];c.save();for(const [by,hw] of[[y-50,104],[y-140,80],[y-218,54]]){c.strokeStyle='rgba(30,30,40,.6)';c.lineWidth=1.2;c.beginPath();c.moveTo(x-hw,by-20);c.quadraticCurveTo(x,by+14,x+hw,by-20);c.stroke();
+  for(let i=0;i<=8;i++){const q=i/8,lx=x-hw+2*hw*q,ly=(1-q)*(1-q)*(by-20)+2*(1-q)*q*(by+14)+q*q*(by-20),on=.55+.45*Math.sin(t*2.4+i*1.7+by);c.globalCompositeOperation='lighter';c.fillStyle=cols[(i+Math.round(by))%4];c.globalAlpha=on*.35;c.beginPath();c.arc(lx,ly,9,0,TAU);c.fill();c.globalAlpha=on;c.beginPath();c.arc(lx,ly,3,0,TAU);c.fill();c.globalCompositeOperation='source-over';c.globalAlpha=1}}
+ /* the star */
+ const sy=y-300,pu=.8+.2*Math.sin(t*2);c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,x,sy,2,60,['rgba(255,230,140,'+(.5*pu)+')','rgba(255,200,100,0)']);c.beginPath();c.arc(x,sy,60,0,TAU);c.fill();c.globalCompositeOperation='source-over';
+ c.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?7:17;c.lineTo(x+Math.cos(a)*r,sy+Math.sin(a)*r)}c.closePath();fillOut(c,'#ffe27a',2);c.restore();
+ c.fillStyle='#eef5fc';c.beginPath();c.ellipse(x,y,70,12,0,Math.PI,0);c.fill()}
+function drawStall(c,x,y,t,part){c.save();
+ if(part==='back'){c.fillStyle='#4a3424';for(const s of[-1,1]){c.fillRect(x+s*96-5,y-176,10,176);c.strokeStyle=OUT;c.lineWidth=2;c.strokeRect(x+s*96-5,y-176,10,176)}
+  c.beginPath();c.moveTo(x-116,y-150);c.lineTo(x-100,y-196);c.lineTo(x+100,y-196);c.lineTo(x+116,y-150);c.closePath();c.fillStyle='#e8e0d0';c.fill();
+  c.save();c.clip();c.fillStyle='#c84a3a';for(let i=-6;i<6;i+=2){c.beginPath();c.moveTo(x+i*20,y-196);c.lineTo(x+(i+1)*20,y-196);c.lineTo(x+(i+1)*23.2,y-150);c.lineTo(x+i*23.2,y-150);c.closePath();c.fill()}c.restore();c.strokeStyle=OUT;c.lineWidth=2.4;c.stroke();
+  for(let i=0;i<10;i++){const sx=x-116+i*23.2;c.beginPath();c.arc(sx+11.6,y-150,11.6,0,Math.PI);c.fillStyle=i%2?'#e8e0d0':'#c84a3a';c.fill();c.strokeStyle=OUT;c.lineWidth=1.6;c.stroke()}
+  c.fillStyle='#f6fbff';c.beginPath();c.moveTo(x-104,y-196);c.quadraticCurveTo(x,y-214,x+104,y-196);c.lineTo(x+104,y-192);c.lineTo(x-104,y-192);c.closePath();c.fill();
+  rrect(c,x-56,y-236,112,30,6);fillOut(c,'#6a4a2a',2.2);c.fillStyle='#fff0c8';c.font='700 13px '+SERIF;c.textAlign='center';c.textBaseline='middle';c.fillText('HOT BOLTS',x,y-221);
+  c.strokeStyle='#2a2a30';c.lineWidth=1.6;c.beginPath();c.moveTo(x-40,y-206);c.lineTo(x-40,y-196);c.moveTo(x+40,y-206);c.lineTo(x+40,y-196);c.stroke()}
+ else{rrect(c,x-108,y-72,216,72,6);fillOut(c,lgrad(c,0,y-72,0,y,['#8a6440','#5a3e26']),2.6);c.strokeStyle='rgba(0,0,0,.25)';c.lineWidth=1.4;for(let yy=y-56;yy<y;yy+=16){c.beginPath();c.moveTo(x-108,yy);c.lineTo(x+108,yy);c.stroke()}
+  c.fillStyle='#6a4a2a';c.fillRect(x-114,y-80,228,10);c.strokeStyle=OUT;c.lineWidth=2;c.strokeRect(x-114,y-80,228,10);
+  /* a steaming pot and a pile of roasted bolts */
+  rrect(c,x+30,y-112,48,32,8);fillOut(c,'#3a3a44',2);c.fillStyle='#6a6a76';c.fillRect(x+26,y-114,56,6);
+  c.save();for(let i=0;i<3;i++){const k=(t*.5+i/3)%1;c.strokeStyle='rgba(235,240,255,'+(1-k)*.5+')';c.lineWidth=2.4;c.beginPath();c.moveTo(x+44+i*10,y-118-k*40);c.quadraticCurveTo(x+38+i*10+Math.sin(t*2+i)*6,y-128-k*40,x+44+i*10,y-138-k*40);c.stroke()}c.restore();
+  for(const [bx,by] of[[-70,-86],[-56,-86],[-42,-86],[-63,-96],[-49,-96],[-56,-106]]){c.beginPath();for(let i=0;i<6;i++){const a=i*Math.PI/3;c.lineTo(x+bx+Math.cos(a)*7,y+by+Math.sin(a)*7)}c.closePath();fillOut(c,'#c8a060',1.4);c.fillStyle='#5a4020';c.beginPath();c.arc(x+bx,y+by,2.4,0,TAU);c.fill()}
+  c.fillStyle='#f4f9ff';c.beginPath();c.ellipse(x-90,y-80,18,4,0,Math.PI,0);c.fill()}
+ c.restore()}
+function drawSignpost(c,x,y,txt){c.save();c.fillStyle='#4a3424';c.fillRect(x-5,y-120,10,120);c.strokeStyle=OUT;c.lineWidth=2;c.strokeRect(x-5,y-120,10,120);
+ c.beginPath();c.moveTo(x-70,y-112);c.lineTo(x+40,y-112);c.lineTo(x+58,y-96);c.lineTo(x+40,y-80);c.lineTo(x-70,y-80);c.closePath();fillOut(c,lgrad(c,0,y-112,0,y-80,['#9a7448','#6a4a2a']),2.2);
+ c.fillStyle='#f6fbff';c.beginPath();c.ellipse(x-12,y-112,58,4,0,Math.PI,0);c.fill();c.fillStyle='#fff0c8';c.font='700 12px '+SERIF;c.textAlign='center';c.textBaseline='middle';c.fillText(txt,x-10,y-95);
+ c.fillStyle='#eef5fc';c.beginPath();c.ellipse(x,y,20,6,0,Math.PI,0);c.fill();c.restore()}
+
+const FT_VILLAGERS=[
+ {r:0,x:770,id:'bolt',st:{body:'#7a5a3a',scarf:'#c84a4a',hat:'beanie',hatC:'#5a4a6a',beard:1},lines:["Brr... you came out of the prison? Nobody comes out of there.","Welcome to Freezetown. Warm your bolts by the fire.","The road east climbs to the summit. Old puzzles guard it."]},
+ {r:0,x:1290,id:'pell',st:{body:'#4a6a8a',scarf:'#e0a040',hat:'beanie',hatC:'#2a4a3a',item:'shovel'},lines:["Snow, snow, snow. I shovel it away, and it comes right back.","My cousin works in the prison kitchen. He says the Warden never sleeps.","...Me? I just shovel."]},
+ {r:0,x:1450,id:'kid',rng:80,st:{body:'#d9564a',scarf:'#ffd84a',hat:'beanie',hatC:'#3a6ab0',S:.78},lines:["Hi! Wanna hear a secret?","A snowball gets bigger when it rolls over snow. Not over ice!","And ice blocks slide forever if you hit them hard."]},
+ {r:0,x:1640,id:'granny',st:{body:'#8a6a9a',scarf:'#f0e0c0',hat:'hood',hatC:'#b06a8a',item:'knit',sit:1,specs:1},lines:["Oh, a visitor! Your glass head must be freezing, dear.","I knit a scarf for every robot in Freezetown.","Mind the frozen lake. The wind there blows little ones right off their feet."]},
+ {r:1,x:560,id:'marla',st:{body:'#a04a3a',scarf:'#f4f0e0',hat:'bun',hatC:'#7a4a3a',item:'mug',apron:1},lines:["Welcome to the Warm Bolt! Best hot oil north of the prison.","Every bed is taken tonight. Everyone is hiding from the storm.","The guards never come this far north. Too cold for their batons!"]},
+ {r:1,x:790,id:'wick',st:{body:'#2e3448',scarf:'#d0b060',hat:'tophat',hatC:'#1c1c26',item:'pole',S:1.04},lines:["Every night I light the lamps, one by one.","The ice wraiths hate the light. They stay up in the cavern.","Keep to the light, little one."]},
+ {r:1,x:1270,id:'nutty',st:{body:'#6a7a3a',scarf:'#d06a3a',hat:'cap',hatC:'#5a3a2a',item:'stall'},lines:["Hot roasted bolts! Warm nuts! ...No coins? Then just enjoy the smell.","Snow mites hop at anything that moves. Hit them when they land."]},
+ {r:1,x:1500,id:'twins',rng:130,st:{S:.72},lines:["We're having a snowball war! You can be on my team!","No, on MY team!","Psst... in the cavern the icicles shake before they fall. Run!"]}];
+function villagerHere(){if(!isVillage(room))return null;const k=room-FT0;return FT_VILLAGERS.find(v=>v.r===k&&Math.abs(me.x-v.x)<(v.rng||95))||null}
 function nearVillager(){return !!(!me.dead&&villagerHere())}
 function talkVillager(){const v=villagerHere();if(!v)return;play('impact',{gain:.06,rate:2.6});if(VTALK&&VTALK.v===v){VTALK.i++;VTALK.t0=clock;if(VTALK.i>=v.lines.length)VTALK=null;return}VTALK={v,i:0,t0:clock}}
-function drawVillager(c,v,x,y,t){c.save();c.translate(x,y);const kid=v.id==='kid',S=kid?.78:1;c.scale(S,S);
+/* one villager: a round robot head, a coat and a scarf; hats, items and poses make each one different */
+function drawFolk(c,x,y,st,t,look,arm){c.save();c.translate(x,y);const S=st.S||1;c.scale(S,S);const oy=st.sit?-6:0;
  c.fillStyle='rgba(0,0,20,.3)';c.beginPath();c.ellipse(0,2,26,5,0,0,TAU);c.fill();
- for(const s of[-1,1]){rrect(c,s*9-6,-30,12,28,5);fillOut(c,'#5a6a82',2.2)}
- rrect(c,-20,-74,40,46,12);fillOut(c,kid?'#d9564a':'#7a5a3a',2.6);c.fillStyle='rgba(255,255,255,.18)';c.fillRect(-20,-60,40,4);
- /* scarf */
- c.fillStyle=kid?'#ffd84a':'#c84a4a';c.fillRect(-18,-78,36,8);c.fillRect(kid?10:-14,-74,8,22);
- const hy=-96+Math.sin(t*2+x)*1.2;c.beginPath();c.ellipse(0,hy,22,18,0,0,TAU);fillOut(c,'#9ab6d2',2.6);
- c.beginPath();c.arc(0,hy-14,16,Math.PI,0);c.lineTo(16,hy-10);c.lineTo(-16,hy-10);c.closePath();fillOut(c,kid?'#3a6ab0':'#5a4a6a',2.2);c.beginPath();c.arc(0,hy-31,5,0,TAU);fillOut(c,'#fff',1.6);
- const look=me.x>x?2:-2;c.fillStyle='#fff';for(const s of[-1,1]){c.beginPath();c.arc(s*8+look,hy+1,5,0,TAU);c.fill()}c.fillStyle='#1c1226';for(const s of[-1,1]){c.beginPath();c.arc(s*8+look*1.3,hy+1.5,2.3,0,TAU);c.fill()}
- if(!kid){c.fillStyle='#e8e8ee';c.beginPath();c.ellipse(0,hy+12,10,5,0,0,Math.PI);c.fill()}
+ if(st.sit){rrect(c,-44,-34,88,10,3);fillOut(c,'#6a4a30',2);c.fillStyle='#4a3020';c.fillRect(-38,-24,6,24);c.fillRect(32,-24,6,24);c.fillStyle='#f4f9ff';c.beginPath();c.ellipse(26,-34,16,4,0,Math.PI,0);c.fill();
+  for(const s of[-1,1]){rrect(c,s*8-4,-44,26,12,5);fillOut(c,'#5a6a82',2);rrect(c,s*8+12,-40,12,38,5);fillOut(c,'#5a6a82',2)}}
+ else for(const s of[-1,1]){rrect(c,s*9-6,-30,12,28,5);fillOut(c,'#5a6a82',2.2)}
+ rrect(c,-20,-74+oy,40,46,12);fillOut(c,st.body,2.6);c.fillStyle='rgba(255,255,255,.18)';c.fillRect(-20,-60+oy,40,4);
+ if(st.apron){rrect(c,-14,-58+oy,28,30,6);fillOut(c,'#f4efe4',1.8)}
+ c.fillStyle=st.scarf;c.fillRect(-18,-78+oy,36,8);c.fillRect(st.S<1?10:-14,-74+oy,8,22);
+ const hy=-96+oy+Math.sin(t*2+x)*1.2;
+ if(st.hat==='hood'){c.beginPath();c.ellipse(0,hy-2,28,26,0,0,TAU);fillOut(c,st.hatC,2.4)}
+ c.beginPath();c.ellipse(0,hy,22,18,0,0,TAU);fillOut(c,'#9ab6d2',2.6);
+ if(st.hat==='beanie'){c.beginPath();c.arc(0,hy-14,16,Math.PI,0);c.lineTo(16,hy-10);c.lineTo(-16,hy-10);c.closePath();fillOut(c,st.hatC,2.2);c.beginPath();c.arc(0,hy-31,5,0,TAU);fillOut(c,'#fff',1.6)}
+ else if(st.hat==='hood'){c.beginPath();c.arc(0,hy-4,24,Math.PI*1.08,Math.PI*1.92);c.strokeStyle=st.hatC;c.lineWidth=7;c.stroke()}
+ else if(st.hat==='tophat'){rrect(c,-24,hy-16,48,7,3);fillOut(c,st.hatC,2);rrect(c,-15,hy-46,30,32,3);fillOut(c,st.hatC,2);c.fillStyle='#c84a3a';c.fillRect(-15,hy-22,30,5)}
+ else if(st.hat==='cap'){c.beginPath();c.ellipse(-2,hy-13,19,9,0,Math.PI,0);c.closePath();fillOut(c,st.hatC,2);c.beginPath();c.ellipse(14,hy-12,12,4,0,0,TAU);fillOut(c,st.hatC,1.8)}
+ else if(st.hat==='bun'){c.beginPath();c.arc(0,hy-22,9,0,TAU);fillOut(c,st.hatC,2);c.fillStyle='#e0c060';c.fillRect(-7,hy-16,14,3)}
+ else if(st.hat==='muffs'){c.strokeStyle=st.hatC;c.lineWidth=4;c.beginPath();c.arc(0,hy-2,20,Math.PI*1.1,Math.PI*1.9);c.stroke();for(const s of[-1,1]){c.beginPath();c.arc(s*21,hy,7,0,TAU);fillOut(c,st.hatC,1.6)}}
+ c.fillStyle='#fff';for(const s of[-1,1]){c.beginPath();c.arc(s*8+look,hy+1,5,0,TAU);c.fill()}c.fillStyle='#1c1226';for(const s of[-1,1]){c.beginPath();c.arc(s*8+look*1.3,hy+1.5,2.3,0,TAU);c.fill()}
+ if(st.specs){c.strokeStyle='#e8c060';c.lineWidth=1.6;for(const s of[-1,1]){c.beginPath();c.arc(s*8+look,hy+1,6.5,0,TAU);c.stroke()}c.beginPath();c.moveTo(-1.5+look,hy+1);c.lineTo(1.5+look,hy+1);c.stroke()}
+ if(st.beard){c.fillStyle='#e8e8ee';c.beginPath();c.ellipse(0,hy+12,10,5,0,0,Math.PI);c.fill()}
+ /* arms and items */
+ const sh=[13,-66+oy],handAt=(hx,hy2)=>{c.strokeStyle=OUT;c.lineWidth=10;c.lineCap='round';c.beginPath();c.moveTo(sh[0],sh[1]);c.lineTo(hx,hy2);c.stroke();c.strokeStyle=st.body;c.lineWidth=6.5;c.stroke();c.beginPath();c.arc(hx,hy2,4.5,0,TAU);fillOut(c,'#9ab6d2',1.6)};
+ if(st.item==='shovel'){const p=(t*.42+x*.0013)%1,dig=p<.5?Math.sin(p/.5*Math.PI):0,thr=p>=.5?Math.sin((p-.5)/.5*Math.PI):0,a=.95-dig*.25-thr*1.7,L2=62,hx=16+Math.cos(a)*14,hy2=-52+oy+Math.sin(a)*8-thr*8;
+  const ex=hx+Math.cos(a)*L2,ey=hy2+Math.sin(a)*L2;c.strokeStyle='#6a4a2a';c.lineWidth=4;c.beginPath();c.moveTo(hx-Math.cos(a)*14,hy2-Math.sin(a)*14);c.lineTo(ex,ey);c.stroke();
+  c.save();c.translate(ex,ey);c.rotate(a);rrect(c,-2,-9,20,18,4);fillOut(c,'#8a94a8',1.8);if(p<.62){c.fillStyle='#f4f9ff';c.beginPath();c.ellipse(10,-8,9,4,0,Math.PI,0);c.fill()}c.restore();handAt(hx,hy2);
+  if(p>.62&&p<.95){const q=(p-.62)/.33;for(let i=0;i<5;i++){c.fillStyle='rgba(244,249,255,'+(1-q)+')';c.beginPath();c.arc(ex-q*(60+i*12),ey-Math.sin(q*Math.PI)*(30+i*6)+q*20,2+i%2,0,TAU);c.fill()}}
+  c.fillStyle='#eef5fc';c.beginPath();c.ellipse(48,-2,26,8,0,Math.PI,0);c.fill()}
+ else if(st.item==='pole'){const tx=34,ty=-210+oy;c.strokeStyle='#4a3a2a';c.lineWidth=4;c.beginPath();c.moveTo(12,-30+oy);c.lineTo(tx,ty);c.stroke();c.strokeStyle='#c8a050';c.lineWidth=2;c.beginPath();c.moveTo(tx,ty);c.quadraticCurveTo(tx+8,ty-6,tx+4,ty-12);c.stroke();
+  const fl=.8+.2*Math.sin(t*9);c.save();c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,tx,ty-4,1,40,['rgba(255,200,110,'+(.55*fl)+')','rgba(255,150,60,0)']);c.beginPath();c.arc(tx,ty-4,40,0,TAU);c.fill();c.fillStyle='rgba(255,230,160,'+fl+')';c.beginPath();c.ellipse(tx,ty-6+Math.sin(t*11)*1,3.5,6,0,0,TAU);c.fill();c.restore();handAt(18,-62+oy)}
+ else if(st.item==='mug'){handAt(20,-50+oy);rrect(c,16,-62+oy,16,16,3);fillOut(c,'#e8e0d0',1.6);c.strokeStyle=OUT;c.lineWidth=1.6;c.beginPath();c.arc(33,-54+oy,4,-1.4,1.4);c.stroke();
+  c.save();for(let i=0;i<2;i++){const k=(t*.6+i*.5)%1;c.strokeStyle='rgba(235,240,255,'+(1-k)*.55+')';c.lineWidth=2;c.beginPath();c.moveTo(22+i*5,-66+oy-k*26);c.quadraticCurveTo(18+i*5+Math.sin(t*2+i)*4,-72+oy-k*26,22+i*5,-80+oy-k*26);c.stroke()}c.restore()}
+ else if(st.item==='knit'){const a=Math.sin(t*5)*.25;c.strokeStyle='#c8c8d0';c.lineWidth=2;for(const s of[-1,1]){c.save();c.translate(s*4,-52+oy);c.rotate(s*(.7+a*s));c.beginPath();c.moveTo(0,0);c.lineTo(0,-24);c.stroke();c.restore()}
+  rrect(c,-12,-54+oy,24,14,4);fillOut(c,'#d84a6a',1.4);c.beginPath();c.arc(-30,-42,8,0,TAU);fillOut(c,'#d84a6a',1.6);c.strokeStyle='#d84a6a';c.lineWidth=1.4;c.beginPath();c.moveTo(-24,-46);c.quadraticCurveTo(-18,-34,-10,-48+oy);c.stroke();
+  handAt(-2,-50+oy)}
+ else if(arm==='throw'){handAt(18,-108+oy);c.beginPath();c.arc(20,-114+oy,6,0,TAU);fillOut(c,'#fff',1.4)}
+ else if(arm==='duck'){handAt(16,-40+oy)}
  c.restore()}
+function drawTwins(c,v,x,y,t){const p=(t*.45)%2,thrower=p<1?-1:1,k=p%1;
+ const kids=[{s:-1,st:{body:'#3a8a6a',scarf:'#f0f0f0',hat:'muffs',hatC:'#e86a8a',S:.72}},{s:1,st:{body:'#6a4ab0',scarf:'#ffd84a',hat:'beanie',hatC:'#e88a3a',S:.72}}];
+ for(const K of kids){const kx=x+K.s*62,face=-K.s,me2=Math.abs(me.x-x)<(v.rng||95);c.save();c.translate(kx,0);c.scale(face,1);
+  drawFolk(c,0,y,K.st,t,me2?(me.x>kx?2:-2)*face:2,thrower===K.s&&k<.25?'throw':'');c.restore()}
+ const fx=x+thrower*62,tx=x-thrower*62;if(k>.25&&k<.8){const q=(k-.25)/.55,bx=fx+(tx-fx)*q,by=y-80-Math.sin(q*Math.PI)*70+q*24;c.beginPath();c.arc(bx,by,6,0,TAU);fillOut(c,'#fff',1.4)}
+ if(k>=.8&&k<.98){const q=(k-.8)/.18;for(let i=0;i<6;i++){const a=i*1.05;c.fillStyle='rgba(244,249,255,'+(1-q)+')';c.beginPath();c.arc(tx+Math.cos(a)*q*22,y-56+Math.sin(a)*q*16,2.5,0,TAU);c.fill()}}
+ c.fillStyle='#eef5fc';for(const s of[-1,1]){c.beginPath();c.ellipse(x+s*100,y,18,7,0,Math.PI,0);c.fill();for(let i=0;i<3;i++){c.beginPath();c.arc(x+s*92+i*8,y-6,5,0,TAU);fillOut(c,'#f6fbff',1.2)}}}
+/* how high above the ground the talk hint sits: higher for the lamplighter's pole and the market stall */
+function vTop(v){return v.st.item==='pole'?250:v.st.item==='stall'?268:175}
+function drawVillager(c,v,x,y,t){if(v.id==='twins'){drawTwins(c,v,x,y,t);return}if(v.st.item==='stall'){c.save();rrect(c,x-30,y-28,60,28,4);fillOut(c,'#6a4a2a',2);c.restore()}drawFolk(c,x,y-(v.st.item==='stall'?28:0),v.st,t,me.x>v.x?2:-2,'')}
 function drawFireBarrel(c,x,y,t){c.save();rrect(c,x-22,y-50,44,50,6);fillOut(c,lgrad(c,x-22,0,x+22,0,['#3a3a44','#6a6a76','#3a3a44']),2.4);c.fillStyle='#2a2a30';c.fillRect(x-22,y-36,44,4);c.fillRect(x-22,y-16,44,4);
  c.globalCompositeOperation='lighter';c.fillStyle=rgrad(c,x,y-60,4,120,['rgba(255,170,80,.45)','rgba(255,120,40,0)']);c.beginPath();c.arc(x,y-60,120,0,TAU);c.fill();
  for(let i=0;i<5;i++){const k=(t*1.6+i*.2)%1,fx=x+Math.sin(t*6+i*2)*8*(1-k);c.fillStyle='rgba(255,'+(140+i*20)+',60,'+(1-k)+')';c.beginPath();c.ellipse(fx,y-52-k*34,9*(1-k)+3,14*(1-k)+3,0,0,TAU);c.fill()}c.restore()}
@@ -3807,9 +3962,27 @@ function drawLampPost(c,x,y,t){c.save();c.fillStyle='#2a2a34';c.fillRect(x-4,y-1
 function drawSnowman(c,x,y,t){c.save();for(const [dy,r] of[[-22,24],[-60,18],[-88,13]]){c.beginPath();c.arc(x,y+dy,r,0,TAU);fillOut(c,rgrad(c,x-6,y+dy-6,2,r,['#ffffff','#d8e6f2']),2)}
  c.fillStyle='#1c1226';for(const s of[-1,1]){c.beginPath();c.arc(x+s*5,y-92,2.2,0,TAU);c.fill()}c.fillStyle='#ff8a3a';c.beginPath();c.moveTo(x,y-88);c.lineTo(x+16,y-86);c.lineTo(x,y-84);c.closePath();c.fill();
  c.strokeStyle='#5a3a22';c.lineWidth=3;for(const s of[-1,1]){c.beginPath();c.moveTo(x+s*16,y-62);c.lineTo(x+s*36,y-80+Math.sin(t*2)*2);c.stroke()}c.restore()}
+/* the back row, drawn before the snowy ground so the ground covers its feet */
+function drawFrostBack(c,cam,t){if(!isVillage(room))return;for(const B of FT_BACK[room-FT0]){const x=B.x-cam*.8;if(x<-260||x>WW+260)continue;drawCottage(c,{w:B.w,h:B.h,chim:B.w*.24,door:-B.w*.18,win:[B.w*.22],tower:B.tower},x,556,t,true,B.s)}}
+function drawVillage(c,cam,t){const k=room-FT0;
+ for(const H of FT_HOUSES[k]){const x=H.x-cam;if(x<-H.w-200||x>WW+H.w+200)continue;drawCottage(c,H,x,560,t,false,0)}
+ if(k===0){drawLampPost(c,300-cam,560,t);drawLampPost(c,905-cam,560,t);drawFireBarrel(c,690-cam,560,t);drawSnowman(c,1530-cam,560,t);
+  const ax=150-cam;c.save();c.fillStyle='#5a3e26';c.fillRect(ax-90,560-210,12,210);c.fillRect(ax+78,560-210,12,210);rrect(c,ax-104,560-250,208,46,8);fillOut(c,lgrad(c,0,560-250,0,560-204,['#8a6a42','#5a3e26']),2.6);
+  c.fillStyle='#f4f9ff';c.beginPath();c.ellipse(ax,560-250,108,9,0,Math.PI,0);c.fill();c.fillStyle='#fff3cf';c.font='700 19px '+SERIF;c.textAlign='center';c.textBaseline='middle';c.fillText('FREEZETOWN',ax,560-226);c.restore()}
+ else{drawLampPost(c,665-cam,560,t);drawLampPost(c,1390-cam,560,t);drawTownTree(c,1010-cam,560,t);drawStall(c,1270-cam,560,t,'back');drawSignpost(c,1880-cam,560,'THE SUMMIT')}
+ for(const v of FT_VILLAGERS){if(v.r!==k)continue;const x=v.x-cam;if(x<-160||x>WW+160)continue;drawVillager(c,v,x,560,t);
+  if(villagerHere()===v&&!VTALK){const yy=560-vTop(v)+Math.sin(t*3)*3;c.save();rrect(c,x-60,yy-16,120,30,10);c.fillStyle='rgba(10,16,30,.85)';c.fill();c.strokeStyle='#bfe8ff';c.lineWidth=2;c.stroke();c.textAlign='center';c.textBaseline='middle';c.font='600 15px '+SERIF;c.fillStyle='#fff3cf';c.fillText('Z  ·  TALK',x,yy);c.restore()}}
+ if(k===1)drawStall(c,1270-cam,560,t,'front');
+ if(VTALK){const v=VTALK.v,s=v.lines[VTALK.i],x=v.x-cam;c.save();c.font='italic 600 18px '+SERIF2;
+  /* wrap long lines so the bubble never runs off the screen */
+  const rows=[];let cur='';for(const wd of s.split(' ')){const tr=cur?cur+' '+wd:wd;if(c.measureText(tr).width>400&&cur){rows.push(cur);cur=wd}else cur=tr}rows.push(cur);
+  const w=Math.min(460,Math.max(...rows.map(r=>c.measureText(r).width))+40),h=18+rows.length*24,y=560-vTop(v)-12-h,bx=clamp(x-w/2,12,WW-w-12);
+  rrect(c,bx,y,w,h,12);c.fillStyle='rgba(240,248,255,.96)';c.fill();c.strokeStyle=OUT;c.lineWidth=2.2;c.stroke();
+  c.beginPath();c.moveTo(x-9,y+h);c.lineTo(x,y+h+14);c.lineTo(x+9,y+h);c.closePath();c.fill();c.fillStyle='#1c2a44';c.textAlign='center';c.textBaseline='middle';
+  let n=Math.floor((clock-VTALK.t0)*40);rows.forEach((r,i)=>{if(n<=0)return;c.fillText(r.slice(0,n),bx+w/2,y+21+i*24);n-=r.length+1});c.restore()}}
 
 /* ---------- step: ice, wind, icicles, village talk ---------- */
-function frostStep(){if(!isFrost(room)){if(VTALK)VTALK=null;frostWind(0);return}const k=room-FT0,dt=1/60;
+function frostStep(){if(!isFrost(room)){if(VTALK)VTALK=null;frostWind(0);return}const k=fsk(room),dt=1/60;
  /* wind gusts push you back to the west */
  const W=FT_WIND[k]||0;if(W){FROSTST.gustT+=dt;const ph=FROSTST.gustT%7;FROSTST.gust=ph<2.6?Math.sin(ph/2.6*Math.PI)*W:0;if(FROSTST.gust>0&&!me.dead&&DASH.t<=0){const nx=me.x-FROSTST.gust*1.5;if(groundAt(nx)>=me.y-8)me.x=nx}}else FROSTST.gust=0;
  frostWind(.022+(W?.05*FROSTST.gust+.015:0));
@@ -3854,15 +4027,7 @@ function drawFrostWorld(c,cam,t){
    c.fillStyle=lgrad(c,0,560-345,0,560-320,['#9a9aa0','#4a4a4e']);c.fillRect(x-160,560-345,170,22);c.strokeStyle=OUT;c.lineWidth=2.4;c.strokeRect(x-160,560-345,170,22);
    c.fillStyle='#e8f4ff';c.font='700 14px '+SERIF;c.textAlign='center';c.fillText('FREEZETOWN  →',x-75,560-360)}}
  if(!isFrost(room))return;const k=room-FT0;
- if(room===FT0){/* the village square */
-  drawLampPost(c,300-cam,560,t);drawLampPost(c,1000-cam,560,t);drawLampPost(c,1660-cam,560,t);
-  drawFireBarrel(c,560-cam,560,t);drawSnowman(c,1440-cam,560,t);
-  const ax=150-cam;c.save();c.fillStyle='#5a3e26';c.fillRect(ax-90,560-210,12,210);c.fillRect(ax+78,560-210,12,210);rrect(c,ax-104,560-250,208,46,8);fillOut(c,lgrad(c,0,560-250,0,560-204,['#8a6a42','#5a3e26']),2.6);
-  c.fillStyle='#f4f9ff';c.beginPath();c.ellipse(ax,560-250,108,9,0,Math.PI,0);c.fill();c.fillStyle='#fff3cf';c.font='700 19px '+SERIF;c.textAlign='center';c.textBaseline='middle';c.fillText('FREEZETOWN',ax,560-226);c.restore();
-  for(const v of FT_VILLAGERS){const x=v.x-cam;if(x<-80||x>WW+80)continue;drawVillager(c,v,x,560,t);
-   if(villagerHere()===v&&!VTALK){const yy=560-170+Math.sin(t*3)*3;c.save();rrect(c,x-60,yy-16,120,30,10);c.fillStyle='rgba(10,16,30,.85)';c.fill();c.strokeStyle='#bfe8ff';c.lineWidth=2;c.stroke();c.textAlign='center';c.textBaseline='middle';c.font='600 15px '+SERIF;c.fillStyle='#fff3cf';c.fillText('Z  ·  TALK',x,yy);c.restore()}}
-  if(VTALK){const v=VTALK.v,s=v.lines[VTALK.i],x=v.x-cam,y=560-200;c.save();c.font='italic 600 18px '+SERIF2;const w=Math.min(460,c.measureText(s).width+40),bx=clamp(x-w/2,12,WW-w-12);rrect(c,bx,y,w,42,12);c.fillStyle='rgba(240,248,255,.96)';c.fill();c.strokeStyle=OUT;c.lineWidth=2.2;c.stroke();
-   c.beginPath();c.moveTo(x-9,y+42);c.lineTo(x,y+56);c.lineTo(x+9,y+42);c.closePath();c.fill();c.fillStyle='#1c2a44';c.textAlign='center';c.textBaseline='middle';c.fillText(s.slice(0,Math.floor((clock-VTALK.t0)*40)),bx+w/2,y+22);c.restore()}}
+ if(isVillage(room))drawVillage(c,cam,t);
  if(k===FT_N-1){/* the summit gate: sealed in ice, the way onward is not open yet */
   const gx=1700-cam;if(gx>-200&&gx<WW+200){c.save();
    c.fillStyle=lgrad(c,gx-110,0,gx+110,0,['#2a3448','#56688a','#2a3448']);c.fillRect(gx-110,560-300,24,300);c.fillRect(gx+86,560-300,24,300);
@@ -3945,7 +4110,7 @@ SIGNS.iceblock={x:200,title:'Frozen Bridge',lines:['Strike an ice block to send 
 SIGNS.chimes={x:150,title:'The Chime Melody',lines:['Strike the tablet to hear the melody.','A higher dot is a higher note.','Shorter icicles ring higher.','Strike the icicles in the same order.']};
 SIGNS.snowball={x:150,title:'The Heavy Stone',lines:['Strike the snowball to roll it.','It grows when it rolls over snow, not over ice.','Only a big snowball is heavy enough','to press the stone plate down.']};
 
-PUZ_ROOMS[FT0+2]='iceblock';PUZ_ROOMS[FT0+4]='chimes';PUZ_ROOMS[FT0+6]='snowball';
+PUZ_ROOMS[FT0+3]='iceblock';PUZ_ROOMS[FT0+5]='chimes';PUZ_ROOMS[FT0+7]='snowball';
 function genRoom(safeX){genRoom0(safeX);if(room===SHOP_ROOM)ENM=[];if(PUZ_ROOMS[room]!==undefined){if(!isSewer())TER=[{x0:0,x1:WORLD,y:FLOOR}];initPuzzle()}else PZ=null}
 function genRoom0(safeX){CORPSES.length=0;if(SC[room].sewer){HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;genSewer(safeX);return}genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
  if(room===0&&bossBeaten&&!EV.done&&!CUT.on)startAlarm();
@@ -4058,7 +4223,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  const fdt=forgeOpen||paused||shopOpen?0:dtms/1000;shakeT=Math.max(0,shakeT-fdt);darkV=Math.max(0,darkV-fdt*.55);const shk=shakeT*7;
  const SW=!!sc.sewer;if(SW)drawSewerBack(g,clock,fdt);HC.glow=UPG.chip?'#6ac8ff':'#ffd84a';
  g.save();g.translate(shk?rnd(-shk,shk):0,-viewY()+(shk?rnd(-shk,shk):0));
- if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawGodBack(g,cam,clock);drawWardenBack(g,cam,clock);drawSewerTerrain(g,cam);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
+ if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawGodBack(g,cam,clock);drawWardenBack(g,cam,clock);drawFrostBack(g,cam,clock);drawSewerTerrain(g,cam);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
  for(const p of PLAT)(SW?drawSewerPlat:drawPlat)(g,p,cam);drawWalls(g,cam);drawAltar(g,cam,clock);drawHouse(g,cam,clock);if(PZ){PUZ[PZ.type].draw(g,cam,clock,PZ);drawPuzGates(g,cam,clock)}drawCorpses(g,cam,clock);drawForge(g,cam,clock);drawHusk(g,cam,clock);drawPrisonWorld(g,cam,clock);drawPuzSign(g,cam,clock);drawTutWorld(g,cam,clock);drawGorgiWorld(g,cam,clock);drawFrostWorld(g,cam,clock);
  for(const e of ENM)drawEnemy(g,e,cam,clock);drawShots(g,cam);drawNpcTalk(g,cam,clock);drawFlee(g,cam,clock);drawDrops(g,cam,clock);updateLoops();musicUpdate();
  const st=stateNow(),atkP=me.atk>=0?me.atk/26:-1,P=poseFor(st,{ph:me.ph,t:clock,speed:me.speed,atk:atkP,long:me.slashLong,heal:me.healT/1.5,hurt:me.inv>56&&!me.dead?(me.inv-56)/24:0,ko:me.dead?clamp((110-me.deadT)/40,0,1):0,fill:HP.max?HP.hp/HP.max:1});
