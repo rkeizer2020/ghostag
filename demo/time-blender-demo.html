@@ -2150,10 +2150,10 @@ const parts=[],trail=[];let clock=0;
 /* one swing every ATK_GAP seconds; a press a bit earlier is remembered and fires as soon as it may */
 /* up and down slashes, and the pogo: a down slash in the air that hits something bounces you up, like in Hollow Knight */
 function aimUp(){return !!(key.u||PAD.upHeld)}
-function slashPt(){const d=me.atkDir;return d==='up'?[me.x,me.y-98]:d==='down'?[me.x,me.y+22]:[me.x+me.atkFace*44,me.y-36]}
+function slashPt(){const d=me.atkDir;return d==='up'?[me.x,me.y-76]:d==='down'?[me.x,me.y+2]:[me.x+me.atkFace*30,me.y-36]}
 function slashDirOk(x,y,slack){const d=me.atkDir;return d==='up'?y<me.y-24:d==='down'?y>me.y-56:(x-me.x)*me.atkFace>-slack}
 function pogo(){if(me.pogoId===me.atkId)return;me.pogoId=me.atkId;me.recoilId=me.atkId;me.vy=-9.6;me.ground=false;me.pogo=true;me.kb=0;DASH.air=true;play('impact',{gain:.16,rate:1.5})}
-function slashBul(b){const p=slashPt();if(Math.hypot(b.x-p[0],b.y-p[1])>=62)return false;if(me.atkDir==='down'&&!me.ground)pogo();return true}
+function slashBul(b){const p=slashPt();if(Math.hypot(b.x-p[0],b.y-p[1])>=62)return false;if(me.atkDir==='down')pogo();return true}
 const ATK_GAP=.5;function tryAttack(){const dt=clock-(me.atkT||-9);if(dt<ATK_GAP){if(dt>.07)me.atkBuf=1;return}if(!me.dead&&!CUT.on){me.atkBuf=0;me.atkT=clock;me.atk=0;me.atkId++;me.atkFace=me.face;me.atkDir=aimUp()?'up':key.d&&!me.ground?'down':'side';me.slashLong=pickSlashLong();const sn=me.slashLong?'slashLong':'slashShort';if(buf[sn])play(sn,{gain:me.slashLong?.34:.3});else if(buf.slash)play('slash',{gain:.3});else whoosh()}}
 function onKey(e,v){const k=e.key;let h=true;
  if(SCENE!=='play'){if(v)menuKey(e);return}
@@ -3016,7 +3016,7 @@ function slashBlocked(sx,sy,ex,ey){const y0=Math.min(sy,ey),y1=Math.max(sy,ey);
  if(y1-y0>8)for(const p of PLAT){if(p.y<=y0+4||p.y>=y1-4)continue;const k=(p.y-sy)/(ey-sy),x=sx+(ex-sx)*k;if(x>=p.x0&&x<=p.x1)return true}
  for(let i=1;i<6;i++){const x=sx+(ex-sx)*i/6,y=sy+(ey-sy)*i/6;if(y>groundAt(x)+4)return true}return false}
 /* landing a hit pushes you back a little, as if you bounce off */
-function slashRecoil(){if(me.atkDir==='down'&&!me.ground){pogo();return}if(me.atkDir==='up'){me.recoilId=me.atkId;return}if(me.recoilId===me.atkId)return;me.recoilId=me.atkId;me.vx=-me.atkFace*3.6;me.kb=Math.max(me.kb,6)}
+function slashRecoil(){if(me.atkDir==='down'){pogo();return}if(me.atkDir==='up'){me.recoilId=me.atkId;return}if(me.recoilId===me.atkId)return;me.recoilId=me.atkId;me.vx=-me.atkFace*3.6;me.kb=Math.max(me.kb,6)}
 function slashHit(o,x,y,r){if(me.atk<8||me.atk>20||o.hid===me.atkId||me.dead)return false;const SP=slashPt(),sx=SP[0],sy=SP[1];
  if(Math.hypot(x-sx,y-sy)<=51+r&&slashDirOk(x,y,24)&&!slashBlocked(sx,sy,x,y)){o.hid=me.atkId;slashRecoil();burst(x,y,4);play('impact',{gain:.18,rate:1.7});return true}return false}
 function tone(i){if(!ac||!soundOn)return;const t0=ac.currentTime,o=ac.createOscillator();o.type='triangle';o.frequency.value=[392,494,587,698,880][i%5];const g2=ac.createGain();g2.gain.setValueAtTime(.09,t0);g2.gain.exponentialRampToValueAtTime(.001,t0+.5);o.connect(g2);g2.connect(ac.destination);o.start(t0);o.stop(t0+.55)}
@@ -4844,7 +4844,7 @@ function yetiStep(){const dt=1/60;YETI.pops=YETI.pops.filter(q=>clock-q.t0<.9);
   if(Math.abs(me.x-w.x)<22&&me.y>560-40)yHit(w.x,540);if(Math.random()<.5)burst(w.x,552,1)}
  for(let i=YETI.balls.length-1;i>=0;i--){const b=YETI.balls[i];b.x+=b.vx;b.y+=b.vy;b.vy+=b.g;b.rot+=.12*Math.sign(b.vx);
   let pop=false;if(Math.hypot(b.x-me.x,b.y-(me.y-42))<b.r+20){yHit(b.x,b.y);pop=true}
-  else if(me.atk>=8&&me.atk<=20){const p=slashPt();if(Math.hypot(b.x-p[0],b.y-p[1])<b.r+40){pop=true;if(me.atkDir==='down'&&!me.ground)pogo()}}
+  else if(me.atk>=8&&me.atk<=20){const p=slashPt();if(Math.hypot(b.x-p[0],b.y-p[1])<b.r+40){pop=true;if(me.atkDir==='down')pogo()}}
   if(!pop&&b.y+b.r*.6>=560)pop=true;if(pop){yetiBallBurst(b,sp);YETI.balls.splice(i,1)}}
  for(const c of YETI.climbers){c.t+=dt;
   if(c.st==='held'&&e){c.x=e.x;c.y=560-245}
@@ -5098,7 +5098,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  g.save();if(me.inv>0&&((me.inv/5)|0)%2)g.globalAlpha=.35;if(me.dead)g.globalAlpha=.5;heroDraw(g,sx,me.y,me.face,P,0,sq,SC_);g.restore();drawIntroHead(g,sx,P);
  drawDebris(g,dtms/1000);drawLasers(g,cam,clock);drawGrannyFront(g,cam,clock);drawYetiFront(g,cam,clock);
  if(me.healT>0){const k=me.healT/1.5,hx=me.x-cam,hy=me.y-59*SC_;g.save();g.lineCap='round';g.strokeStyle='rgba(42,24,48,.6)';g.lineWidth=6;g.beginPath();g.arc(hx,hy,24,0,TAU);g.stroke();g.shadowColor='#ffd84a';g.shadowBlur=12;g.strokeStyle='#ffe27a';g.lineWidth=4;g.beginPath();g.arc(hx,hy,24,-Math.PI/2,-Math.PI/2+TAU*k);g.stroke();g.restore()}
- for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}{const hx=me.x-cam,oy=me.y-44*SC_;if(f.dir==='up'||f.dir==='down'){g.save();g.translate(hx,oy);g.rotate((f.dir==='up'?-1:1)*f.f*Math.PI/2);g.translate(-hx,-oy);slashFx(g,hx,oy,f.f,k,f.seed,SC_*1.15);g.restore()}else slashFx(g,hx,oy,f.f,k,f.seed,SC_*1.15)}}
+ for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}{/* the slash sits close to the body: pulled in toward the hero along its direction */const hx=me.x-cam,oy=me.y-44*SC_,vert=f.dir==='up'||f.dir==='down';g.save();g.translate(hx,oy);if(vert)g.rotate((f.dir==='up'?-1:1)*f.f*Math.PI/2);const lng=slashIsLong(f.seed);g.translate(-f.f*(vert?(lng?26:40):(lng?20:32)),0);g.translate(-hx,-oy);slashFx(g,hx,oy,f.f,k,f.seed,SC_*1.15);g.restore()}}
  if(SW){drawWBub(g,cam);drawSewerWaterFront(g,cam,clock);if(me.wet&&!UPG.chip&&!me.dead)zap(g,me.x-cam,me.y-40,46)}drawEventWater(g,cam,clock);drawGodTarget(g,cam,clock);
  drawDark(g,cam,clock);if(CUT.on||ENM.some(q=>q.type==='fishgod'&&q.state==='intro'))stunStars(g,me.x-cam,me.y-100*SC_,clock);
  g.restore();if(!SW){drawCeiling(g,clock,cam);drawFront(g,sc,clock,cam,room)}else{const vg=g.createRadialGradient(WW/2,HH*.55,HH*.3,WW/2,HH*.55,WW*.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(1,8,10,.6)');g.fillStyle=vg;g.fillRect(0,0,WW,HH)}
