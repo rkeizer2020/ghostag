@@ -2152,7 +2152,7 @@ const parts=[],trail=[];let clock=0;
 function aimUp(){return !!(key.u||PAD.upHeld)}
 function slashPt(){const d=me.atkDir;return d==='up'?[me.x,me.y-76]:d==='down'?[me.x,me.y+2]:[me.x+me.atkFace*30,me.y-36]}
 function slashDirOk(x,y,slack){const d=me.atkDir;return d==='up'?y<me.y-24:d==='down'?y>me.y-56:(x-me.x)*me.atkFace>-slack}
-function pogo(){if(me.pogoId===me.atkId)return;me.pogoId=me.atkId;me.recoilId=me.atkId;me.vy=-9.6;me.ground=false;me.pogo=true;me.kb=0;DASH.air=true;play('impact',{gain:.16,rate:1.5})}
+function pogo(){if(me.pogoId===me.atkId)return;me.pogoId=me.atkId;me.recoilId=me.atkId;me.vy=-8.6;me.ground=false;me.pogo=true;me.kb=0;DASH.air=true;play('impact',{gain:.16,rate:1.5})}
 function slashBul(b){const p=slashPt();if(Math.hypot(b.x-p[0],b.y-p[1])>=62)return false;if(me.atkDir==='down')pogo();return true}
 const ATK_GAP=.5;function tryAttack(){const dt=clock-(me.atkT||-9);if(dt<ATK_GAP){if(dt>.07)me.atkBuf=1;return}if(!me.dead&&!CUT.on){me.atkBuf=0;me.atkT=clock;me.atk=0;me.atkId++;me.atkFace=me.face;me.atkDir=aimUp()?'up':key.d&&!me.ground?'down':'side';me.slashLong=pickSlashLong();const sn=me.slashLong?'slashLong':'slashShort';if(buf[sn])play(sn,{gain:me.slashLong?.34:.3});else if(buf.slash)play('slash',{gain:.3});else whoosh()}}
 function onKey(e,v){const k=e.key;let h=true;
