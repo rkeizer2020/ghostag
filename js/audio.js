@@ -165,7 +165,7 @@ const SFX = {
   },
 
   // ---- Background music ----
-  // Four calm, Hollow Knight-flavoured themes with original melodies, fully
+  // Five Hollow Knight-flavoured themes with original melodies, fully
   // synthesised (no audio files):
   //  - prison  "Cell Block Lullaby": felt piano over slow strings (cello on every
   //            second pass), a distant bell, water drips and far-off clanks.
@@ -177,6 +177,10 @@ const SFX = {
   //  - freezetown "Snowlight Waltz": a cosy winter waltz; music-box tune (flute
   //            on every second pass), sleigh bells, wind chimes, a soft choir, a
   //            church bell, snowy wind and a crackling fireplace.
+  //  - darkrealms "Hollow Dark": slow and tense; doom-laden piano fifths, a slow
+  //            heartbeat, a low cello tune (an eerie theremin-like voice on every
+  //            second pass), tremolo strings and choir swells, a warped music box,
+  //            things skittering and breathing in the dark.
   // Notes are scheduled a little ahead on the audio clock so timing stays steady.
   music: null,
   musicGain: null,
@@ -477,6 +481,73 @@ const SFX = {
       },
       form: ['a', 'a2', 'b', 'rest'],
     },
+
+    darkrealms: {
+      bpm: 50, meter: 4, wet: 1.3, amb: 'dark', bed: 'void',
+      echo: { time: 0.9, fb: 0.3, bell: 0.4, amb: 0.3 },
+      drone: [[73.42, 0, 0.018], [73.42, 4, 0.014], [103.83, 0, 0.004]], // D, D and a faint tritone G#
+      pad: { vol: 0.01, cutoff: 600, wobble: 0.07, depth: 200 },
+      mel: [['cello', -1], ['ghost', 0]],
+      counter: 'darkbox',
+      patterns: {
+        doom:  { inst: 'piano', chord: true, notes: [[0, 'r', 0, 0.75], [0, 'f', 0, 0.35]] },
+        heart: { inst: 'heart', notes: [[0, null, 0, 0.6], [4, null, 0, 0.45]] },
+        low:   { inst: 'cello', chord: true, notes: [[0, 'r', 0, 0.6]] },
+        trem:  { inst: 'tremolo', chord: true, notes: [[0, 'r', 1, 1], [0, 't', 1, 0.8], [0, 'f', 1, 0.8]] },
+      },
+      chords: {
+        Dm:  { pad: ['D3', 'A3', 'F4'],  bass: 'D2',  third: 3 },
+        Eb:  { pad: ['Eb3', 'Bb3', 'G4'], bass: 'Eb2', third: 4 },
+        Bbm: { pad: ['Bb2', 'F3', 'Db4'], bass: 'Bb1', third: 3 },
+        Gm:  { pad: ['G2', 'D3', 'Bb3'],  bass: 'G2',  third: 3 },
+        Ab:  { pad: ['Ab2', 'Eb3', 'C4'], bass: 'Ab2', third: 4 },
+        A:   { pad: ['A2', 'E3', 'C#4'],  bass: 'A2',  third: 4 },
+      },
+      sections: {
+        intro: { layers: ['doom', 'heart'], hits: [[8, 'swell', 'D3', 4]], chords: [['Dm', 2]] },
+        a: {
+          layers: ['doom', 'heart', 'low'], alt: true,
+          chords: [['Dm', 2], ['Eb', 2], ['Dm', 2], ['Bbm', 2]],
+          melody: [
+            ['r', 2], ['A4', 2],                 ['Bb4', 3], ['A4', 1],
+            ['G4', 4],                           ['r', 1], ['Bb4', 1], ['Eb5', 2],
+            ['D5', 3], ['C#5', 1],               ['D5', 2], ['r', 2],
+            ['Db5', 3], ['C5', 1],               ['F4', 4],
+          ],
+        },
+        a2: {
+          layers: ['doom', 'heart', 'low'], alt: true,
+          chords: [['Dm', 2], ['Eb', 2], ['Gm', 2], ['A', 2]],
+          melody: [
+            ['r', 2], ['A4', 2],                 ['Bb4', 3], ['A4', 1],
+            ['G4', 2], ['Bb4', 2],               ['Eb5', 3], ['D5', 1],
+            ['G5', 3], ['F#5', 1],               ['Eb5', 2], ['D5', 2],
+            ['C#5', 2], ['Bb4', 2],              ['A4', 4],
+          ],
+        },
+        b: {
+          layers: ['heart', 'low', 'trem'], choir: true, hits: [[56, 'swell', 'D3', 4]],
+          chords: [['Gm', 2], ['Ab', 2], ['Dm', 2], ['A', 2]],
+          melody: [
+            ['r', 4],                            ['D5', 2], ['Eb5', 2],
+            ['Eb5', 3], ['C5', 1],               ['Ab4', 4],
+            ['r', 2], ['F5', 2],                 ['E5', 3], ['D5', 1],
+            ['E5', 2], ['C#5', 2],               ['Bb4', 3], ['A4', 1],
+          ],
+        },
+        rest: {
+          layers: ['doom', 'heart'], hits: [[0, 'toll', 'D2']],
+          chords: [['Dm', 2], ['Eb', 2]],
+          counter: [
+            ['r', 1], ['A5', 1], ['r', 1], ['Bb5', 1],
+            ['r', 2], ['A5', 2],
+            ['r', 1], ['G5', 1], ['r', 1], ['Ab5', 1],
+            ['G5', 2], ['r', 2],
+          ],
+        },
+      },
+      form: ['a', 'a2', 'b', 'rest'],
+    },
   },
 
   _midi(name) {
@@ -526,7 +597,8 @@ const SFX = {
       };
       if (s.melody) line(s.melody, 'mel');
       if (s.counter) line(s.counter, 'ctr');
-      (s.hits || []).forEach(([step, inst, n]) => ev[step].push({ k: 'note', inst, f: hz(n), d: 0, v: 1 }));
+      (s.hits || []).forEach(([step, inst, n, beats]) =>
+        ev[step].push({ k: 'note', inst, f: hz(n), d: (beats || 0) * beat, v: 1 }));
       sections[name] = { steps: bars * spb, ev, alt: !!s.alt };
     });
     return { step: beat / 2, spb, sections };
@@ -572,7 +644,7 @@ const SFX = {
     this._mx = { ctx, verb, piano, noise };
   },
 
-  // theme: 'prison' (default), 'sewer', 'factory' or 'freezetown'
+  // theme: 'prison' (default), 'sewer', 'factory', 'freezetown' or 'darkrealms'
   startMusic(theme) {
     this._ensure();
     if (!this.ctx) return;
@@ -1117,6 +1189,232 @@ const SFX = {
       [0, 2, 4, 7, 9, 12, 14, 16].forEach((semis, i) =>
         this._mGlint(t + i * 0.07, f * Math.pow(2, semis / 12), 0.25, 0.9));
     },
+
+    // eerie theremin-like voice: scoops up into each note, wide slow vibrato
+    ghost(t, f, dur, vel) {
+      const ctx = this.ctx;
+      const vol = 0.022 * vel;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.4);
+      g.gain.setTargetAtTime(vol * 0.8, t + 0.4, 1);
+      g.gain.setTargetAtTime(0, t + dur - 0.1, 0.35);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.Q.value = 0;
+      lp.frequency.value = 2500;
+      const vib = ctx.createOscillator();
+      vib.frequency.value = 5.5;
+      const depth = ctx.createGain();
+      depth.gain.value = 22; // cents
+      vib.connect(depth);
+      [['sine', 1, 1], ['triangle', 1.003, 0.25]].forEach(([type, ratio, amt]) => {
+        const o = ctx.createOscillator();
+        o.type = type;
+        o.frequency.setValueAtTime(f * ratio * 0.94, t);
+        o.frequency.exponentialRampToValueAtTime(f * ratio, t + 0.3);
+        depth.connect(o.detune);
+        const a = ctx.createGain();
+        a.gain.value = amt;
+        o.connect(a);
+        a.connect(lp);
+        o.start(t);
+        o.stop(t + dur + 1.5);
+      });
+      vib.start(t);
+      vib.stop(t + dur + 1.5);
+      lp.connect(g);
+      g.connect(this.music.bus.bell);
+    },
+
+    // a warped old music box: its notes sag flat as they ring out
+    darkbox(t, f, dur, vel) {
+      const ctx = this.ctx;
+      [[1, 0.04, 1.4], [2.76, 0.01, 0.35], [5.4, 0.004, 0.14]].forEach(([ratio, vol, tau]) => {
+        const o = ctx.createOscillator();
+        o.frequency.setValueAtTime(f * ratio, t);
+        o.frequency.setTargetAtTime(f * ratio * 0.982, t + 0.05, 0.8);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(vol * vel, t + 0.003);
+        g.gain.setTargetAtTime(0, t + 0.004, tau);
+        o.connect(g);
+        g.connect(this.music.bus.bell);
+        o.start(t);
+        o.stop(t + tau * 8);
+      });
+    },
+
+    // trembling bowed strings that slowly swell over the whole chord
+    tremolo(t, f, dur, vel) {
+      const ctx = this.ctx;
+      const vol = 0.012 * vel;
+      const peak = t + dur * 0.85;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, peak);
+      g.gain.setTargetAtTime(0, peak, 0.25);
+      const trem = ctx.createGain();
+      trem.gain.value = 0.5;
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 11;
+      const amt = ctx.createGain();
+      amt.gain.value = 0.5;
+      lfo.connect(amt);
+      amt.connect(trem.gain);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.Q.value = 0;
+      lp.frequency.value = 1400;
+      [-6, 6].forEach((cents) => {
+        const o = ctx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.value = f;
+        o.detune.value = cents;
+        o.connect(lp);
+        o.start(t);
+        o.stop(t + dur + 1.5);
+      });
+      lfo.start(t);
+      lfo.stop(t + dur + 1.5);
+      lp.connect(trem);
+      trem.connect(g);
+      g.connect(this.music.bus.strings);
+    },
+
+    // a slow heartbeat: a soft low "lub-dub"
+    heart(t, f, dur, vel) {
+      const ctx = this.ctx;
+      [[0, 1], [0.22, 0.6]].forEach(([dt, amt]) => {
+        const when = t + dt;
+        const o = ctx.createOscillator();
+        o.frequency.setValueAtTime(58, when);
+        o.frequency.exponentialRampToValueAtTime(34, when + 0.12);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, when);
+        g.gain.linearRampToValueAtTime(0.1 * vel * amt, when + 0.008);
+        g.gain.setTargetAtTime(0, when + 0.01, 0.09);
+        o.connect(g);
+        g.connect(this.music.bus.perc);
+        o.start(when);
+        o.stop(when + 0.7);
+      });
+    },
+
+    // rising tension into the next downbeat: a sweeping hiss and two beating tones
+    swell(t, f, dur) {
+      const ctx = this.ctx;
+      const end = t + dur;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(1, end - 0.05);
+      g.gain.linearRampToValueAtTime(0, end + 0.03);
+      g.connect(this.music.bus.strings);
+      const n = ctx.createBufferSource();
+      n.buffer = this._mx.noise;
+      n.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 1.5;
+      bp.frequency.setValueAtTime(300, t);
+      bp.frequency.exponentialRampToValueAtTime(3000, end);
+      const ng = ctx.createGain();
+      ng.gain.value = 0.03;
+      n.connect(bp);
+      bp.connect(ng);
+      ng.connect(g);
+      n.start(t, Math.random() * 2);
+      n.stop(end + 0.1);
+      [1, 1.06].forEach((ratio) => {
+        const o = ctx.createOscillator();
+        o.frequency.value = f * 2 * ratio;
+        const og = ctx.createGain();
+        og.gain.value = 0.012;
+        o.connect(og);
+        og.connect(g);
+        o.start(t);
+        o.stop(end + 0.1);
+      });
+    },
+  },
+
+  // something small skittering across the dark: a quick run of tiny clicks
+  _mSkitter(t) {
+    const ctx = this.ctx;
+    const n = 6 + Math.floor(Math.random() * 9);
+    const gap = 0.025 + Math.random() * 0.025;
+    const g = ctx.createGain();
+    g.gain.value = 1;
+    let out = g;
+    if (ctx.createStereoPanner) {
+      const p = ctx.createStereoPanner();
+      const p0 = Math.random() * 1.6 - 0.8;
+      p.pan.setValueAtTime(p0, t);
+      p.pan.linearRampToValueAtTime(Math.max(-1, Math.min(1, p0 + (Math.random() - 0.5) * 1.2)), t + n * gap);
+      g.connect(p);
+      out = p;
+    }
+    out.connect(this.music.bus.perc);
+    for (let i = 0; i < n; i++) {
+      this._mNoiseHit(t + i * gap + Math.random() * 0.01, 'highpass', 2500 + Math.random() * 2000,
+        0.012 + Math.random() * 0.01, 0.002, g);
+    }
+  },
+
+  // a slow breath or low growl somewhere out of sight
+  _mBreath(t) {
+    const ctx = this.ctx;
+    const dur = 2.5 + Math.random();
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(1, t + dur * 0.45);
+    g.gain.linearRampToValueAtTime(0, t + dur);
+    this._mPan(g, Math.random() * 1.4 - 0.7).connect(this.music.bus.amb);
+    const n = ctx.createBufferSource();
+    n.buffer = this._mx.noise;
+    n.loop = true;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 350 + Math.random() * 200;
+    bp.Q.value = 3;
+    const ng = ctx.createGain();
+    ng.gain.value = 0.03;
+    n.connect(bp);
+    bp.connect(ng);
+    ng.connect(g);
+    n.start(t, Math.random() * 2);
+    n.stop(t + dur + 0.1);
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.value = 40 + Math.random() * 15;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 140;
+    lp.Q.value = 0;
+    const og = ctx.createGain();
+    og.gain.value = 0.012;
+    o.connect(lp);
+    lp.connect(og);
+    og.connect(g);
+    o.start(t);
+    o.stop(t + dur + 0.1);
+  },
+
+  // a deep, far-away boom rolling through the caverns
+  _mBoom(t) {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    o.frequency.setValueAtTime(48, t);
+    o.frequency.exponentialRampToValueAtTime(28, t + 0.6);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.07, t + 0.01);
+    g.gain.setTargetAtTime(0, t + 0.02, 0.5);
+    o.connect(g);
+    g.connect(this.music.bus.amb);
+    o.start(t);
+    o.stop(t + 4);
+    this._mNoiseHit(t, 'lowpass', 180, 0.04, 0.15, this.music.bus.amb);
   },
 
   // a cluster of tiny jingle bells: bright inharmonic pings plus a little shimmer
@@ -1264,6 +1562,13 @@ const SFX = {
         for (let i = 0; i < 8; i++) this._mJingle(t + i * 0.32, 0.35 * (1 - Math.abs(i - 3.5) / 5), this.music.bus.amb, pan);
       }
     },
+    dark(t, m) {
+      const song = this._songs[m.key];
+      if (Math.random() < 0.012) this._mSkitter(t + Math.random() * song.step);
+      if (m.pos % song.spb !== 0) return;
+      if (Math.random() < 0.07) this._mBreath(t + Math.random() * 2);
+      if (Math.random() < 0.03) this._mBoom(t + Math.random() * 2);
+    },
   },
 
   // Continuous background beds, one per theme, started with the run.
@@ -1300,6 +1605,11 @@ const SFX = {
     wind(t, m) {
       this._mNoiseBed(t, 'bandpass', 550, 1.2, 0.0085, [[0.06, 300, 'freq'], [0.13, 0.0042, 'gain']]);
       this._mNoiseBed(t, 'bandpass', 1500, 6, 0.004, [[0.09, 500, 'freq']]);
+    },
+    // the void: a deep rumble and a hollow wind moaning through unseen caverns
+    void(t, m) {
+      this._mNoiseBed(t, 'lowpass', 120, 0, 0.03, [[0.05, 0.01, 'gain']]);
+      this._mNoiseBed(t, 'bandpass', 450, 2, 0.007, [[0.03, 250, 'freq'], [0.07, 0.003, 'gain']]);
     },
   },
 

@@ -49,7 +49,7 @@ zodra het prototype goed voelt.
 
 - **Engine:** Phaser **3.90.0**, **no-build** (geen bundler). `vendor/phaser.min.js` is
   gevendord; alle scripts via `<script>`-tags in `index.html` met **cache-busting
-  `?v=NN`** (nu v75 — dit nummer bij elke release ophogen).
+  `?v=NN`** (nu v76 — dit nummer bij elke release ophogen).
 - **Backend:** **Supabase** (auth + Realtime). Client via `js/auth.js` (`Auth.client`,
   `@supabase/supabase-js@2`).
 - **Opslag:** vooral **localStorage** (highscores, coins, skins, personage, difficulty,
@@ -230,7 +230,7 @@ wereld?), moeilijkheid/afstand-balans, meer obstakeltypes, muziek/SFX, en uitein
 
 - **SFX:** minimale oscillator-"blips" in `js/audio.js` (in de White Diver o.a. een
   bubbel-"bloop").
-- **Achtergrondmuziek: 4 thema's**, allemaal Hollow Knight als **sfeer-referentie** maar met
+- **Achtergrondmuziek: 5 thema's**, allemaal Hollow Knight als **sfeer-referentie** maar met
   **eigen, originele melodieën**. Volledig gegenereerd met WebAudio in `js/audio.js`
   (`SFX.startMusic(thema)` / `stopMusic`), geen audiobestanden. Elk thema heeft de vorm
   intro → A → A' → B → "adempauze" → (loop), en elke 2e ronde neemt een ander instrument
@@ -252,6 +252,13 @@ wereld?), moeilijkheid/afstand-balans, meer obstakeltypes, muziek/SFX, en uitein
      **fluit**), piano-wals, **arrenbelletjes**, windgong-glinsteringen, zacht **koor**
      ("aah") in het B-deel, verre kerkklok, het kerst-akkoord IV→iv (C → Cm). Sfeer:
      sneeuwwind en een knapperend haardvuur; soms rijdt er ver weg een arreslee voorbij.
+  5. **`darkrealms` — "Hollow Dark"** (D mineur met frygische/tritonus-kleur, 4/4, 50 bpm,
+     loop ~134 s): traag, **spannend en eng**; lage piano-kwinten, een trage **hartslag**,
+     melodie op lage **cello** (2e ronde een spookachtige **theremin**-stem), trillende
+     strijkers + koor die aanzwellen naar het slot, een aanzwellende "suis" naar elke
+     nieuwe sectie, een **kromgetrokken speeldoos** met echo. Sfeer: diep gerommel, holle
+     wind, iets dat langs **trippelt**, ademhaling/gegrom en verre dreunen. Nog niet aan
+     een Ghostag-map gekoppeld (`music: 'darkrealms'`).
   - Alles in een stenen-hal-galm (convolution reverb); zwelt **licht** aan als de Spook
     dichtbij is (`setMusicIntensity`), maar blijft rustig.
   - **Welk thema waar:** per biome via `music:` in `Biomes` (`config.js`). Nu: Forest →
@@ -343,8 +350,8 @@ wipes). White Diver: `ghostrun.best`.
 ## 17. Open vragen voor jou (vul aan wanneer je wilt)
 1. **Verhaal/lore:** is er al een richting (wie/wat is het spookje en de Spook, waarom de
    jacht)? Nu is er geen canon.
-2. **Muziek:** ✅ gekozen: rustige, Hollow Knight-achtige thema's (gevangenis, riool,
-   fabriek, freezetown), zie §12. Open: komen gevangenis/riool/fabriek ook als maps/lore in het spel,
+2. **Muziek:** ✅ gekozen: Hollow Knight-achtige thema's (gevangenis, riool, fabriek,
+   freezetown, dark realms), zie §12. Open: komen gevangenis/riool/fabriek ook als maps/lore in het spel,
    en welk thema hoort bij welke bestaande map?
 3. **White Diver:** moet de sprite zélf over het scherm bewegen, of vooral de wereld
    (camera)? En moet dit uiteindelijk een personage of een aparte modus in het hoofdspel
