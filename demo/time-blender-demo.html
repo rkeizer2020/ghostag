@@ -2114,7 +2114,8 @@ let ac=null,soundOn=true,loading=false;const buf={};
 function b64buf(s){const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer}
 async function initAudio(){if(ac||loading)return;loading=true;
  try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){loading=false;return}
- for(const n in SND){try{buf[n]=await ac.decodeAudioData(b64buf(SND[n]));if(n==='mmenu')buf[n]=seamless(buf[n],.28,31.0081,.25);if(n==='mprison'||n==='mfac'||n==='msew')buf[n]=seamlessX(buf[n],3,buf[n].duration-4.6,2.5);if(n==='mfrost')buf[n]=seamlessX(buf[n],1.6,buf[n].duration-2.4,2.5)}catch(e){}}}
+ const FET={};for(const n in SND)if(SND[n][0]==='@')FET[n]=fetch(SND[n].slice(1)).then(r=>r.ok?r.arrayBuffer():null).catch(()=>null);
+ for(const n in SND){try{const data=SND[n][0]==='@'?await FET[n]:b64buf(SND[n]);if(!data)continue;buf[n]=await ac.decodeAudioData(data);if(n==='mmenu')buf[n]=seamless(buf[n],.28,31.0081,.25);if(n==='mprison'||n==='mfac'||n==='msew')buf[n]=seamlessX(buf[n],3,buf[n].duration-4.6,2.5);if(n==='mfrost')buf[n]=seamlessX(buf[n],1.6,buf[n].duration-2.4,2.5)}catch(e){}}}
 /* menu track: cut at a bar line before its fade-out and crossfade the end into the bar before the loop point, so the loop has no dip */
 /* long tracks with a fade in and out: the bit before the fade-out blends into the start, then it loops from just after that blend */
 function seamlessX(b,s0,e0,X){const sr=b.sampleRate,s=Math.round(s0*sr),E=Math.round(e0*sr),x=Math.round(X*sr);if(E>b.length||s+x>=E-x)return b;
