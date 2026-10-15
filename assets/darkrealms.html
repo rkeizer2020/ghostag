@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dark Realms Backgrounds</title>
+<style>
+:root{--bg:#04060d;--card:#0a0e1a;--line:#182036;--fg:#e2e8f6;--muted:#93a0bc;--dim:#606d8a;--acc:#7fd8ff;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg)}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;padding:28px 16px 48px;overflow-x:hidden}
+header,main{max-width:1440px;margin-inline:auto}
+header{margin-bottom:24px}
+h1{font-size:clamp(24px,4vw,34px);font-weight:650;letter-spacing:.01em;margin:0 0 6px}
+header p{margin:0;color:var(--muted);max-width:72ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr));gap:20px}
+figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+canvas{display:block;width:100%;aspect-ratio:16/9;background:#02030a}
+figcaption{padding:12px 14px 14px;display:flex;flex-direction:column;gap:4px}
+.t{display:flex;align-items:baseline;gap:10px;min-width:0}
+.n{font-variant-numeric:tabular-nums;color:var(--acc);font-size:13px;font-weight:600;letter-spacing:.06em;opacity:.8}
+h2{font-size:16px;font-weight:600;margin:0;overflow-wrap:anywhere}
+figcaption p{margin:0;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<header>
+<h1>Dark Realms Backgrounds</h1>
+<p>Seven painted scenes for The Dark Realms, the blue-black inverted world behind the frozen summit gate of Freezetown. Mountains, forests and houses hang from the dark above, a pale light rises from below and motes drift upward at three depths. Each scene is drawn live at 960&times;540 by the canvas engine on this page.</p>
+</header>
+<main><div class="grid" id="grid"></div></main>
+<script>
+/* ===== The Dark Realms paintings: backgrounds for THE DARK REALMS biome, the blue-black inverted world behind the frozen summit gate of Freezetown (near-black navy, deep indigo, cold electric blue and cyan glows, pale blue-white highlights; no warm colours at all). Everything hangs from above, the light rises from below and the motes drift upward. ===== */
+const DARK=(()=>{
+const W=960,H=540,TAU=Math.PI*2,FY=470,CT=70;
+
+let c=null;
+let seed=1;const R=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646};const rr=(a,b)=>a+R()*(b-a);
+const lg=(x0,y0,x1,y1,st)=>{const g=c.createLinearGradient(x0,y0,x1,y1);st.forEach((s,i)=>g.addColorStop(i/(st.length-1),s));return g};
+const rg=(x,y,r0,r1,st)=>{const g=c.createRadialGradient(x,y,r0,x,y,r1);st.forEach((s,i)=>g.addColorStop(i/(st.length-1),s));return g};
+/* linear gradient with explicit stop positions: st=[[pos,colour],...] */
+const lgp=(x0,y0,x1,y1,st)=>{const g=c.createLinearGradient(x0,y0,x1,y1);st.forEach(s=>g.addColorStop(s[0],s[1]));return g};
+const P2=()=>new Path2D();
+const blob=(pts,p)=>{p=p||P2();const n=pts.length;for(let i=0;i<=n;i++){const a=pts[i%n],q=pts[(i+1)%n],mx=(a[0]+q[0])/2,my=(a[1]+q[1])/2;i?p.quadraticCurveTo(a[0],a[1],mx,my):p.moveTo(mx,my)}p.closePath();return p};
+const add=(f)=>{c.save();c.globalCompositeOperation='lighter';f();c.restore()};
+const A=(r,g,b,a)=>'rgba('+(r|0)+','+(g|0)+','+(b|0)+','+(a===undefined?1:a)+')';
+/* D(v,a): the navy ramp, near-black navy at low v rising to cold blue-white at high v; I(v,a): the same ramp through deep indigo */
+const D=(v,a)=>{const k=v/255;return A(v*(.26+.6*k*k),v*(.4+.52*k*k),Math.min(255,v),a)};
+const I=(v,a)=>{const k=v/255;return A(v*(.37+.5*k*k),v*(.36+.56*k*k),Math.min(255,v),a)};
+const PB=(a)=>A(206,224,255,a),MN=(a)=>A(228,238,255,a),CY=(a)=>A(122,222,255,a),EB=(a)=>A(84,148,255,a),NK=(a)=>A(2,3,12,a);
+const poly=(p,pts)=>{p.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)p.lineTo(pts[i][0],pts[i][1]);p.closePath();return p};
+const seg=(p,a,b)=>{p.moveTo(a[0],a[1]);p.lineTo(b[0],b[1])};
+const mod=(a,m)=>((a%m)+m)%m;
+const cl01=v=>v<0?0:v>1?1:v;
+const arr=(n,f)=>{const a=[];for(let i=0;i<n;i++)a.push(f(i));return a};
+/* soft ellipse from a unit radial gradient */
+const ell=(g,x,y,rx,ry,a)=>{c.globalAlpha=a;c.fillStyle=g;c.save();c.translate(x,y);c.scale(rx,ry);c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore()};
+const crack=(p,x,y,ang,len,br)=>{p.moveTo(x,y);let l=0;while(l<len){const s=rr(6,16);ang+=rr(-.5,.5);x+=Math.cos(ang)*s;y+=Math.sin(ang)*s;p.lineTo(x,y);l+=s;if(br>0&&R()<.18){crack(p,x,y,ang+rr(-1,1),len*.4,br-1);p.moveTo(x,y)}}};
+/* tapered drip (stalactite, resin, icicle) hanging from (x,y), added to p */
+const icicle=(p,x,y,w,l,bend)=>{bend=bend||0;p.moveTo(x-w/2,y);p.quadraticCurveTo(x-w*.3,y+l*.5,x+bend,y+l);p.quadraticCurveTo(x+w*.3,y+l*.5,x+w/2,y);p.closePath()};
+/* a chain of links added to one path, so a whole chain is a single stroke */
+const links=(p,x,y0,len,ry)=>{for(let y=y0,k=0;y<y0+len;y+=ry*1.45,k++){if(k%2){p.moveTo(x,y-ry*.9);p.lineTo(x,y+ry*.9)}else{p.moveTo(x+ry*.52,y);p.ellipse(x,y,ry*.52,ry,0,0,TAU)}}return p};
+/* the mirror: geometry written the right way up is added to p reflected about the line y=m, so it hangs down from that line */
+const flip=(p,m)=>{const f=y=>2*m-y;return {moveTo:(x,y)=>p.moveTo(x,f(y)),lineTo:(x,y)=>p.lineTo(x,f(y)),quadraticCurveTo:(a,b,x,y)=>p.quadraticCurveTo(a,f(b),x,f(y)),
+ bezierCurveTo:(a,b,d,e,x,y)=>p.bezierCurveTo(a,f(b),d,f(e),x,f(y)),closePath:()=>p.closePath(),rect:(x,y,w,h)=>p.rect(x,f(y)-h,w,h),
+ arc:(x,y,r,a0,a1,ccw)=>p.arc(x,f(y),r,-a0,-a1,!ccw),ellipse:(x,y,rx,ry,rot,a0,a1,ccw)=>p.ellipse(x,f(y),rx,ry,-rot,-a0,-a1,!ccw)}};
+/* a carved rune: a stem and a few strokes on a 3x3 grid */
+function glyph(p,x,y,s){const h=s*.6,w=s*.42,n=1+((R()*2.4)|0);p.moveTo(x,y-h);p.lineTo(x,y+h);
+ for(let i=0;i<n;i++){const yy=y+h*rr(-1,.5),sd=R()<.5?-1:1,dy=h*rr(.3,.6)*(R()<.5?-1:1);p.moveTo(x,yy);p.lineTo(x+sd*w,yy+dy);if(R()<.35)p.lineTo(x,yy+dy*2)}}
+const hexP=(p,x,y,s)=>{for(let k=0;k<6;k++){const a=k*Math.PI/3,px=x+Math.cos(a)*s,py=y+Math.sin(a)*s;k?p.lineTo(px,py):p.moveTo(px,py)}p.closePath()};
+
+/* cached generic gradients (shape only; strength comes from globalAlpha) */
+let FOG=null,DOT=null,CYG=null,EBG=null,VIG=null,FLOOR=null,TOP=null;
+function caches(){if(FOG)return;FOG=rg(0,0,0,1,[A(112,134,206,1),A(86,104,182,.45),A(64,80,160,0)]);DOT=rg(0,0,0,1,[MN(1),MN(.25),MN(0)]);
+ CYG=rg(0,0,0,1,[A(196,246,255,1),A(80,190,255,.3),A(40,110,255,0)]);EBG=rg(0,0,0,1,[A(150,190,255,1),A(64,110,255,.32),A(30,50,210,0)]);
+ VIG=rg(W/2,H*.5,H*.28,W*.7,[NK(0),NK(.32),A(0,1,6,.8)]);
+ FLOOR=lgp(0,FY-50,0,H,[[0,NK(0)],[.3,NK(.5)],[.55,A(1,2,8,.86)],[1,A(1,1,6,.97)]]);TOP=lgp(0,0,0,CT+46,[[0,A(1,1,6,.96)],[.5,A(1,2,8,.72)],[1,A(1,2,8,0)]])}
+
+/* =================== shared painting helpers =================== */
+/* a pine: tiers of drooping boughs added to p, the frost shelves on each tier added to s (hang it with hpine) */
+function pine(p,s,x,y,h,w){const n=Math.max(3,Math.min(7,Math.round(h/(h<40?12:22)))),top=y-h;
+ p.rect(x-w*.04,y-h*.15,w*.08,h*.17);
+ for(let i=0;i<n;i++){const k0=i/n,k1=(i+1)/n,yt=top+h*(.86*k0-(i?.07:0)),yb=top+h*(.12+.8*k1),hw=w*.5*(.22+.78*k1)*rr(.86,1.1),dy=yb-yt;
+  if(h<50){poly(p,[[x,yt],[x-hw,yb],[x-hw*.3,yb-dy*.08],[x+hw*.3,yb-dy*.08],[x+hw,yb]]);if(s)poly(s,[[x,yt],[x-hw*.9,yb-dy*.06],[x-hw*.2,yb-dy*.32],[x+hw*.55,yb-dy*.2]]);continue}
+  p.moveTo(x,yt);p.quadraticCurveTo(x-hw*.3,yt+dy*.55,x-hw,yb);
+  const m=Math.max(2,Math.round(hw/11));for(let j=1;j<=m;j++){const xa=x-hw+2*hw*(j-.5)/m,xb=x-hw+2*hw*j/m;p.quadraticCurveTo(xa,yb+dy*.12,xb,yb-(j<m?dy*.06:0))}
+  p.quadraticCurveTo(x+hw*.3,yt+dy*.55,x,yt);p.closePath();
+  if(s){s.moveTo(x,yt);s.quadraticCurveTo(x-hw*.3,yt+dy*.52,x-hw*.95,yb-dy*.04);s.quadraticCurveTo(x-hw*.62,yb-dy*.2,x-hw*.3,yb-dy*(.26+rr(-.05,.05)));
+   s.quadraticCurveTo(x,yb-dy*.42,x+hw*.35,yb-dy*.24);s.quadraticCurveTo(x+hw*.62,yb-dy*.12,x+hw*.84,yb-dy*.14);s.quadraticCurveTo(x+hw*.24,yt+dy*.45,x,yt);s.closePath()}}}
+/* an inverted pine hanging from the line y, its tip pointing down; the frost shelves end up on the undersides, where the light from below catches them */
+const hpine=(p,s,x,y,h,w)=>pine(flip(p,y),s?flip(s,y):null,x,y,h,w);
+/* a gnarled dead tree: tapered limbs added to p, a rim along the upper side of the near-horizontal limbs added to s (hung with flip it becomes the underside, lit from below); thin outer limb ends are collected in BT when it is a list */
+let BT=null;
+function branch(p,s,x,y,a,len,w,d){const x2=x+Math.cos(a)*len,y2=y+Math.sin(a)*len,nx=-Math.sin(a),ny=Math.cos(a),w2=w*.64;
+ poly(p,[[x+nx*w/2,y+ny*w/2],[x2+nx*w2/2,y2+ny*w2/2],[x2-nx*w2/2,y2-ny*w2/2],[x-nx*w/2,y-ny*w/2]]);p.moveTo(x2+w2/2,y2);p.arc(x2,y2,w2/2,0,TAU);
+ if(BT&&d<3&&R()<.6)BT.push([x2,y2,w2]);
+ if(s&&w>1.6&&Math.abs(Math.cos(a))>.35){const u=ny<0?1:-1,ox=nx*u,oy=ny*u;poly(s,[[x+ox*w*.5,y+oy*w*.5],[x2+ox*w2*.5,y2+oy*w2*.5],[x2+ox*(w2*.5+1.6),y2+oy*(w2*.5+1.6)],[x+ox*(w*.5+2.4),y+oy*(w*.5+2.4)]])}
+ if(d>0){branch(p,s,x2,y2,a+rr(-.28,.28)+.06,len*rr(.74,.88),w2,d-1);const k=d>2?1:R()<.5?1:2;for(let i=0;i<k;i++){const sd=R()<.5?-1:1;branch(p,s,x2,y2,a+sd*rr(.5,1.05)+.06,len*rr(.5,.72),w2*.82,d-1-(R()<.35?1:0))}}}
+/* hanging land: a dark mass from above whose lower edge waves around y; f(x) gives the edge */
+function hland(y,amp,ph){const f0=rr(.004,.007),f=x=>y+Math.sin(x*f0+ph)*amp+Math.sin(x*f0*2.7+ph*1.7)*amp*.35,p=P2();p.moveTo(-20,-20);for(let x=-20;x<=W+20;x+=16)p.lineTo(x,f(x));p.lineTo(W+20,-20);p.closePath();return {p,f}}
+/* a far hanging treeline: one zigzag of inverted pine silhouettes along the edge function bf, tiny frost on the tips added to s */
+function htree(p,s,x0,x1,bf,hmin,hmax,gap){p.moveTo(x0,bf(x0)-6);let x=x0;while(x<x1){const h=rr(hmin,hmax),w=h*rr(.42,.56);if(gap&&gap(x)){x+=w;p.lineTo(x,bf(x)-6);continue}const y=bf(x+w/2)-2;
+  p.lineTo(x,y);p.lineTo(x+w*.3,y+h*.45);p.lineTo(x+w*.22,y+h*.47);p.lineTo(x+w*.5,y+h);p.lineTo(x+w*.78,y+h*.47);p.lineTo(x+w*.7,y+h*.45);p.lineTo(x+w,y);
+  if(s){poly(s,[[x+w*.5,y+h],[x+w*.36,y+h*.7],[x+w*.5,y+h*.78],[x+w*.62,y+h*.72]]);poly(s,[[x+w*.25,y+h*.46],[x+w*.1,y+h*.16],[x+w*.38,y+h*.36]])}x+=w*rr(.5,.95)}
+ p.lineTo(x1,bf(x1)-6);p.lineTo(x1,-20);p.lineTo(x0,-20);p.closePath()}
+/* an inverted mountain range hanging from the dark above: a jagged ridge (midpoint displacement) whose peaks point down, frost on the tips (lit from below), the faces turned away from the light in shadow (lit=1: light from the left); sh(x) in 0..1 squeezes the range to open a gap */
+function hrange(x0,x1,top,yA,yB,n,capD,lit,shA,sh){const ctrl=[[x0,top+(yA-top)*.3]],pk=[];
+ for(let i=0;i<n;i++){const x=x0+(x1-x0)*(i+rr(.3,.7))/n,y=rr(yA,yB);
+  if(i){const px=pk[i-1],vy=Math.max(top+8,Math.min(px[1],y)-rr(.2,.45)*(x-px[0]));ctrl.push([(px[0]+x)/2+rr(-.12,.12)*(x-px[0]),vy])}
+  pk.push([x,y]);ctrl.push([x,y])}
+ ctrl.push([x1,top+(yA-top)*.3]);
+ let pts=ctrl;for(let it=0;it<4;it++){const o=[];for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1],d=Math.abs(b[0]-a[0]);o.push(a,[(a[0]+b[0])/2+rr(-.06,.06)*d,(a[1]+b[1])/2+rr(-.2,.2)*d])}o.push(pts[pts.length-1]);pts=o}
+ if(sh)pts=pts.map(q=>[q[0],top+(q[1]-top)*sh(q[0])]);
+ const M={p:P2(),cap:P2(),sh:P2(),top,tip:yB};M.p.moveTo(x0,-20);pts.forEach(q=>M.p.lineTo(q[0],q[1]));M.p.lineTo(x1,-20);M.p.closePath();
+ for(let k=0;k<n;k++){const pi=(1+2*k)*16,P=pts[pi];if(!P)continue;const ys=P[1]-capD*rr(.6,1.3)*(sh?sh(P[0]):1);let j=pi,e=pi;while(j>0&&pts[j-1][1]>ys)j--;while(e<pts.length-1&&pts[e+1][1]>ys)e++;
+  const cp=pts.slice(j,e+1),m=Math.max(3,Math.round((pts[e][0]-pts[j][0])/9));for(let i=1;i<m;i++)cp.push([pts[e][0]+(pts[j][0]-pts[e][0])*i/m,ys+rr(-5,5)-(R()<.3?rr(8,24):0)]);if(cp.length>2)poly(M.cap,cp);
+  const dir=lit>0?1:-1;let v=pi;while(v+dir>0&&v+dir<pts.length-1&&Math.abs(v-pi)<16&&!(pts[v+dir][1]>pts[v][1]+4&&Math.abs(v-pi)>3))v+=dir;
+  const sp=pts.slice(Math.min(pi,v),Math.max(pi,v)+1);if(dir<0)sp.reverse();const cx=P[0]+dir*rr(2,14);sp.push([pts[v][0],-20],[cx+dir*rr(0,30),-20],[cx,P[1]-(P[1]+20)*.4]);poly(M.sh,sp)}
+ M.shG=lg(0,yB,0,top,[A(2,4,16,shA),A(2,4,16,shA*.5),A(2,4,16,0)]);return M}
+function drawH(M,col,cap,rim){c.fillStyle=col;c.fill(M.p);if(cap){c.fillStyle=cap;c.fill(M.cap)}c.fillStyle=M.shG;c.fill(M.sh);if(rim){c.strokeStyle=rim;c.lineWidth=1.3;c.stroke(M.p)}}
+/* a floating rock fragment, an upside-down island: a flat underside lit from below, a jagged crown, a rim of light on the side facing the light at lx, tiny inverted pines hanging under the bigger ones (k: 0 far, 1 middle) */
+function isle(x,y,w,h,k,lx){lx=lx===undefined?480:lx;const pts=[],top=[],m=7,side=lx>x?1:-1;for(let i=0;i<=5;i++)pts.push([x-w+2*w*i/5,y+(i%5?rr(-.4,1.4)*w/10:0)]);
+ for(let i=1;i<m;i++){const a=i/m*Math.PI,sp=R()<.35?rr(1.15,1.45):1;top.push([x+Math.cos(a)*w*rr(.78,1.02),y-Math.sin(a)*h*rr(.5,.85)*sp-h*.1])}
+ const f={k,body:poly(P2(),pts.concat(top)),lit:P2(),rim:P2(),fac:P2(),ph:rr(0,TAU),sp:rr(.18,.34),amp:rr(2,4)*(k+1)};
+ poly(f.lit,pts.concat(pts.slice().reverse().map(q=>[q[0],q[1]-rr(1.6,2.8)*(1+k*.5)])));
+ const rs=[side>0?pts[5]:pts[0]].concat((side>0?top:top.slice().reverse()).filter(q=>(q[0]-x)*side>-w*.15));rs.forEach((q,i)=>i?f.rim.lineTo(q[0],q[1]):f.rim.moveTo(q[0],q[1]));
+ for(let i=0;i<3;i++){const q=top[1+((R()*(m-3))|0)];seg(f.fac,q,[x+rr(-.6,.6)*w,y-rr(0,h*.15)])}
+ if(w>13){const n=Math.max(2,Math.round(w/9));for(let i=0;i<n;i++){const tx=x-w*.8+1.6*w*(i+rr(.2,.8))/n,th=rr(.45,1)*w*.6;hpine(f.body,null,tx,y+rr(.5,2),th,th*.42)}}
+ f.g=k?lg(0,y-h,0,y+w*.6,[D(30),D(66)]):lg(0,y-h,0,y,[I(34),I(60)]);f.lc=k?A(150,200,255,.5):A(150,190,255,.34);f.rc=k?A(120,190,255,.34):A(120,180,255,.22);return f}
+function drawIsle(f,t){const dy=Math.sin(t*f.sp+f.ph)*f.amp;c.save();c.translate(0,dy);c.fillStyle=f.g;c.fill(f.body);c.strokeStyle=NK(f.k?.4:.2);c.lineWidth=1;c.stroke(f.fac);c.fillStyle=f.lc;c.fill(f.lit);c.strokeStyle=f.rc;c.lineWidth=1.3;c.stroke(f.rim);c.restore()}
+/* the moon, low and pale */
+function mkMoon(x,y,r){const m={x,y,r,disc:P2(),cr:P2()};m.disc.arc(x,y,r,0,TAU);for(const [dx,dy,k] of[[-.28,-.12,.22],[.25,.3,.16],[.18,-.38,.1],[-.05,.5,.09]]){m.cr.moveTo(x+dx*r+k*r,y+dy*r);m.cr.arc(x+dx*r,y+dy*r,k*r,0,TAU)}
+ m.g=rg(x-r*.3,y-r*.3,r*.1,r*1.05,[A(238,244,255),A(204,218,248),A(150,170,222)]);return m}
+function moon(m,k){k=k||1;add(()=>{ell(DOT,m.x,m.y,m.r*6,m.r*6,.1*k);ell(DOT,m.x,m.y,m.r*3,m.r*3,.34*k)});c.globalAlpha=k;c.fillStyle=m.g;c.fill(m.disc);c.fillStyle=A(118,138,198,.34);c.fill(m.cr);c.globalAlpha=1}
+function stars(S,t){if(!S.stars.length)return;const ps=[P2(),P2(),P2(),P2(),P2()];for(const s of S.stars){const a=s[4]*(.55+.45*Math.sin(t*s[5]+s[3]));ps[Math.min(4,(a*5)|0)].rect(s[0],s[1],s[2],s[2])}
+ add(()=>{c.fillStyle=PB(1);for(let k=0;k<5;k++){c.globalAlpha=(k+.6)/5*.7;c.fill(ps[k])}})}
+/* an inverted pointed arch: from the spring line s the curve closes below, apex pointing down at ap; the masonry continues down to bot */
+function harch(p,a,b,s,ap,bot){const m=(a+b)/2,h=ap-s;p.moveTo(a,s);p.quadraticCurveTo(a,s+h*.72,m,ap);p.quadraticCurveTo(b,s+h*.72,b,s);p.lineTo(b,bot);p.lineTo(a,bot);p.closePath()}
+/* a honeycomb mass hanging from above: lobes [[cx,halfwidth,depth],...] give a lumpy outline full of hexagonal cells; the holes, their lit lower lips and a few glowing cells (three pulse groups) are each one path */
+function comb(lobes,r,top){top=top===undefined?-20:top;let x0=1e9,x1=-1e9,bot=top;for(const [cx,hw,d] of lobes){x0=Math.min(x0,cx-hw);x1=Math.max(x1,cx+hw);bot=Math.max(bot,top+d)}
+ const ph=rr(0,TAU),E=x=>{let y=top;for(const [cx,hw,d] of lobes){const u=(x-cx)/hw;if(u*u<1)y=Math.max(y,top+d*Math.pow(1-u*u,.5))}return y>top+6?y+2*Math.sin(x*.09+ph):y};
+ const o={p:P2(),holes:P2(),lip:P2(),gl:[P2(),P2(),P2()],gp:[],drip:P2(),bot,top};o.p.moveTo(x0,top);for(let x=x0;x<=x1;x+=6)o.p.lineTo(x,E(x)+(R()<.2?rr(0,3):0));o.p.lineTo(x1,top);o.p.closePath();
+ const dy=Math.sqrt(3)*r;for(let i=0,x=x0+r*.7;x<x1;i++,x+=r*1.5)for(let y=top+(i%2?dy/2:0);y<bot;y+=dy){if(y>E(x)-r*.95||y>E(x-r*.6)-r*.6||y>E(x+r*.6)-r*.6)continue;hexP(o.holes,x,y,r*.8);
+  o.lip.moveTo(x+r*.8,y);o.lip.lineTo(x+r*.4,y+r*.69);o.lip.lineTo(x-r*.4,y+r*.69);o.lip.lineTo(x-r*.8,y);
+  if(R()<.075){const k=(R()*3)|0;hexP(o.gl[k],x,y,r*.66);if(R()<.35)o.gp.push([x,y,k])}}
+ for(let x=x0+8;x<x1-8;x+=rr(9,22)){const y=E(x);if(y>top+30)icicle(o.drip,x,y-2,rr(3,6)*r/8,rr(6,24)*r/8,rr(-1,1))}
+ o.g=lg(0,top,0,bot,[D(5),D(12),D(26)]);o.dg=lg(0,top+(bot-top)*.5,0,bot+30,[D(8),A(40,64,120)]);o.sh=lg(x0,0,x1,0,[NK(.7),NK(.12),NK(0),NK(.12),NK(.7)]);return o}
+function drawComb(o,t,glA,hole,lipA,rimA,gr){c.fillStyle=o.g;c.fill(o.p);c.fillStyle=hole;c.fill(o.holes);if(lipA){c.strokeStyle=PB(lipA);c.lineWidth=1;c.stroke(o.lip)}c.fillStyle=o.sh;c.fill(o.p);
+ c.fillStyle=o.dg;c.fill(o.drip);if(rimA){c.strokeStyle=PB(rimA);c.lineWidth=1.2;c.stroke(o.p)}
+ add(()=>{c.fillStyle=CY(1);for(let k=0;k<3;k++){c.globalAlpha=glA*(.25+.75*Math.max(0,Math.sin(t*.6+k*2.1)));c.fill(o.gl[k])}
+  for(const [x,y,k] of o.gp)ell(CYG,x,y,gr,gr,glA*.32*(.3+.7*Math.max(0,Math.sin(t*.6+k*2.1))))})}
+
+/* a paper nest shell hanging from top: a teardrop outline, scalloped bands (dark grooves and lit lips), an opening near the bottom */
+function shell(x,top,h,w){const hw=u=>w*Math.pow(Math.sin(Math.PI*Math.pow(Math.min(u,1),.8)),.85)+w*.09*(1-u),L=[],Rt=[],o={x,hy:top+h*.88,bd:P2(),bl:P2(),hole:P2()};
+ for(let i=0;i<=20;i++){const u=i/20;L.push([x-hw(u)*rr(.96,1.03),top+h*u]);Rt.push([x+hw(u)*rr(.96,1.03),top+h*u])}o.p=blob(L.concat(Rt.reverse()));
+ for(let k=1;k<15;k++){const u=k/15+rr(-.012,.012),y=top+h*u,q=hw(u)*.97,sg=rr(10,20)*(q/w)*(w/116);o.bd.moveTo(x-q,y);o.bd.quadraticCurveTo(x,y+sg*2,x+q,y+rr(-2,2));o.bl.moveTo(x-q*.9,y+2.5);o.bl.quadraticCurveTo(x,y+sg*2+2.5,x+q*.9,y+2.5)}
+ o.hole.ellipse(x+w*.07,o.hy,w*.17,w*.1,0,0,TAU);o.g=lg(0,0,0,top+h,[A(3,5,14),A(8,12,30),A(16,24,52)]);return o}
+
+/* =================== the shared frame =================== */
+function makeFrame(S,o){
+ seed=S.seed;S.backG=lgp(0,0,0,H,o.sky);
+ const Lt=o.light;S.glowG=rg(Lt.x,Lt.y,6,Lt.r,Lt.c==='cy'?[A(170,236,255,1),A(70,160,230,.4),A(30,80,170,.13),A(10,30,80,0)]:Lt.c==='eb'?[A(150,182,255,1),A(70,104,236,.4),A(36,52,170,.14),A(14,20,80,0)]:[MN(1),A(150,170,230,.42),A(70,90,170,.15),A(30,40,100,0)]);
+ S.stars=[];for(let i=0;i<(o.stars||0);i++){const b=R()<.08;S.stars.push([rr(0,W),CT+(R()**1.3)*((o.starY||300)-CT),b?rr(1.3,2):rr(.5,1.2),rr(0,TAU),b?rr(.7,1):rr(.25,.7),rr(.6,2.4)])}
+ const mo=o.mote||{};S.mote=[[80,.5,1,5,11,5,12],[44,.9,1.6,10,19,8,18],[16,1.6,2.7,18,30,12,26]].map(L=>{const n=Math.round(L[0]*(mo.n||1)),a=[];
+  for(let i=0;i<n;i++)a.push({x:rr(0,W+60),y:rr(0,H+40),r:rr(L[1],L[2]),v:rr(L[3],L[4])*(mo.v||1),a:rr(L[5],L[6]),f:rr(.3,.9),ph:rr(0,TAU),tw:rr(.5,1.6)});return a});
+ S.ed=[0,1].map(s=>{const k=(o.edge||[])[s],e={ph:rr(0,TAU)};if(k)EDGE[k].init(e);return e});
+ (o.shafts||[]).forEach(s=>{s.g=lg(0,s[6]||FY,0,s[5]||CT,[PB(1),A(150,190,255,.4),A(120,160,255,0)])});
+}
+function glow(S,t){const Lt=S.o.light,fl=.94+.04*Math.sin(t*.6)+.02*Math.sin(t*1.7);
+ add(()=>{c.globalAlpha=Math.min(1,Lt.a*fl);c.fillStyle=S.glowG;const x0=Math.max(0,Lt.x-Lt.r),y0=Math.max(0,Lt.y-Lt.r);c.fillRect(x0,y0,Math.min(W,Lt.x+Lt.r)-x0,Math.min(H,Lt.y+Lt.r)-y0)})}
+function fog(t,y,a,sp,h,n){n=n||4;const span=W+600;add(()=>{c.fillStyle=FOG;for(let i=0;i<n;i++){const x=mod(i*span/n+t*sp,span)-300,yy=y+Math.sin(t*.2+i*2)*8;
+  c.globalAlpha=a*(.8+.2*Math.sin(t*.3+i));c.save();c.translate(x,yy);c.scale(300,h||60);c.beginPath();c.arc(0,0,1,0,TAU);c.fill();c.restore()}})}
+/* light shafts rising from below, narrow at the bottom and widening upward */
+function shafts(S,t){const list=S.o.shafts;if(!list||!list.length)return;add(()=>{for(const s of list){const [x0,w,ph,k,lean,y0,y1]=s,a=(.06+.03*Math.sin(t*.45+ph))*(k||1),sw=Math.sin(t*.18+ph)*10,yT=y0||CT,yB=y1||FY;
+  c.globalAlpha=a;c.fillStyle=s.g;c.beginPath();c.moveTo(x0-w*.5,yB);c.lineTo(x0+w*.5,yB);c.lineTo(x0+(lean||0)+w*1.5+sw,yT);c.lineTo(x0+(lean||0)-w*1.5+sw,yT);c.closePath();c.fill()}})}
+/* motes drifting upward, three depths: k=0 far (tiny, slow), 1 middle, 2 near (bigger, soft halo); three twinkle groups per depth */
+function motes(S,t,k){const L=S.mote[k];if(!L.length)return;const ps=[P2(),P2(),P2()],h=k===2?P2():null,sx=W+60,sy=H+40,dr=S.o.drift||0;
+ for(const f of L){const y=mod(f.y-t*f.v,sy)-20,x=mod(f.x+t*dr*f.v/30+Math.sin(t*f.f+f.ph)*f.a,sx)-30,q=ps[Math.min(2,((Math.sin(t*f.tw+f.ph)*.5+.5)*3)|0)];
+  q.moveTo(x+f.r,y);q.arc(x,y,f.r,0,TAU);if(h){h.moveTo(x+f.r*2.2,y);h.arc(x,y,f.r*2.2,0,TAU)}}
+ const al=[.4,.52,.6][k]*(S.o.moteA||1),col=S.o.mc==='cy'?CY:PB;add(()=>{c.fillStyle=col(1);for(let j=0;j<3;j++){c.globalAlpha=al*(.35+.32*j);c.fill(ps[j])}if(h){c.globalAlpha=al*.08;c.fill(h)}})}
+function floorShade(){c.fillStyle=FLOOR;c.fillRect(0,FY-50,W,H-FY+50)}
+function topShade(){c.fillStyle=TOP;c.fillRect(0,0,W,CT+46)}
+function vignette(){c.fillStyle=VIG;c.fillRect(0,0,W,H)}
+
+/* near foreground silhouettes at the left/right edges (the right one is the mirror image); init uses the seeded random */
+const EDGE={
+ /* a huge inverted pine hanging from the dark, cut by the frame, a smaller one beside it */
+ pine:{init(e){e.p=P2();e.s=P2();hpine(e.p,e.s,rr(-6,14),-30,rr(470,530),rr(190,220));hpine(e.p,e.s,rr(104,122),-24,rr(220,280),rr(90,110));e.g=lg(0,0,260,0,[NK(.55),NK(0)])},
+  draw(S,t,e){c.fillStyle=e.g;c.fillRect(0,0,260,H);c.save();c.translate(0,-30);c.rotate(Math.sin(t*.35+e.ph)*.004);c.translate(0,30);c.fillStyle=A(3,5,14);c.fill(e.p);c.fillStyle=A(110,144,220,.17);c.fill(e.s);c.restore()}},
+ /* a rock mass hanging in the corner: stepped lower edge lit from below, faceted, cracked, with stalactites */
+ stal:{init(e){const bot=rr(250,300),w=rr(110,140),pts=[[-20,-20],[-20,bot]];let x=-20,y=bot;
+   while(x<w){x+=rr(18,40);y-=R()<.22?-rr(4,12):rr(6,30)*(.5+x/w);pts.push([x,y])}pts.push([w+rr(20,40),rr(40,70)],[w+rr(50,80),-20]);e.p=poly(P2(),pts);
+   e.f=P2();e.lit=P2();e.rim=P2();e.ice=P2();
+   for(let i=1;i<pts.length-2;i++){const a=pts[i],b=pts[i+1],m=[(a[0]+b[0])/2,(a[1]+b[1])/2];seg(e.rim,a,b);
+    poly(e.f,[a,b,[b[0]-rr(6,24),b[1]-rr(30,70)],[a[0]+rr(0,10),a[1]-rr(24,60)]]);blob([[a[0]-4,a[1]+2],[m[0],m[1]-rr(6,12)],[b[0]+4,b[1]+2],[m[0],m[1]+3]],e.lit);
+    if(Math.abs(b[1]-a[1])<(b[0]-a[0])*.9){const k=1+((R()*2.5)|0);for(let j=0;j<k;j++){const u=rr(.1,.9);icicle(e.ice,a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u-3,rr(5,12),rr(12,52),rr(-2,2))}}}
+   e.crk=P2();for(let i=0;i<4;i++)crack(e.crk,rr(0,w),rr(20,bot-40),rr(-2,-1.2),rr(40,80),1);
+   e.g=lg(0,0,0,bot,[A(2,3,10),A(5,8,22),A(12,18,42)]);e.lg=lg(0,0,0,bot,[A(130,170,255,0),A(130,170,255,.16)]);e.ig=lg(0,40,0,bot+50,[A(6,9,24),A(40,58,110)]);e.sg=lg(60,0,220,0,[NK(.45),NK(0)])},
+  draw(S,t,e){c.fillStyle=e.sg;c.fillRect(0,0,220,H);c.fillStyle=e.g;c.fill(e.p);c.save();c.clip(e.p);c.fillStyle=A(90,120,200,.05);c.fill(e.f);c.fillStyle=e.lg;c.fill(e.lit);c.restore();
+   c.strokeStyle=NK(.6);c.lineWidth=1.4;c.stroke(e.crk);c.fillStyle=e.ig;c.fill(e.ice);c.strokeStyle=A(150,190,255,.28);c.lineWidth=1.4;c.stroke(e.rim)}},
+ /* a massive pillar hanging from above, ending in an upside-down capital with drips; one rune pulses */
+ column:{init(e){const w=e.w=rr(60,72),y=e.end=rr(392,428);e.j=P2();for(let yy=rr(70,110);yy<y-80;yy+=rr(56,72))seg(e.j,[0,yy],[w,yy]);
+   e.cap=P2();poly(e.cap,[[-4,y-66],[w+4,y-66],[w+16,y-42],[-16,y-42]]);e.cap.rect(-20,y-42,w+40,24);e.cap.rect(-12,y-18,w+24,9);
+   e.capL=P2();e.capL.rect(-20,y-20,w+40,2.2);e.capL.rect(-12,y-11,w+24,2);e.dr=P2();for(let x=-8;x<w+10;x+=rr(8,16))icicle(e.dr,x,y-10,rr(4,8),rr(6,30),0);
+   e.rune=P2();e.ry=rr(210,260);glyph(e.rune,w/2,e.ry,30);glyph(e.rune,w/2,e.ry+56,24);
+   e.g=lg(0,0,w+10,0,[A(3,5,14),A(10,15,36),A(20,30,62),A(7,10,26)]);e.sg=lg(w,0,w+90,0,[NK(.5),NK(0)]);e.lg=lg(0,80,0,y,[A(150,190,255,0),A(150,190,255,.18)]);e.dg=lg(0,y-10,0,y+24,[A(6,9,22),A(46,66,120)])},
+  draw(S,t,e){c.fillStyle=e.sg;c.fillRect(e.w,0,90,e.end);c.fillStyle=e.g;c.fillRect(0,-10,e.w,e.end-56);c.strokeStyle=NK(.55);c.lineWidth=1.6;c.stroke(e.j);
+   c.fillStyle=e.lg;c.fillRect(e.w-9,80,2,e.end-146);c.fillStyle=A(5,8,20);c.fill(e.cap);c.fillStyle=A(150,190,255,.3);c.fill(e.capL);c.fillStyle=e.dg;c.fill(e.dr);
+   const p=.5+.5*Math.sin(t*.9+e.ph);c.lineCap='round';c.strokeStyle=A(1,2,8);c.lineWidth=4;c.stroke(e.rune);add(()=>{c.strokeStyle=CY(.3+.4*p);c.lineWidth=1.8;c.stroke(e.rune);ell(CYG,e.w/2,e.ry+28,40,64,.1+.1*p)});c.lineCap='butt'}},
+ /* heavy chains hanging from a ledge: a hook, a dim cage lantern and an iron weight, swaying a little */
+ chain:{init(e){e.ch=[[rr(26,40),rr(330,400),rr(8.5,10),0],[rr(86,100),rr(200,260),rr(6,7.5),1],[rr(146,162),rr(120,170),rr(4.5,5.5),2]].map(([x,l,ry,k])=>({x,l,ry,k,p:links(P2(),0,0,l,ry),ph:rr(0,TAU)}));
+   const lp=[[-20,-20],[240,-20]];for(let x=230;x>-20;x-=rr(22,40))lp.push([x,rr(16,46)]);e.ledge=poly(P2(),lp);e.ice=P2();for(let x=4;x<220;x+=rr(10,20))icicle(e.ice,x,30,rr(5,10),rr(8,30),rr(-1,1));
+   e.cage=P2();e.cage.rect(-9,0,18,3);e.cage.rect(-10,28,20,3);for(const x of[-8,-1,6])e.cage.rect(x,2,2.4,27);poly(e.cage,[[-6,-6],[6,-6],[9,0],[-9,0]]);
+   e.g=lg(0,0,0,50,[A(2,3,10),A(10,14,32)]);e.sg=lg(0,0,240,0,[NK(.5),NK(0)])},
+  draw(S,t,e){c.fillStyle=e.sg;c.fillRect(0,0,240,H);
+   for(const q of e.ch){const a=Math.sin(t*.45+q.ph)*.012*(1+q.k*.5);c.save();c.translate(q.x,0);c.rotate(a);c.lineWidth=q.ry*.42;c.strokeStyle=A(3,5,14);c.stroke(q.p);c.save();c.translate(.8,.9);c.lineWidth=1;c.strokeStyle=A(130,170,240,.14);c.stroke(q.p);c.restore();
+    c.translate(0,q.l);if(q.k===0){c.strokeStyle=A(3,5,14);c.lineWidth=7;c.beginPath();c.arc(0,20,14,-Math.PI*.5,Math.PI*1.05);c.stroke();c.strokeStyle=A(130,170,240,.16);c.lineWidth=1.4;c.beginPath();c.arc(0,20,17,0,Math.PI*.9);c.stroke()}
+    else if(q.k===1){const fl=.7+.2*Math.sin(t*2.3+q.ph)+.1*Math.sin(t*7.1);add(()=>{ell(CYG,0,16,40,40,.18*fl);ell(CYG,0,16,9,12,.55*fl)});c.fillStyle=A(3,5,14);c.translate(0,2);c.fill(e.cage)}
+    else{c.fillStyle=A(3,5,14);c.beginPath();c.arc(0,14,12,0,TAU);c.fill();c.strokeStyle=A(130,170,240,.18);c.lineWidth=1.4;c.beginPath();c.arc(0,14,10,.2,Math.PI-.2);c.stroke()}c.restore()}
+   c.fillStyle=e.g;c.fill(e.ledge);c.fillStyle=A(8,12,30);c.fill(e.ice);c.strokeStyle=A(130,170,240,.2);c.lineWidth=1.2;c.stroke(e.ledge)}},
+ /* a paper wasp nest hanging at the edge: scalloped bands, an opening with a faint glow inside */
+ nest:{init(e){const w=rr(108,124),o=shell(rr(40,64),-30,rr(330,370),w);for(const k in o)e[k]=o[k];e.sg=lg(e.x+w,0,e.x+w+90,0,[NK(.45),NK(0)])},
+  draw(S,t,e){c.fillStyle=e.sg;c.fillRect(0,0,e.x+220,H);c.fillStyle=e.g;c.fill(e.p);c.save();c.clip(e.p);c.strokeStyle=NK(.6);c.lineWidth=2.4;c.stroke(e.bd);c.strokeStyle=A(130,170,240,.11);c.lineWidth=1.2;c.stroke(e.bl);c.restore();
+   const p=.5+.5*Math.sin(t*.7+e.ph);c.fillStyle=A(1,2,6);c.fill(e.hole);add(()=>{ell(CYG,e.x+8,e.hy+2,16,8,.25+.2*p);ell(CYG,e.x+8,e.hy+16,60,40,.08+.06*p)});c.strokeStyle=A(150,190,255,.22);c.lineWidth=1.3;c.stroke(e.p)}},
+ /* a gnarled dead tree hanging upside down from the dark */
+ /* a mass of earth hanging in the corner, trailing long tapered roots; their sides toward the middle catch the light */
+ roots:{init(e){const ed=[[230,-20],[214,34],[170,80],[112,108],[50,122],[-30,134]];e.m=blob([[-30,-20]].concat(ed));e.p=P2();e.s=P2();
+   const at=u=>{const f=u*(ed.length-1),i=Math.min(ed.length-2,f|0),k=f-i;return [ed[i][0]+(ed[i+1][0]-ed[i][0])*k,ed[i][1]+(ed[i+1][1]-ed[i][1])*k]};
+   const root=(x,y,len,w0,a0,d)=>{const n=12,L=[],Rt=[],S=[];let ang=a0,px=x,py=y;for(let k=0;k<=n;k++){const u=k/n,w=w0*Math.pow(1-u,.85)+.4,nx=-Math.sin(ang),ny=Math.cos(ang);
+      L.push([px+nx*w/2,py+ny*w/2]);Rt.push([px-nx*w/2,py-ny*w/2]);S.push([px-nx*(w/2+1.2),py-ny*(w/2+1.2)]);if(d&&k>2&&k<9&&R()<.18)root(px,py,len*rr(.3,.5),w*.6,ang+rr(-.7,.7),d-1);
+      ang+=rr(-.22,.22)+(Math.PI/2-ang)*.25;px+=Math.cos(ang)*len/n;py+=Math.sin(ang)*len/n}poly(e.p,L.concat(Rt.reverse()));poly(e.s,Rt.slice(0,n-2).concat(S.slice(0,n-2).reverse()))};
+   for(let i=0;i<11;i++){const u=rr(.08,.96),[x,y]=at(u);root(x,y-4,rr(90,300)*(1.1-u*.4)*(i<3?1.2:1),rr(4,11),Math.PI/2+rr(-.5,.5),2)}
+   e.cr=P2();for(let i=0;i<4;i++)crack(e.cr,rr(0,180),rr(10,90),rr(-.4,.4),rr(30,60),1);e.mg=lg(0,0,0,136,[A(2,3,10),A(10,14,34)]);e.sg=lg(0,0,260,0,[NK(.5),NK(0)])},
+  draw(S,t,e){c.fillStyle=e.sg;c.fillRect(0,0,260,H);c.save();c.translate(100,110);c.rotate(Math.sin(t*.3+e.ph)*.006);c.translate(-100,-110);c.fillStyle=A(4,6,16);c.fill(e.p);c.fillStyle=A(140,176,250,.22);c.fill(e.s);c.restore();
+   c.fillStyle=e.mg;c.fill(e.m);c.strokeStyle=NK(.6);c.lineWidth=1.2;c.stroke(e.cr);c.strokeStyle=A(140,176,250,.22);c.lineWidth=1.3;c.stroke(e.m)}},
+ /* a great pier of the throne hall, the springing of an inverted arch sweeping down toward the middle, a tattered banner with a pale rune */
+ pier:{init(e){const w=e.w=rr(72,88),s=e.s=rr(300,330);e.p=P2();poly(e.p,[[w,s-26],[w+18,s-20],[w+18,s-8],[w,s+14]]);e.p.rect(-10,s+150,w+26,H);
+   e.rim=P2();seg(e.rim,[w,s+14],[w+18,s-8]);e.rim.rect(-10,s+150,w+26,2);e.j=P2();for(let y=rr(60,90);y<H;y+=rr(50,64))seg(e.j,[0,y],[w,y]);
+   e.slit=P2();e.slit.rect(w*.5-3,150,6,110);e.sl=P2();glyph(e.sl,w*.5,178,16);glyph(e.sl,w*.5,226,16);
+   e.bx=w+rr(20,30);e.bw=rr(34,42);e.bl=rr(220,260);e.cut=arr(6,()=>rr(0,26));
+   e.g=lg(0,0,w,0,[A(3,5,14),A(9,13,32),A(16,22,48)]);e.sg=lg(w,0,w+120,0,[NK(.5),NK(0)]);e.bg=lg(0,0,0,260,[A(6,8,22),A(16,18,46)])},
+  draw(S,t,e){c.fillStyle=e.sg;c.fillRect(e.w,0,120,H);c.fillStyle=e.g;c.fillRect(-10,-20,e.w+10,H+40);c.fillStyle=A(4,6,16);c.fill(e.p);c.strokeStyle=NK(.55);c.lineWidth=1.5;c.stroke(e.j);
+   c.fillStyle=A(140,180,255,.22);c.fill(e.rim);c.strokeStyle=A(140,180,255,.22);c.lineWidth=1.4;c.stroke(e.rim);c.fillStyle=A(1,2,8);c.fill(e.slit);
+   const p=.5+.5*Math.sin(t*.8+e.ph);add(()=>{c.strokeStyle=CY(.3+.35*p);c.lineWidth=1.6;c.lineCap='round';c.stroke(e.sl);ell(CYG,e.w*.5,205,22,70,.08+.08*p)});
+   /* the banner: a wave runs down the cloth */
+   const x=e.bx,bw=e.bw,L=e.bl;c.beginPath();c.moveTo(x,-10);for(let y=0;y<=L;y+=20){const k=y/L;c.lineTo(x+Math.sin(t*.9-y*.02+e.ph)*4*k,y)}
+   for(let i=5;i>=0;i--){const u=i/5,k=1;c.lineTo(x+bw*u+Math.sin(t*.9-L*.02+e.ph)*4*k,L-e.cut[i]*(i%2?1:.3))}
+   for(let y=L;y>=0;y-=20){const k=y/L;c.lineTo(x+bw+Math.sin(t*.9-y*.02+e.ph+.4)*4*k,y)}c.lineTo(x+bw,-10);c.closePath();c.fillStyle=e.bg;c.fill();
+   const yy=L*.62,dx=Math.sin(t*.9-yy*.02+e.ph)*4*.62;c.strokeStyle=CY(.18+.2*p);c.lineWidth=1.4;c.beginPath();c.arc(x+bw/2+dx,yy,9,0,TAU);c.moveTo(x+bw/2+dx,yy-14);c.lineTo(x+bw/2+dx,yy+14);c.stroke()}}
+};
+function edges(S,t){const e=S.o.edge||[];for(let s=0;s<2;s++){const k=e[s];if(!k)continue;c.save();if(s){c.translate(W,0);c.scale(-1,1)}EDGE[k].draw(S,t,S.ed[s]);c.restore()}}
+
+/* =================== the middle of each scene =================== */
+const MID={
+ /* 0: the rift gate: a torn rift of blue light far away, inverted ranges parting around it, floating fragments */
+ rift:{init(S){seed=S.seed+5;const rx=480,y0=96,y1=452,n=40,L=[],Rt=[],Lc=[],Rc=[];S.rk=P2();
+   for(let i=0;i<=n;i++){const u=i/n,y=y0+(y1-y0)*u,env=Math.pow(Math.sin(u*Math.PI),.7),cx=rx+Math.sin(u*4.6+.5)*16+Math.sin(u*11+1)*5,w=56*env*(R()<.14?1.4:1);
+    L.push([cx-w*rr(.6,1.1),y]);Rt.push([cx+w*rr(.6,1.1),y]);Lc.push([cx-w*rr(.1,.26),y]);Rc.push([cx+w*rr(.1,.26),y]);
+    if(i%3===1&&env>.35){const sd=R()<.5?-1:1,q=sd<0?L[i]:Rt[i];crack(S.rk,q[0],q[1],sd<0?Math.PI+rr(-.7,.7):rr(-.7,.7),rr(30,80)*env,2)}}
+   S.rf=poly(P2(),L.concat(Rt.slice().reverse()));S.rc=blob(Lc.concat(Rc.slice().reverse()));
+   S.rfG=lgp(0,y0,0,y1,[[0,A(40,90,255,0)],[.18,A(46,96,230,.36)],[.5,A(76,146,250,.5)],[.82,A(46,96,230,.36)],[1,A(40,90,255,0)]]);
+   S.rcG=lgp(0,y0,0,y1,[[0,PB(0)],[.22,A(150,214,255,.26)],[.55,A(190,232,255,.4)],[.8,A(150,214,255,.24)],[1,PB(0)]]);
+   const gap=(w,d)=>x=>1-d*Math.exp(-(((x-480)/w)**2));
+   S.m0=hrange(-80,1040,36,236,300,9,30,1,.3,gap(140,.42));S.h0=lg(0,36,0,300,[I(18),I(54)]);S.c0=lg(0,170,0,300,[A(120,150,230,.3),A(160,200,255,.46)]);
+   S.m1=hrange(-80,1040,14,162,226,7,26,1,.36,gap(170,.55));S.h1=lg(0,14,0,226,[I(8),I(32)]);S.c1=lg(0,120,0,226,[A(110,140,220,.22),A(150,190,255,.36)]);
+   S.m2=hrange(-60,1020,-10,92,148,8,18,-1,.4,gap(210,.5));S.h2=lg(0,-10,0,148,[D(3),D(13)]);S.c2=lg(0,60,0,148,[A(90,120,200,.1),A(130,170,250,.2)]);
+   S.fr=[[214,250,10,12,0],[338,318,7,9,0],[630,282,11,13,0],[760,226,8,10,0],[598,380,6,8,0],[372,392,7,9,0],[874,334,8,9,0],[100,310,9,10,0],
+    [156,356,22,30,1],[722,344,26,34,1],[288,208,16,22,1],[832,262,18,24,1]].map(a=>isle(...a))},
+  far(S,t){stars(S,t);
+   add(()=>{ell(CYG,480,284,110,240,.15+.03*Math.sin(t*.7));ell(EBG,480,280,190,240,.22+.03*Math.sin(t*.5));c.fillStyle=S.rfG;c.globalAlpha=.7+.12*Math.sin(t*1.3);c.fill(S.rf);c.globalAlpha=.75+.2*Math.sin(t*2.1+1);c.fillStyle=S.rcG;c.fill(S.rc);
+    c.save();c.clip(S.rf);for(let i=0;i<5;i++){const y=452-mod(t*30+i*72,360);ell(CYG,480+Math.sin(t*.8+i)*12,y,44,14,.3)}c.restore();
+    c.globalAlpha=.16+.12*Math.sin(t*1.7);c.strokeStyle=CY(1);c.lineWidth=1.1;c.stroke(S.rk)});
+   drawH(S.m0,S.h0,S.c0,EB(.28));fog(t,262,.06,6,46,3);drawH(S.m1,S.h1,S.c1,EB(.2));
+   for(const f of S.fr)if(!f.k)drawIsle(f,t);fog(t,180,.05,-5,40,3);drawH(S.m2,S.h2,S.c2,EB(.14))},
+  draw(S,t){for(const f of S.fr)if(f.k)drawIsle(f,t)}},
+ /* 1: an upside-down village hanging from the dark sky, inverted pines, a low pale moon */
+ street:{init(S){seed=S.seed+5;
+   S.m0=hrange(-80,1040,20,222,292,8,30,-1,.32);S.h0=lg(0,60,0,292,[I(20),I(52)]);S.c0=lg(0,210,0,292,[A(140,165,235,.3),A(180,206,255,.42)]);
+   S.mo=mkMoon(690,416,26);S.land=hland(146,6,1.2);S.landG=lg(0,0,0,156,[A(2,3,10),A(5,7,18),A(9,12,30)]);
+   S.tl=P2();S.tls=P2();htree(S.tl,S.tls,-20,W+20,S.land.f,16,34,x=>x>218&&x<748);
+   /* the village: cottages, the church with its spire pointing down, hanging lamps */
+   S.vh=P2();S.vr=P2();S.vrr=P2();S.vw=[];const f=S.land.f;
+   for(const [x,w,h,rh] of[[226,46,30,22],[282,36,24,18],[326,54,34,24],[392,38,26,19],[546,42,28,20],[598,58,36,26],[666,40,26,19],[714,30,22,16]]){const b=Math.min(f(x),f(x+w))-3,F=flip(S.vh,b),FR=flip(S.vr,b),FL=flip(S.vrr,b);
+    F.rect(x,b-h,w,h);poly(FR,[[x-4,b-h+1],[x+w/2,b-h-rh],[x+w+4,b-h+1]]);seg(FL,[x-4,b-h],[x+w/2,b-h-rh]);seg(FL,[x+w/2,b-h-rh],[x+w+4,b-h]);F.rect(x+w*rr(.15,.7),b-h-rh*.95,5,rh*.7);
+    const nw=w>40?2:1;for(let i=0;i<nw;i++)if(R()<.85)S.vw.push([x+w*(nw>1?.18+.46*i:.4)+rr(-2,2),b+h*rr(.32,.42),rr(0,TAU)])}
+   const b=f(480)-3,F=flip(S.vh,b),FR=flip(S.vr,b),FL=flip(S.vrr,b);F.rect(428,b-36,104,36);poly(FR,[[422,b-35],[480,b-62],[538,b-35]]);seg(FL,[422,b-36],[480,b-62]);seg(FL,[480,b-62],[538,b-36]);F.rect(465,b-110,30,110);F.rect(460,b-113,40,6);F.rect(461,b-80,38,4);
+   poly(FR,[[461,b-110],[480,b-172],[499,b-110]]);seg(FL,[461,b-110],[480,b-172]);seg(FL,[480,b-172],[499,b-110]);F.rect(478.8,b-190,2.4,20);F.rect(473,b-183,14,2.4);
+   S.clk=[480,b+62];S.cw=[[440,b+12,0],[512,b+12,2],[476,b+90,4]];S.belf=P2();for(const x of[469,482])flip(S.belf,b).rect(x,b-104,9,18);
+   S.lamp=P2();S.lamps=[];for(const x of[300,396,526,640]){const y=f(x)-2;S.lamp.rect(x-1,y,2,30);S.lamp.rect(x-4,y+30,8,3);S.lamp.rect(x-3,y+42,6,2);S.lamps.push([x,y+37,rr(0,TAU)])}
+   /* mid ledges at the sides with inverted pines */
+   S.ledge=P2();blob([[-30,-20],[330,-20],[318,40],[250,74],[170,94],[60,102],[-30,108]],S.ledge);blob([[1000,-20],[640,-20],[650,36],[724,74],[820,96],[1000,104]],S.ledge);
+   S.pn=P2();S.pns=P2();for(const [x,y,h] of[[176,86,170],[234,70,116],[284,50,80],[694,54,88],[748,76,140],[806,90,186],[124,96,140]])hpine(S.pn,S.pns,x,y,h,h*.44)},
+  far(S,t){stars(S,t);moon(S.mo,.62);drawH(S.m0,S.h0,S.c0,PB(.12));fog(t,300,.07,6,50,3);fog(t,404,.06,-4,40,3);fog(t,200,.09,3,56,3);
+   c.fillStyle=S.landG;c.fill(S.land.p);c.fillStyle=A(6,8,22);c.fill(S.tl);c.fillStyle=A(140,170,240,.22);c.fill(S.tls);
+   c.fillStyle=A(6,8,22);c.fill(S.vh);c.fillStyle=A(9,12,30);c.fill(S.vr);c.strokeStyle=A(160,190,255,.32);c.lineWidth=1.2;c.stroke(S.vrr);c.fillStyle=A(1,2,8);c.fill(S.belf);c.fill(S.lamp);
+   add(()=>{c.fillStyle=CY(1);for(const [x,y,p] of S.vw){const a=.6+.25*Math.sin(t*1.1+p);c.globalAlpha=a;c.fillRect(x,y,5,6);ell(CYG,x+2.5,y+3,14,13,.36*a)}
+    for(const [x,y,p] of S.cw){const a=.45+.2*Math.sin(t*.9+p);c.globalAlpha=a;c.fillStyle=CY(1);c.fillRect(x-3,y,6,12);ell(CYG,x,y+6,12,14,.3*a)}
+    for(const [x,y,p] of S.lamps){const a=.7+.2*Math.sin(t*1.7+p)+.1*Math.sin(t*6+p);ell(CYG,x,y,20,20,.35*a);ell(CYG,x,y,4,6,.8*a)}
+    const [x,y]=S.clk;ell(CYG,x,y,22,22,.25);c.globalAlpha=.55;c.fillStyle=PB(1);c.beginPath();c.arc(x,y,8,0,TAU);c.fill()});
+   const [x,y]=S.clk;c.strokeStyle=A(10,14,34);c.lineWidth=1.5;c.beginPath();const m=-t*.05,h=-t*.004+1;c.moveTo(x,y);c.lineTo(x+Math.cos(m)*6.5,y+Math.sin(m)*6.5);c.moveTo(x,y);c.lineTo(x+Math.cos(h)*4.2,y+Math.sin(h)*4.2);c.stroke();
+   fog(t,196,.05,-4,34,3)},
+  draw(S,t){c.fillStyle=A(5,7,20);c.fill(S.ledge);c.fill(S.pn);c.fillStyle=A(120,150,224,.18);c.fill(S.pns);c.strokeStyle=A(130,160,240,.16);c.lineWidth=1.2;c.stroke(S.ledge)}},
+ /* 2: a vast hall of colossal inverted columns hanging from the dark, rune lights, mist */
+ hall:{init(S){seed=S.seed+5;
+   const row=(list,k)=>{const o={p:P2(),fl:P2(),lit:P2(),ru:P2(),rp:[],chunks:[],k};for(const [x,w,tip,br] of list){const hw=w/2;
+     if(br){const pts=[[x-hw,-20],[x+hw,-20],[x+hw,tip-rr(14,30)]];for(let i=1;i<5;i++)pts.push([x+hw-w*i/5,tip-rr(0,28)]);pts.push([x-hw,tip-rr(6,30)]);poly(o.p,pts);
+      if(k)for(let i=0;i<2;i++){const cx=x+rr(-hw,hw),cy=tip+rr(20,60),s=rr(.08,.16)*w;o.chunks.push({p:poly(P2(),[[cx-s,cy-s*.6],[cx+s*.8,cy-s],[cx+s,cy+s*.4],[cx-s*.2,cy+s],[cx-s*1.1,cy+s*.3]]),ph:rr(0,TAU)})}}
+     else{o.p.rect(x-hw,-20,w,tip-w*.42+20);poly(o.p,[[x-hw,tip-w*.42],[x+hw,tip-w*.42],[x+hw*1.34,tip-w*.18],[x-hw*1.34,tip-w*.18]]);o.p.rect(x-hw*1.46,tip-w*.18,w*1.46,w*.16);o.p.rect(x-hw*1.2,tip-w*.02,w*1.2,w*.06);
+      o.lit.rect(x-hw*1.46,tip-w*.04,w*1.46,1.8);o.lit.rect(x-hw*1.2,tip+w*.04-1.6,w*1.2,1.6)}
+     const sd=x<480?1:-1,e=br?tip-30:tip-w*.42;o.lit.rect(x+sd*hw-(sd>0?3:0),40,3,e-40);
+     if(k)for(let i=1;i<6;i++){const fx=x-hw+w*i/6;seg(o.fl,[fx,-20],[fx,e])}
+     if(k&&!br||k===2){const n=k===2?2:1;for(let i=0;i<n;i++){const y=rr(170,Math.max(180,e-70));glyph(o.ru,x,y,k===2?26:16);o.rp.push([x,y,rr(0,TAU)])}}}
+    return o};
+   S.r0=row([[-10,18,300],[70,16,262,1],[150,20,318],[236,14,280],[318,18,330,1],[400,16,300],[560,16,296],[640,18,324],[722,14,270,1],[806,20,312],[888,16,286],[968,18,300]],0);
+   S.r1=row([[28,32,350],[200,38,380,1],[372,30,336],[600,34,346],[770,40,372],[930,32,344,1]],1);
+   S.r2=row([[160,88,404],[322,62,362,1],[650,70,374],[812,92,412]],2);
+   S.g0=lg(0,0,0,340,[A(10,14,36),A(22,30,66)]);S.g1=lg(0,0,0,380,[A(6,9,24),A(13,19,44),A(22,32,70)]);S.g2=lg(0,0,0,420,[A(2,4,12),A(5,8,22),A(12,18,42)]);S.lit=lg(0,0,0,420,[A(150,200,255,0),A(150,200,255,.2)]);
+   S.ring=P2();S.ring.arc(480,236,128,0,TAU);S.ring.moveTo(480+104,236);S.ring.arc(480,236,104,0,TAU);S.rr=P2();for(let i=0;i<12;i++){const a=i/12*TAU;glyph(S.rr,480+Math.cos(a)*116,236+Math.sin(a)*116,12)}},
+  far(S,t){const p=.5+.5*Math.sin(t*.5);add(()=>{c.globalAlpha=.1+.05*p;c.strokeStyle=CY(1);c.lineWidth=1.2;c.stroke(S.ring);c.globalAlpha=.14+.1*p;c.lineCap='round';c.stroke(S.rr);ell(CYG,480,236,150,150,.06+.03*p)});
+   c.fillStyle=S.g0;c.fill(S.r0.p);c.fillStyle=A(150,190,255,.1);c.fill(S.r0.lit);fog(t,250,.07,5,60,4);fog(t,140,.05,-4,40,3);
+   c.fillStyle=S.g1;c.fill(S.r1.p);c.strokeStyle=NK(.3);c.lineWidth=1;c.stroke(S.r1.fl);c.fillStyle=A(150,200,255,.1);c.fill(S.r1.lit);this.runes(S.r1,t,.6);
+   for(const q of S.r1.chunks){c.save();c.translate(0,Math.sin(t*.3+q.ph)*3);c.fillStyle=S.g1;c.fill(q.p);c.restore()}fog(t,330,.07,-7,56,4)},
+  draw(S,t){c.fillStyle=S.g2;c.fill(S.r2.p);c.strokeStyle=NK(.4);c.lineWidth=1.4;c.stroke(S.r2.fl);c.fillStyle=S.lit;c.fill(S.r2.lit);this.runes(S.r2,t,1);
+   for(const q of S.r2.chunks){c.save();c.translate(0,Math.sin(t*.28+q.ph)*4);c.fillStyle=S.g2;c.fill(q.p);c.strokeStyle=A(140,190,255,.2);c.lineWidth=1;c.stroke(q.p);c.restore()}},
+  runes(o,t,k){const p=.5+.5*Math.sin(t*.8+o.k);c.lineCap='round';c.strokeStyle=A(1,2,8,.9);c.lineWidth=3.6*k;c.stroke(o.ru);add(()=>{c.strokeStyle=CY(.25+.35*p);c.lineWidth=1.5*k;c.stroke(o.ru);for(const [x,y,ph] of o.rp)ell(CYG,x,y,30*k,46*k,(.07+.07*(.5+.5*Math.sin(t*.8+ph)))*k)});c.lineCap='butt'}},
+ /* 3: a misty void, tiny cold-blue lanterns drifting upward at several depths, thin hanging chains */
+ lantern:{init(S){seed=S.seed+5;
+   S.m0=hrange(-80,1040,6,150,214,6,20,1,.25);S.h0=lg(0,6,0,214,[I(8),I(26)]);S.c0=lg(0,140,0,214,[A(120,150,230,.1),A(150,190,255,.18)]);
+   S.ld=hland(54,5,.7);S.tl=P2();S.tls=P2();htree(S.tl,S.tls,-20,W+20,S.ld.f,14,34);
+   S.lf=P2();poly(S.lf,[[-.3,-1],[.3,-1],[.6,-.72],[-.6,-.72]]);S.lf.rect(-.56,-.74,.12,1.28);S.lf.rect(.44,-.74,.12,1.28);S.lf.rect(-.05,-.74,.1,1.28);poly(S.lf,[[-.6,.52],[.6,.52],[.32,.74],[-.32,.74]]);poly(S.lf,[[-.08,.74],[.08,.74],[0,.98]]);
+   S.lf.moveTo(.17,-1.12);S.lf.arc(0,-1.12,.17,0,TAU);S.lp=P2();S.lp.rect(-.46,-.72,.92,1.26);S.lpG=lg(0,-.72,0,.54,[A(196,244,255),A(90,186,255)]);
+   const mk=(n,s0,s1,v0,v1)=>arr(n,()=>({x:rr(0,W),y:rr(0,H+120),s:rr(s0,s1),v:rr(v0,v1),ph:rr(0,TAU),sw:rr(6,16),f:rr(.2,.45)}));
+   S.L0=mk(56,.9,1.7,3.5,7);S.L1=mk(24,4.4,6.6,7,11);S.L2=mk(6,9.5,13,12,17);
+   S.chF=P2();for(let i=0;i<10;i++){const x=40+i*92+rr(-20,20),l=rr(110,300);seg(S.chF,[x,-10],[x,l]);S.chF.moveTo(x+3.4,l+3);S.chF.arc(x,l+3,3.4,0,TAU)}
+   S.chM=[[218,236,1],[300,150,0],[668,290,1],[742,170,2],[598,110,0]].map(([x,l,k])=>({x,l,k,p:links(P2(),0,0,l,3.6),ph:rr(0,TAU)}));
+   S.cage=P2();S.cage.rect(-5,0,10,2);S.cage.rect(-6,17,12,2);for(const x of[-5,-.7,3.6])S.cage.rect(x,1,1.4,17);poly(S.cage,[[-3.5,-4],[3.5,-4],[5.5,0],[-5.5,0]])},
+  lan(S,list,t,a0,gl){const out=[];for(const L of list){const y=mod(L.y-t*L.v,H+120)-60,x=L.x+Math.sin(t*L.f+L.ph)*L.sw,k=cl01((y-CT)/110)*cl01((H-y)/70),fl=(.78+.14*Math.sin(t*2.1+L.ph)+.08*Math.sin(t*6.3+L.ph*2))*k*a0;if(fl>.02)out.push([x,y,L.s,Math.sin(t*L.f*1.3+L.ph)*.12,fl])}
+   add(()=>{for(const [x,y,s,a,fl] of out){ell(CYG,x,y,s*gl,s*gl,.34*fl);ell(CYG,x,y,s*1.5,s*1.7,.6*fl)}});
+   for(const [x,y,s,a,fl] of out){c.save();c.translate(x,y);c.rotate(a);c.scale(s,s);c.globalAlpha=fl;c.fillStyle=S.lpG;c.fill(S.lp);c.globalAlpha=Math.min(1,fl*1.3);c.fillStyle=A(3,5,14);c.fill(S.lf);c.restore()}c.globalAlpha=1},
+  far(S,t){drawH(S.m0,S.h0,S.c0,PB(.08));fog(t,200,.07,5,70,4);c.fillStyle=I(14);c.fill(S.ld.p);c.fill(S.tl);c.fillStyle=A(130,160,240,.14);c.fill(S.tls);
+   c.strokeStyle=I(30,.7);c.lineWidth=1;c.stroke(S.chF);fog(t,120,.06,-4,40,3);
+   const p=P2(),h=P2();for(const L of S.L0){const y=mod(L.y-t*L.v,H+120)-60,x=L.x+Math.sin(t*L.f+L.ph)*L.sw*.5;p.moveTo(x+L.s,y);p.arc(x,y,L.s,0,TAU);h.moveTo(x+L.s*4,y);h.arc(x,y,L.s*4,0,TAU)}
+   add(()=>{c.fillStyle=CY(1);c.globalAlpha=.1;c.fill(h);c.globalAlpha=.8;c.fill(p)});fog(t,300,.08,-6,70,4);fog(t,240,.06,9,30,3)},
+  draw(S,t){for(const q of S.chM){c.save();c.translate(q.x,-6);c.rotate(Math.sin(t*.4+q.ph)*.015);c.strokeStyle=A(6,9,24);c.lineWidth=1.6;c.stroke(q.p);c.translate(0,q.l);
+    if(q.k===1){const fl=.75+.15*Math.sin(t*2+q.ph)+.1*Math.sin(t*6.7+q.ph);add(()=>{ell(CYG,0,12,34,34,.22*fl);ell(CYG,0,12,7,9,.6*fl)});c.translate(0,2);c.scale(1.1,1.1);c.fillStyle=A(4,6,18);c.fill(S.cage)}
+    else if(q.k===2){c.translate(0,2);c.scale(1.1,1.1);c.fillStyle=A(4,6,18);c.fill(S.cage)}else{c.strokeStyle=A(6,9,24);c.lineWidth=2.4;c.beginPath();c.arc(0,9,7,-Math.PI*.5,Math.PI*1.05);c.stroke()}c.restore()}
+   this.lan(S,S.L1,t,.95,5)},
+  post(S,t){this.lan(S,S.L2,t,.9,4.2)}},
+ /* 4: dark honeycomb masses hanging from above, a few cells glowing faint blue */
+ nest:{init(S){seed=S.seed+5;
+   S.far=[[[150,40,190],[110,30,150]],[[290,44,250],[330,26,200]],[[440,30,170],[470,22,210]],[[560,40,230],[600,30,190]],[[720,46,200],[770,30,236]],[[880,40,260],[840,26,210]]].map(L=>comb(L,4));
+   S.cmb=[comb([[206,86,240],[284,62,318],[132,50,176],[330,36,214]],10.5),comb([[704,84,232],[642,54,294],[790,58,196],[600,30,190]],10),comb([[392,40,140],[420,30,176]],6.5)];
+   S.hz=lg(0,0,0,260,[I(10),I(36)]);S.gn=shell(486,-40,370,150);S.gnG=lg(0,0,0,330,[I(12),I(28),I(40)])},
+  far(S,t){const g=S.gn,p=.5+.5*Math.sin(t*.5);c.fillStyle=S.gnG;c.fill(g.p);c.save();c.clip(g.p);c.strokeStyle=I(10,.6);c.lineWidth=3;c.stroke(g.bd);c.strokeStyle=A(140,170,250,.08);c.lineWidth=1.4;c.stroke(g.bl);c.restore();c.fillStyle=I(8);c.fill(g.hole);
+   add(()=>{ell(CYG,g.x+10,g.hy+2,26,12,.16+.1*p);ell(CYG,g.x+10,g.hy+30,110,70,.05+.03*p)});c.strokeStyle=A(150,180,255,.12);c.lineWidth=1.2;c.stroke(g.p);fog(t,300,.08,5,70,4);fog(t,140,.06,4,50,3);for(const o of S.far){c.fillStyle=S.hz;c.fill(o.p);c.fillStyle=I(16);c.fill(o.holes);c.strokeStyle=A(140,170,250,.16);c.lineWidth=1;c.stroke(o.p)}
+   add(()=>{c.fillStyle=CY(1);for(const o of S.far)for(let k=0;k<3;k++){c.globalAlpha=.22*(.3+.7*Math.max(0,Math.sin(t*.6+k*2.1)));c.fill(o.gl[k])}});fog(t,250,.07,-6,60,4)},
+  draw(S,t){const [a,b,m]=S.cmb;drawComb(m,t,.5,A(1,2,8),.07,.18,18);fog(t,210,.05,5,40,3);drawComb(a,t,.6,A(1,2,7),.09,.24,24);drawComb(b,t,.6,A(1,2,7),.09,.24,24)}},
+ /* 5: a black mirror lake reflecting an upside-down sky and moon, an inverted forest line on the horizon */
+ lake:{init(S){seed=S.seed+5;const HY=S.HY=300;
+   S.m0=hrange(-80,1040,10,190,250,6,26,1,.3);S.h0=lg(0,10,0,250,[I(8),I(36)]);S.c0=lg(0,170,0,250,[A(130,160,230,.14),A(170,200,255,.26)]);
+   S.m1=hrange(-60,1020,-10,118,176,8,18,-1,.35);S.h1=lg(0,-10,0,176,[D(3),D(14)]);S.c1=lg(0,90,0,176,[A(100,130,210,.1),A(130,170,250,.18)]);
+   S.mo=mkMoon(640,214,24);
+   /* the far shore: a thin strip of land hanging above the water, its forest pointing down until the tips touch their own reflections */
+   const sf=x=>266+Math.sin(x*.011+.4)*3+Math.sin(x*.031)*1.5;S.sh=P2();S.sh.moveTo(-20,sf(-20)-6);for(let x=-20;x<=W+20;x+=16)S.sh.lineTo(x,sf(x)-6+Math.sin(x*.07)*1.5);
+   let x=W+20;S.sh.lineTo(x,sf(x));while(x>-20){if(R()<.08){x-=rr(8,30);S.sh.lineTo(x,sf(x)+rr(0,3));continue}const full=HY-sf(x)-1,h=Math.max(7,R()<.5?full*rr(.88,1):full*rr(.3,.72)),w=h*rr(.46,.6),y=sf(x-w/2);
+    S.sh.lineTo(x,y);S.sh.lineTo(x-w*.3,y+h*.45);S.sh.lineTo(x-w*.22,y+h*.47);S.sh.lineTo(x-w*.5,y+h);S.sh.lineTo(x-w*.78,y+h*.47);S.sh.lineTo(x-w*.7,y+h*.45);S.sh.lineTo(x-w,y);x-=w*rr(.5,.9)}S.sh.closePath();
+   S.lakeG=lgp(0,HY,0,H,[[0,A(14,22,54)],[.12,A(6,10,28)],[.6,A(3,5,16)],[1,A(1,2,8)]]);S.skyR=lgp(0,0,0,HY,[[0,A(1,2,8)],[.5,A(6,10,30)],[1,A(16,24,60)]]);
+   S.rip=arr(26,()=>({x:rr(0,W),y:rr(HY+8,FY),l:rr(30,120),ph:rr(0,TAU),v:rr(4,12)}));S.mr=arr(12,i=>({y:HY+86+i*5.5+rr(-1,1),w:rr(10,26)*(1-i/14),ph:rr(0,TAU)}))},
+  scene(S,t,k){drawH(S.m0,S.h0,S.c0,PB(.12));moon(S.mo,k);drawH(S.m1,S.h1,S.c1,PB(.08))},
+  far(S,t){stars(S,t);this.scene(S,t,.7);fog(t,236,.06,5,40,3)},
+  draw(S,t){const HY=S.HY;c.fillStyle=S.lakeG;c.fillRect(0,HY,W,H-HY);
+   c.save();c.beginPath();c.rect(0,HY,W,H-HY);c.clip();c.translate(0,2*HY);c.scale(1,-1);c.globalAlpha=.5;c.fillStyle=S.skyR;c.fillRect(0,0,W,HY);c.globalAlpha=.42;this.scene(S,t,.5);c.globalAlpha=.8;c.fillStyle=A(2,3,10);c.fill(S.sh);c.restore();
+   c.fillStyle=A(2,3,10);c.fill(S.sh);c.strokeStyle=A(140,170,240,.14);c.lineWidth=1;c.beginPath();c.moveTo(0,HY);c.lineTo(W,HY);c.stroke();
+   /* the moon's reflection broken by ripples, and slow ripple glints across the water */
+   add(()=>{c.fillStyle=PB(1);for(const r of S.mr){const w=r.w*(.7+.3*Math.sin(t*1.3+r.ph)),x=640+Math.sin(t*.9+r.ph)*3;c.globalAlpha=.16+.1*Math.sin(t*1.7+r.ph);c.fillRect(x-w,r.y,w*2,1.4)}
+    c.lineWidth=1;c.strokeStyle=A(150,180,255,1);c.beginPath();for(const r of S.rip){const x=mod(r.x+t*r.v,W+240)-120,a=.5+.5*Math.sin(t*.6+r.ph);if(a<.15)continue;c.moveTo(x,r.y);c.lineTo(x+r.l*a,r.y)}c.globalAlpha=.06;c.stroke()});
+   fog(t,HY+6,.07,-6,22,4)}},
+ /* 6: the black throne hall: towering inverted arches, a distant throne hanging from its dais with glowing runes */
+ throne:{init(S){seed=S.seed+5;
+   /* an arcade of inverted pointed arches on piers at xs: each arch has an archivolt band with voussoir joints, a keystone at its downward apex and capitals at the springing */
+   const arcade=(xs,pw,s,aps,bw)=>{const o={p:P2(),rim:P2(),j:P2(),key:P2(),cap:P2(),pl:P2(),bw};for(const x of xs){o.p.rect(x-pw/2,-20,pw,H+40);o.pl.rect(x+pw/2-2.5,-20,2.5,H+20);o.cap.rect(x-pw/2-bw*.5,s-bw*.9,pw+bw,bw*.9)}
+     for(let i=0;i<xs.length-1;i++){const a=xs[i]+pw/2,b=xs[i+1]-pw/2,q=aps[i],h=q-s,m=(a+b)/2;harch(o.p,a,b,s,q,H+20);o.rim.moveTo(a,s);o.rim.quadraticCurveTo(a,s+h*.72,m,q);o.rim.quadraticCurveTo(b,s+h*.72,b,s);
+      for(const [p0,p1,sd] of[[[a,s],[a,s+h*.72],1],[[b,s],[b,s+h*.72],-1]])for(let k=1;k<8;k++){const u=k/8,v=1-u,x=v*v*p0[0]+2*u*v*p1[0]+u*u*m,y=v*v*p0[1]+2*u*v*p1[1]+u*u*q,
+        dx=2*v*(p1[0]-p0[0])+2*u*(m-p1[0]),dy=2*v*(p1[1]-p0[1])+2*u*(q-p1[1]),l=Math.hypot(dx,dy),nx=-dy/l*sd,ny=dx/l*sd;seg(o.j,[x,y],[x+nx*bw,y+ny*bw])}
+      poly(o.key,[[m-bw*.4,q-2],[m+bw*.4,q-2],[m+bw*.6,q+bw*1.2],[m-bw*.6,q+bw*1.2]])}return o};
+   S.a0=arcade([-60,60,180,300,420,540,660,780,900,1020],16,32,[296,306,300,292,300,304,296,302,298],6);S.a1=arcade([-40,280,680,1000],60,40,[376,446,376],16);
+   S.g0=lg(0,0,0,H,[A(4,6,18),A(11,16,40),A(7,10,28)]);S.g1=lg(0,0,0,H,[A(2,3,9),A(6,8,22),A(3,4,12)]);
+   S.st=P2();for(let y=40,r=0;y<H;y+=26,r++){seg(S.st,[0,y],[W,y]);for(let x=(r%2)*32-10;x<W;x+=64)seg(S.st,[x,y],[x,y+26])}
+   /* far away an upright throne on its stepped dais, cold runes glowing on its spired back; braziers hang beside it on chains, their cold flames burning downward */
+   S.dais=P2();S.dais.rect(380,394,200,12);S.dais.rect(398,382,164,12);S.dais.rect(414,370,132,12);S.dl=P2();S.dl.rect(380,394,200,1.6);S.dl.rect(398,382,164,1.6);S.dl.rect(414,370,132,1.6);
+   S.thr=P2();S.thr.rect(440,344,80,12);S.thr.rect(446,356,8,14);S.thr.rect(506,356,8,14);S.thr.rect(430,320,13,36);S.thr.rect(517,320,13,36);S.thr.rect(426,316,21,6);S.thr.rect(513,316,21,6);
+   poly(S.thr,[[446,346],[446,262],[434,242],[447,247],[455,212],[466,232],[480,170],[494,232],[505,212],[513,247],[526,242],[514,262],[514,346]]);
+   S.tr=P2();glyph(S.tr,480,290,18);glyph(S.tr,480,324,13);S.trc=P2();S.trc.arc(480,254,8,0,TAU);
+   S.halo=P2();S.halo.arc(480,268,116,0,TAU);S.halo.moveTo(480+96,268);S.halo.arc(480,268,96,0,TAU);S.hr=P2();for(let i=0;i<16;i++){const a=i/16*TAU;seg(S.hr,[480+Math.cos(a)*98,268+Math.sin(a)*98],[480+Math.cos(a)*114,268+Math.sin(a)*114])}
+   S.bz=[[402,0],[558,2]];S.bzP=P2();for(const [x] of S.bz){S.bzP.rect(x-1,40,2,174);poly(S.bzP,[[x-7,212],[x+7,212],[x+12,224],[x-12,224]]);S.bzP.rect(x-14,223,28,3)}
+   S.fl=lg(0,0,0,46,[A(220,246,255,.95),A(100,190,255,.7),A(40,90,255,0)])},
+  far(S,t){add(()=>{ell(EBG,480,262,380,250,.34+.04*Math.sin(t*.4))});this.arc(S.a0,S.g0,A(16,22,52),.18);
+   fog(t,230,.06,5,60,4);fog(t,380,.07,-4,50,3);
+   const p=.5+.5*Math.sin(t*.7);add(()=>{c.globalAlpha=.07+.04*p;c.fillStyle=EB(1);c.fill(S.halo,'evenodd');c.globalAlpha=.16+.1*p;c.strokeStyle=CY(1);c.lineWidth=1.2;c.stroke(S.hr)});
+   c.fillStyle=A(3,4,12);c.fill(S.dais);c.fill(S.thr);c.fill(S.bzP);c.fillStyle=A(130,170,255,.22);c.fill(S.dl);c.strokeStyle=A(130,170,255,.18);c.lineWidth=1;c.stroke(S.thr);
+   c.lineCap='round';add(()=>{c.strokeStyle=CY(.4+.4*p);c.lineWidth=1.6;c.stroke(S.tr);c.stroke(S.trc);ell(CYG,480,290,36,70,.1+.08*p)});c.lineCap='butt';
+   for(const [x,ph] of S.bz){const f1=Math.sin(t*5.3+ph),f2=Math.sin(t*8.1+ph*2),h=30+f1*4+f2*2,w=8+f2;add(()=>{ell(CYG,x,238,36,40,.2+.03*f1);c.save();c.translate(x,226);c.fillStyle=S.fl;c.globalAlpha=.85;c.beginPath();c.moveTo(-w,0);c.quadraticCurveTo(-w*.9,h*.5,f1*3,h);c.quadraticCurveTo(w*.9,h*.5,w,0);c.closePath();c.fill();c.restore()})}},
+  draw(S,t){this.arc(S.a1,S.g1,A(10,14,34),.24,S.st)},
+  arc(o,g,band,rimA,st){c.fillStyle=g;c.fill(o.p);c.save();c.clip(o.p);if(st){c.strokeStyle=NK(.45);c.lineWidth=1.2;c.stroke(st)}c.strokeStyle=band;c.lineWidth=o.bw*2;c.stroke(o.rim);c.strokeStyle=NK(.6);c.lineWidth=1.2;c.stroke(o.j);c.restore();
+   c.fillStyle=band;c.fill(o.key);c.fill(o.cap);c.strokeStyle=A(130,170,255,rimA);c.lineWidth=1.4;c.stroke(o.rim);c.fillStyle=A(130,170,255,rimA*.3);c.fill(o.pl)}}
+};
+
+/* =================== the seven scenes =================== */
+const SCENES=[
+ {name:'Rift Gate',mid:'rift',d:'The entrance to the Dark Realms: a huge torn rift of blue light glows far away while inverted mountain ranges hang from the dark above and rock fragments float in the still air.',
+  light:{x:480,y:290,r:480,a:.36,c:'eb'},o:{sky:[[0,A(1,2,8)],[.2,A(3,5,18)],[.5,A(10,15,44)],[.72,A(15,23,62)],[.88,A(6,9,28)],[1,A(2,3,10)]],stars:60,starY:260,edge:['stal','stal'],fogY:330,shafts:[[480,40,0,.8,0,90,FY]]}},
+ {name:'Hanging Street',mid:'street',d:'An upside-down village hangs from the dark sky far away, its church spire pointing down and its windows glowing cold blue, among inverted pines above a low pale moon.',
+  light:{x:690,y:416,r:420,a:.22,c:'mn'},o:{sky:[[0,A(1,2,8)],[.25,A(4,7,22)],[.6,A(11,16,46)],[.78,A(22,30,72)],[.9,A(9,12,34)],[1,A(2,3,10)]],stars:70,starY:330,edge:['pine','pine'],fogY:350,mote:{n:1.1}}},
+ {name:'Hollow Hall',mid:'hall',d:'A vast cavern hall where colossal inverted columns hang from the dark, faint blue runes pulse along them and mist drifts between the rows.',
+  light:{x:480,y:430,r:480,a:.24,c:'cy'},o:{sky:[[0,A(1,1,6)],[.3,A(3,6,18)],[.65,A(9,16,40)],[.84,A(11,22,50)],[1,A(2,3,10)]],edge:['column','column'],fogY:300,mc:'cy',moteA:.8,shafts:[[480,70,0,.7,0,90,FY],[300,34,2,.5,-40,120,FY]]}},
+ {name:'Lantern Walk',mid:'lantern',d:'A misty void where countless tiny cold-blue lanterns drift slowly upward at many depths and thin chains hang down from the dark.',
+  light:{x:480,y:360,r:520,a:.2,c:'cy'},o:{sky:[[0,A(1,2,8)],[.3,A(5,9,26)],[.6,A(12,20,52)],[.8,A(14,24,58)],[1,A(3,4,14)]],edge:['chain','chain'],fogY:380,mote:{n:.7},moteA:.8}},
+ {name:'Wasp Nest',mid:'nest',d:'Dark hexagonal honeycomb masses hang from above, a few cells glowing faint blue, while motes drift up through the gloom.',
+  light:{x:480,y:400,r:460,a:.22,c:'eb'},o:{sky:[[0,A(1,1,6)],[.3,A(4,6,20)],[.65,A(11,15,44)],[.82,A(13,19,52)],[1,A(2,3,10)]],edge:['nest','stal'],fogY:340,mc:'cy',moteA:.85}},
+ {name:'Mirror Lake',mid:'lake',d:'A still black lake mirrors the upside-down sky, the hanging mountains and a pale moon, under an inverted forest whose tips touch their own reflections.',
+  light:{x:640,y:214,r:420,a:.2,c:'mn'},o:{sky:[[0,A(1,2,8)],[.25,A(4,7,22)],[.45,A(10,15,42)],[.556,A(18,27,64)],[.6,A(4,6,18)],[1,A(2,3,10)]],stars:110,starY:250,edge:['roots','pine'],fogY:290,mote:{n:.8}}},
+ {name:'The Black Throne',mid:'throne',d:'A vast dark throne hall of towering inverted arches; far away a black throne stands on its dais, blue runes glowing on its back, between hanging braziers whose cold flames burn downward.',
+  light:{x:480,y:270,r:420,a:.14,c:'eb'},o:{sky:[[0,A(1,1,5)],[.3,A(3,5,16)],[.6,A(8,12,36)],[.8,A(9,13,40)],[1,A(1,2,8)]],edge:['pier','pier'],fogY:330,moteA:.75,shafts:[[480,80,0,.9,0,90,FY],[250,40,1.7,.5,30,110,FY],[710,40,3.1,.5,-30,110,FY]]}}
+];
+SCENES.forEach((s,i)=>{s.seed=307+i*977;s.o.light=s.light});
+function build(S){caches();makeFrame(S,S.o);MID[S.mid].init(S);S.built=true}
+function draw(S,t){const M=MID[S.mid],o=S.o;c.save();c.fillStyle=S.backG;c.fillRect(0,0,W,H);
+ if(M.far)M.far(S,t);if(!o.late)glow(S,t);motes(S,t,0);fog(t,o.fogY||320,.06,8,64);
+ M.draw(S,t);if(o.late)glow(S,t);shafts(S,t);motes(S,t,1);fog(t,440,.06,-14,48);if(M.post)M.post(S,t);
+ floorShade();edges(S,t);motes(S,t,2);topShade();vignette();c.restore()}
+return {SCENES,draw(i,ctx,t,dt){const S=SCENES[i];c=ctx;if(!S.built)build(S);draw(S,t||0,dt||0)}};
+})();
+
+</script>
+<script>
+(()=>{
+const grid=document.getElementById('grid'),items=[],reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+DARK.SCENES.forEach((s,i)=>{const f=document.createElement('figure');const cv=document.createElement('canvas');cv.setAttribute('role','img');cv.setAttribute('aria-label',s.name+': '+s.d);
+ const cap=document.createElement('figcaption');const t=document.createElement('div');t.className='t';const n=document.createElement('span');n.className='n';n.textContent=String(i);
+ const h=document.createElement('h2');h.textContent=s.name;t.append(n,h);const p=document.createElement('p');p.textContent=s.d;cap.append(t,p);f.append(cv,cap);grid.append(f);
+ items.push({i,cv,ctx:cv.getContext('2d'),vis:false,w:0,h:0,drawn:false})});
+function fit(it){const r=it.cv.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1),w=Math.max(1,Math.round(r.width*d)),h=Math.max(1,Math.round(r.height*d));
+ if(w!==it.w||h!==it.h){it.cv.width=w;it.cv.height=h;it.w=w;it.h=h;it.drawn=false}}
+function paint(it,t,dt){fit(it);const c=it.ctx;c.setTransform(it.w/960,0,0,it.h/540,0,0);DARK.draw(it.i,c,t,dt);it.drawn=true}
+const io=new IntersectionObserver(es=>{for(const e of es){const it=items.find(x=>x.cv===e.target);it.vis=e.isIntersecting}},{rootMargin:'100px'});
+items.forEach(it=>io.observe(it.cv));
+let last=performance.now();
+function frame(now){const dt=Math.min(.05,(now-last)/1000),t=now/1000;last=now;
+ for(const it of items){if(!it.vis)continue;if(reduce){fit(it);if(it.drawn)continue;paint(it,4,0);continue}paint(it,t,dt)}
+ requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
