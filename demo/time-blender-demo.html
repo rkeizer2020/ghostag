@@ -5577,7 +5577,8 @@ function drawDarkScreen(c){
    Soft drifting mist in every area, like in Hollow Knight: a haze far back behind the ground, a low mist that
    creeps over the floor and a few faint wisps in front of everything. Every area has its own colour and amount.
    The mist is one soft puff, painted once per colour and then stretched and drifted around. */
-const FOG_COL={factory:[205,168,138,.85],sewer:[110,200,175,1],prison:[205,212,226,.95],frost:[208,230,255,1.15],dark:[86,128,240,1.1]};
+/* colour, then how thick the far haze and the near mist are in that area */
+const FOG_COL={factory:[214,186,168,3.1,2.0],sewer:[110,200,175,1.9,1.5],prison:[205,212,226,1.9,1.5],frost:[212,232,255,3.1,2.0],dark:[86,128,240,1.1,1.1]};
 const FOGS={};
 function fogSprite(k){if(FOGS[k])return FOGS[k];const f=FOG_COL[k]||FOG_COL.sewer,cv=document.createElement('canvas');cv.width=256;cv.height=128;const x=cv.getContext('2d'),c0='rgba('+f[0]+','+f[1]+','+f[2]+',';
  const gr=x.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,c0+'1)');gr.addColorStop(.4,c0+'.6)');gr.addColorStop(.75,c0+'.18)');gr.addColorStop(1,c0+'0)');x.setTransform(2,0,0,1,0,0);x.fillStyle=gr;x.fillRect(0,0,128,128);return FOGS[k]=cv}
@@ -5590,9 +5591,9 @@ function drawFogBack(c,cam,t){const k=fogKind(),f=FOG_COL[k],S=fogSprite(k),a=f[
  for(let i=0;i<10;i++){const w=560+(i%3)*190,h=170+(i%2)*80,x=fogX(i,t,7+(i%3)*3,.45+.15*(i%2),w,cam),y=vy+HH*(i<6?.52+.08*(i%3):.24+.1*(i%2))+Math.sin(t*.13+i*1.7)*20;
   c.globalAlpha=(i<6?.2+.07*Math.sin(t*.21+i):.12+.05*Math.sin(t*.19+i))*a;c.drawImage(S,x,y-h/2,w,h)}c.restore()}
 /* low mist over the floor, and a few faint wisps closer to the camera */
-function drawFogFront(c,cam,t){const k=fogKind(),S=fogSprite(k),a=FOG_COL[k][3],vy=viewY();c.save();
- for(let i=0;i<12;i++){const w=320+(i%4)*70,h=64+(i%3)*18,x=fogX(i+20,t,11+(i%3)*5,1,w,cam),gx=clamp(x+cam+w/2,0,WORLD),gy=groundAt(gx);if(gy>vy+HH+60)continue;
-  c.globalAlpha=(.15+.06*Math.sin(t*.37+i*2.1))*a;c.drawImage(S,x,gy-h*.62,w,h)}
+function drawFogFront(c,cam,t){const k=fogKind(),S=fogSprite(k),a=FOG_COL[k][4],vy=viewY();c.save();
+ for(let i=0;i<12;i++){const w=340+(i%4)*80,h=80+(i%3)*24,x=fogX(i+20,t,11+(i%3)*5,1,w,cam),gx=clamp(x+cam+w/2,0,WORLD),gy=groundAt(gx);if(gy>vy+HH+60)continue;
+  c.globalAlpha=Math.min(.24,(.13+.05*Math.sin(t*.37+i*2.1))*a);c.drawImage(S,x,gy-h*.42,w,h)}
  for(let i=0;i<4;i++){const w=700+(i%2)*260,h=210+(i%2)*60,x=fogX(i+40,t,16+i*4,1.3,w,cam),y=vy+HH*(.34+.2*(i%3))+Math.sin(t*.17+i)*24;
   c.globalAlpha=(.07+.03*Math.sin(t*.25+i*1.3))*a;c.drawImage(S,x,y-h/2,w,h)}c.restore()}
 
