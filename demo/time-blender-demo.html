@@ -2498,7 +2498,7 @@ function drawScene(c,sc,t,cam){
  tile(c,cam*.8,()=>{if(sc.mid&&sc.mid.length)drawChain(c,sc.mid,t);for(const x of sc.lamps||[])lampAt(c,x,sc.ceil?36:0,t)});
  tile(c,cam*.8,()=>{if(sc.ceil=='girder')girder(c);else if(sc.ceil=='pipes')ceilPipes(c)});
  if(sc.glow){const g=c.createRadialGradient(sc.glow[0],sc.glow[1],10,sc.glow[0],sc.glow[1],380);g.addColorStop(0,sc.glow[2]);g.addColorStop(1,'rgba(255,140,60,0)');c.fillStyle=g;c.fillRect(0,0,WW,HH+80)}
- drawLifeBack(c,cam,t);drawFogBack(c,cam,t);drawFloorWorld(c,sc,cam);drawCeil(c,cam,t);
+ drawHazeBack(c,cam,t);drawFloorWorld(c,sc,cam);drawCeil(c,cam,t);
  tile(c,cam,()=>{if(sc.near&&sc.near.length)drawChain(c,sc.near,t);steam(c,t,sc.vents||[])});
  if(sc.tint){c.fillStyle=sc.tint;c.fillRect(0,0,WW,HH+80)}}
 function drawFront(c,sc,t,cam,i){drawFg(c,t,i,cam);const g=c.createRadialGradient(WW/2,HH*.55,HH*.3,WW/2,HH*.55,WW*.75);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(10,4,16,.55)');c.fillStyle=g;c.fillRect(0,0,WW,HH)}
@@ -5654,17 +5654,17 @@ function drawCeil(c,cam,t){if(!CEIL.cols||CEIL.room!==room)return;const k=CEIL.k
    - things to smash: crates, pots, urns, ice crystals, dark crystals (sometimes a part falls out)
    - small critters (embers, fireflies, moths, wisps) that scatter when you come close
    The camera is also a little closer, so rooms feel smaller and more enclosed. */
-const LIFE={room:-1,ter:null,kind:'',grass:[],hang:[],fg:[],bg:[],brk:[],bugs:[],parts:[],zoom:1};
+const LIFE={room:-1,ter:null,kind:'',grass:[],hang:[],fg:[],bg:[],bg2:[],clut:[],rays:[],brk:[],bugs:[],parts:[],zoom:1,half:true};
 /* how big things are drawn: grass, hanging things, things to smash, the foreground and the background plants */
-const LSZ={grass:1.55,hang:1.6,brk:1.45,fg:1.6,bg:2.1};
+const LSZ={grass:1.55,hang:1.6,brk:1.45,fg:1.6,bg:2.1,bg2:1.5,clut:1.3};
 const BROKE={};
 function lifeReset(){for(const k in BROKE)delete BROKE[k];LIFE.room=-1}
 const LIFE_PAL={
- factory:{g0:'#24201c',g1:'#6a5a44',rim:'rgba(255,170,90,',hang:'cable',brk:['crate','barrel'],bug:'ember',bgc:'rgba(30,16,26,.5)',fg:['pipes','reeds'],top:'cables',chip:['#8a6a44','#5a4430','#9a9aa8']},
- sewer:{g0:'#12302a',g1:'#4aa07a',rim:'rgba(120,230,190,',hang:'moss',brk:['pot','shroom'],bug:'firefly',bgc:'rgba(4,26,20,.5)',fg:['fern','reeds'],top:'roots',chip:['#a86a44','#7a4a30','#5adaa0']},
- prison:{g0:'#26262a',g1:'#77736a',rim:'rgba(220,225,235,',hang:'chain',brk:['urn','crate'],bug:'moth',bgc:'rgba(16,16,20,.5)',fg:['thorn','reeds'],top:'roots',chip:['#8a8a90','#5a5a60','#9a8a6a']},
- frost:{g0:'#2c3a4c',g1:'#dcefff',rim:'rgba(210,235,255,',hang:'frostvine',brk:['icerock','snowpile'],bug:'flake',bgc:'rgba(22,36,58,.45)',fg:['pine','reeds'],top:'branch',chip:['#cfeaff','#8ac0e0','#ffffff']},
- dark:{g0:'#0a1028',g1:'#6ad8ff',rim:'rgba(120,220,255,',hang:'tendril',brk:['crystal','crystal'],bug:'wisp',bgc:'rgba(4,10,30,.55)',fg:['spikes','fern'],top:'roots',chip:['#6ad8ff','#1c2a52','#bff4ff']}};
+ factory:{g0:'#24201c',g1:'#6a5a44',rim:'rgba(255,170,90,',hang:'cable',hang2:'lamp',clut:['gear','bolts','pipe','scrap','puddle','sign'],ray:'rgba(255,190,120,',brk:['crate','barrel'],bug:'ember',bgc:'rgba(30,16,26,.5)',fg:['pipes','reeds'],top:'cables',chip:['#8a6a44','#5a4430','#9a9aa8']},
+ sewer:{g0:'#12302a',g1:'#4aa07a',rim:'rgba(120,230,190,',hang:'moss',hang2:'bulbs',clut:['rock','skull','shroomS','puddle','moss','bones'],ray:'rgba(150,255,210,',brk:['pot','shroom'],bug:'firefly',bgc:'rgba(4,26,20,.5)',fg:['fern','reeds'],top:'roots',chip:['#a86a44','#7a4a30','#5adaa0']},
+ prison:{g0:'#26262a',g1:'#77736a',rim:'rgba(220,225,235,',hang:'chain',hang2:'cage',clut:['brick','chainF','bones','bucket','straw','rock'],ray:'rgba(230,235,255,',brk:['urn','crate'],bug:'moth',bgc:'rgba(16,16,20,.5)',fg:['thorn','reeds'],top:'roots',chip:['#8a8a90','#5a5a60','#9a8a6a']},
+ frost:{g0:'#2c3a4c',g1:'#dcefff',rim:'rgba(210,235,255,',hang:'frostvine',hang2:'icicles',clut:['snowrock','twigs','sapling','iceshard','snowrock'],ray:'rgba(220,240,255,',brk:['icerock','snowpile'],bug:'flake',bgc:'rgba(22,36,58,.45)',fg:['pine','reeds'],top:'branch',chip:['#cfeaff','#8ac0e0','#ffffff']},
+ dark:{g0:'#0a1028',g1:'#6ad8ff',rim:'rgba(120,220,255,',hang:'tendril',hang2:'tendril',clut:['shard','pebbles','root','shard'],ray:'rgba(120,200,255,',brk:['crystal','crystal'],bug:'wisp',bgc:'rgba(4,10,30,.55)',fg:['spikes','fern'],top:'roots',chip:['#6ad8ff','#1c2a52','#bff4ff']}};
 function lifeKind(){return typeof fogKind==='function'?fogKind():'sewer'}
 function noZoomRoom(){return room===BOSS_ROOM||room===GOD_ROOM||room===PR_BOSS||room===GORGI_ROOM||(room===FT0&&GRANNY.lock)||(room===FT_LAST&&YETI.lock)}
 function lifeZoom(){return LIFE.zoom}
@@ -5673,22 +5673,27 @@ function lifeTop(){return isDark(room)?DK_CEIL:viewY()-30}
 function genLife(){const k=lifeKind(),P=LIFE_PAL[k];LIFE.room=room;LIFE.ter=TER;LIFE.kind=k;
  let sd=(room*9301+49297)%233280||1;const R=()=>{sd=(sd*9301+49297)%233280;return sd/233280},RR=(a,b)=>a+R()*(b-a);
  const boss=noZoomRoom()||room===BOSS_ROOM||room===GOD_ROOM||room===PR_BOSS||room===GORGI_ROOM||room===FT_LAST,puz=PUZ_ROOMS[room]!==undefined,village=isFrost(room)&&room-FT0<2;
- LIFE.grass=[];LIFE.hang=[];LIFE.fg=[];LIFE.bg=[];LIFE.brk=[];LIFE.bugs=[];LIFE.parts=[];
+ LIFE.grass=[];LIFE.hang=[];LIFE.fg=[];LIFE.bg=[];LIFE.bg2=[];LIFE.clut=[];LIFE.rays=[];LIFE.brk=[];LIFE.bugs=[];LIFE.parts=[];
  /* grass on every stretch of ground */
- for(const s of TER){if(s.y>700||s.x1-s.x0<60)continue;for(let x=s.x0+20+RR(0,60);x<s.x1-20;x+=RR(55,130)){if(R()<.35)continue;LIFE.grass.push({x,y:s.y,n:3+Math.floor(R()*4),h:RR(13,30),seed:R()*99,a:0,v:0,cut:false})}}
+ for(const s of TER){if(s.y>700||s.x1-s.x0<60)continue;for(let x=s.x0+14+RR(0,30);x<s.x1-14;x+=RR(28,62)){if(R()<.12)continue;LIFE.grass.push({x,y:s.y,n:3+Math.floor(R()*4),h:RR(13,30),seed:R()*99,a:0,v:0,cut:false})}}
  /* hanging things; outdoors in the snow there is nothing above, except in the icicle cavern */
  const outdoor=isFrost(room)&&fsk(room)!==3,small=room===GORGI_ROOM||room===PIPE_A||room===PIPE_B;
- if(!outdoor&&!small)for(let x=RR(80,200);x<WORLD-60;x+=RR(150,290)){if(R()<.3)continue;LIFE.hang.push({x,len:RR(isDark(room)?60:110,isDark(room)?120:220),a:0,v:0,seed:R()*99,kind:P.hang})}
+ if(!outdoor&&!small)for(let x=RR(40,120);x<WORLD-40;x+=RR(70,150)){if(R()<.12)continue;const two=R()<.3;LIFE.hang.push({x,len:two?RR(70,140):RR(isDark(room)?50:80,isDark(room)?120:210),a:0,v:0,seed:R()*99,kind:two?P.hang2:P.hang})}
  /* foreground silhouettes, on a layer that scrolls faster than the room */
- for(let lx=RR(-200,200);lx<WORLD*1.3+WW;lx+=RR(560,960))LIFE.fg.push({lx,kind:P.fg[R()<.6?0:1],h:RR(115,190),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:false});
- for(let lx=RR(0,400);lx<WORLD*1.3+WW;lx+=RR(900,1500))LIFE.fg.push({lx,kind:P.top,h:RR(70,130),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:true});
+ for(let lx=RR(-200,200);lx<WORLD*1.3+WW;lx+=RR(260,520))LIFE.fg.push({lx,kind:P.fg[R()<.6?0:1],h:RR(95,185),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:false});
+ for(let lx=RR(0,400);lx<WORLD*1.3+WW;lx+=RR(420,820))LIFE.fg.push({lx,kind:P.top,h:RR(60,125),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:true});
  /* big, faint silhouettes far behind the ground, on a layer that scrolls slower than the room */
- for(let lx=RR(-100,300);lx<WORLD*.75+WW;lx+=RR(420,720))LIFE.bg.push({lx,kind:P.fg[R()<.5?0:1],h:RR(120,190),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:false,col:P.bgc});
+ for(let lx=RR(-100,300);lx<WORLD*.75+WW;lx+=RR(200,400))LIFE.bg.push({lx,kind:P.fg[R()<.5?0:1],h:RR(110,190),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:false,col:P.bgc});
+ for(let lx=RR(-100,200);lx<WORLD*.55+WW;lx+=RR(160,320))LIFE.bg2.push({lx,kind:P.fg[R()<.5?0:1],h:RR(110,200),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:false,col:P.bgc.replace(/,[.0-9]+\)$/,',.28)')});
+ /* clutter on the ground: little things lying around */
+ for(const s of TER){if(s.y>700||s.x1-s.x0<80)continue;for(let x=s.x0+30+RR(0,40);x<s.x1-30;x+=RR(45,105)){if(R()<.3)continue;LIFE.clut.push({x,y:s.y,kind:P.clut[Math.floor(R()*P.clut.length)],s:RR(.75,1.35),flip:R()<.5?-1:1,seed:R()*99})}}
+ /* soft shafts of light falling in from above */
+ if(!outdoor||k==='frost')for(let x=RR(100,500);x<WORLD;x+=RR(450,900))LIFE.rays.push({x,w:RR(60,150),lean:RR(-.35,.35),seed:R()*99});
  /* things to smash (not in boss arenas or puzzle rooms) */
- if(!boss&&!puz){const n=village?2:3+Math.floor(R()*3),done=BROKE[room]||new Set();for(let i=0,tries=0;i<n&&tries<40;tries++){const x=RR(200,WORLD-200),y=groundAt(x);if(y>700||LIFE.brk.some(b=>Math.abs(b.x-x)<200))continue;
+ if(!boss&&!puz){const n=village?3:5+Math.floor(R()*4),done=BROKE[room]||new Set();for(let i=0,tries=0;i<n&&tries<40;tries++){const x=RR(200,WORLD-200),y=groundAt(x);if(y>700||LIFE.brk.some(b=>Math.abs(b.x-x)<150))continue;
    if(village&&(FT_HOUSES[room-FT0].some(H=>Math.abs(H.x-x)<H.w/2+40)||FT_VILLAGERS.some(v=>v.r===room-FT0&&Math.abs(v.x-x)<130)))continue;const kind=P.brk[Math.floor(R()*P.brk.length)];LIFE.brk.push({i,x,y,kind,hp:kind==='crate'||kind==='barrel'||kind==='icerock'?2:1,broken:done.has(i),shake:0,seed:R()*99});i++}}
  /* critters */
- const nb=k==='frost'&&outdoor?3:6;for(let i=0;i<nb;i++)LIFE.bugs.push({x:RR(100,WORLD-100),y:groundAt(500)-RR(60,220),hx:0,hy:0,vx:0,vy:0,ph:R()*9,kind:P.bug});for(const b of LIFE.bugs){b.hx=b.x;b.hy=b.y}}
+ const nb=k==='frost'&&outdoor?6:12;for(let i=0;i<nb;i++)LIFE.bugs.push({x:RR(100,WORLD-100),y:groundAt(500)-RR(60,220),hx:0,hy:0,vx:0,vy:0,ph:R()*9,kind:P.bug});for(const b of LIFE.bugs){b.hx=b.x;b.hy=b.y}}
 
 /* ---------- every frame ---------- */
 function lifeStep(){LIFE.zoom+=((noZoomRoom()||CUT.on?1:1.12)-LIFE.zoom)*.06;
@@ -5722,7 +5727,9 @@ function lifeBreak(b){b.broken=true;(BROKE[room]=BROKE[room]||new Set()).add(b.i
 /* ---------- drawing ---------- */
 function lifeVisible(x,m){const s=x-cam;return s>-(m||80)&&s<WW+(m||80)}
 /* in the room, behind you: the things you can smash */
-function drawLifeWorld(c,cam,t){if(LIFE.room!==room)return;for(const b of LIFE.brk){if(b.broken||!lifeVisible(b.x))continue;drawBreakable(c,b,b.x-cam,b.y,t)}}
+function drawLifeWorld(c,cam,t){if(LIFE.room!==room)return;const P=LIFE_PAL[LIFE.kind];
+ for(const o of LIFE.clut){if(!lifeVisible(o.x,60))continue;c.save();c.translate(o.x-cam,o.y);c.scale(o.flip*o.s*LSZ.clut,o.s*LSZ.clut);drawClutter(c,o,t,P);c.restore()}
+ for(const b of LIFE.brk){if(b.broken||!lifeVisible(b.x))continue;drawBreakable(c,b,b.x-cam,b.y,t)}}
 function drawBreakable(c,b,x,y,t){const sh=b.shake*Math.sin(t*70)*3;c.save();c.translate(x+sh,y);c.scale(LSZ.brk,LSZ.brk);c.fillStyle='rgba(0,0,0,.28)';c.beginPath();c.ellipse(0,1,26,5,0,0,TAU);c.fill();
  const k=b.kind;
  if(k==='crate'){rrect(c,-24,-44,48,44,3);fillOut(c,lgrad(c,0,-44,0,0,['#8a6440','#5a3e26']),2.4);c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=1.6;for(const yy of[-30,-15]){c.beginPath();c.moveTo(-24,yy);c.lineTo(24,yy);c.stroke()}
@@ -5739,7 +5746,7 @@ function drawBreakable(c,b,x,y,t){const sh=b.shake*Math.sin(t*70)*3;c.save();c.t
 /* in front of you: grass, hanging things, critters and flying chips */
 function drawLifeFront(c,cam,t){if(LIFE.room!==room)return;const P=LIFE_PAL[LIFE.kind];
  c.save();c.lineCap='round';
- for(const g of LIFE.grass){if(!lifeVisible(g.x,40))continue;const x=g.x-cam;drawTuft(c,g,x,g.y,t,P)}
+ drawGrass(c,cam,t,P);
  for(const h of LIFE.hang){if(!lifeVisible(h.x,120))continue;drawStrand(c,h,h.x-cam,CEIL.cols?ceilAt(h.x)-4:lifeTop(),t,P)}
  c.globalCompositeOperation='lighter';for(const b of LIFE.bugs){if(!lifeVisible(b.x,20))continue;const x=b.x-cam,fl=.6+.4*Math.sin(b.ph*6+b.hx);
   if(b.kind==='flake'){c.globalCompositeOperation='source-over';c.fillStyle='rgba(255,255,255,.85)';c.beginPath();c.arc(x,b.y,1.8,0,TAU);c.fill();c.globalCompositeOperation='lighter';continue}
@@ -5750,26 +5757,52 @@ function drawLifeFront(c,cam,t){if(LIFE.room!==room)return;const P=LIFE_PAL[LIFE
  for(const p of LIFE.parts){const x=p.x-cam,a=1-clamp((p.life-p.max*.6)/(p.max*.4),0,1);c.globalAlpha=a;c.save();c.translate(x,p.y);c.rotate(p.rot);c.fillStyle=p.col;
   if(p.leaf){c.beginPath();c.ellipse(0,0,p.r*1.6,p.r*.6,0,0,TAU);c.fill()}else if(p.shard){c.beginPath();c.moveTo(-p.r,0);c.lineTo(0,-p.r*1.4);c.lineTo(p.r,0);c.closePath();c.fill()}else c.fillRect(-p.r/2,-p.r/2,p.r,p.r*.8);c.restore()}
  c.globalAlpha=1;c.restore()}
-function drawTuft(c,g,x0,y0,t,P){const w=Math.sin(t*1.4+g.seed)*.08,bend=g.a+w,x=0,y=0;c.save();c.translate(x0,y0);c.scale(LSZ.grass,LSZ.grass);
- for(let i=0;i<g.n;i++){const off=(i-(g.n-1)/2)*4.2,h=(g.cut?.32:1)*g.h*(.7+.3*Math.sin(g.seed+i*2.3)),lean=bend+(i-(g.n-1)/2)*.12,tx=x+off+Math.sin(lean)*h,ty=y-Math.cos(lean)*h;
-  c.strokeStyle=P.g0;c.lineWidth=2.6;c.beginPath();c.moveTo(x+off,y+2);c.quadraticCurveTo(x+off+Math.sin(lean)*h*.3,y-h*.55,tx,ty);c.stroke();
-  if(!g.cut){c.strokeStyle=P.g1;c.lineWidth=1.3;c.beginPath();c.moveTo(x+off+Math.sin(lean)*h*.55,y-Math.cos(lean)*h*.55);c.quadraticCurveTo(x+off+Math.sin(lean)*h*.8,y-h*.85,tx,ty);c.stroke()}}c.restore()}
+function drawGrass(c,cam,t,P){const S=LSZ.grass,p0=new Path2D(),p1=new Path2D();let any=false;
+ for(const g of LIFE.grass){if(!lifeVisible(g.x,40))continue;any=true;const X=g.x-cam,Y=g.y,bend=g.a+Math.sin(t*1.4+g.seed)*.08,m=(g.n-1)/2;
+  for(let i=0;i<g.n;i++){const off=(i-m)*4.2,h=(g.cut?.32:1)*g.h*(.7+.3*Math.sin(g.seed+i*2.3)),lean=bend+(i-m)*.12,sl=Math.sin(lean),cl=Math.cos(lean),tx=X+S*(off+sl*h),ty=Y-S*cl*h;
+   p0.moveTo(X+S*off,Y+S*2);p0.quadraticCurveTo(X+S*(off+sl*h*.3),Y-S*h*.55,tx,ty);
+   if(!g.cut){p1.moveTo(X+S*(off+sl*h*.55),Y-S*cl*h*.55);p1.quadraticCurveTo(X+S*(off+sl*h*.8),Y-S*h*.85,tx,ty)}}}
+ if(!any)return;c.lineCap='round';c.strokeStyle=P.g0;c.lineWidth=2.6*S;c.stroke(p0);c.strokeStyle=P.g1;c.lineWidth=1.3*S;c.stroke(p1)}
 function drawStrand(c,h,x0,top0,t,P){const w=Math.sin(t*.9+h.seed)*.05,a=h.a+w,N=9,pts=[],HS=LSZ.hang,L=h.len/HS,x=0,top=0;c.save();c.translate(x0,top0);c.scale(HS,HS);for(let i=0;i<=N;i++){const s=i/N,ang=a*Math.pow(s,1.3);pts.push([x+Math.sin(ang)*L*s+Math.sin(t*1.7+h.seed+s*3)*2*s,top+Math.cos(ang)*L*s])}
  const k=h.kind,line=(col,lw)=>{c.strokeStyle=col;c.lineWidth=lw;c.beginPath();c.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)c.lineTo(pts[i][0],pts[i][1]);c.stroke()},end=pts[N];
  if(k==='cable'){line('#0e0c10',4);line('rgba(255,170,90,.18)',1.2);c.fillStyle='#1a1418';rrect(c,end[0]-5,end[1]-2,10,14,2);c.fill();c.fillStyle='#c8a050';c.fillRect(end[0]-3,end[1]+11,2,5);c.fillRect(end[0]+1,end[1]+11,2,5)}
  else if(k==='moss'){line('#0e2a22',4.5);c.fillStyle='#1c4a3a';for(let i=1;i<N;i++){const [px,py]=pts[i];c.beginPath();c.ellipse(px+(i%2?5:-5),py,5,2.6,i%2?.6:-.6,0,TAU);c.fill()}
   const dk=(t*.7+h.seed)%1;c.fillStyle='rgba(150,240,200,'+(.8*(1-dk))+')';c.beginPath();c.arc(end[0],end[1]+4+dk*40,1.8,0,TAU);c.fill()}
- else if(k==='chain'){c.strokeStyle='#1a1a1e';c.lineWidth=2.2;for(let i=0;i<N;i++){const [x0,y0]=pts[i],[x1,y1]=pts[i+1];c.beginPath();c.ellipse((x0+x1)/2,(y0+y1)/2,i%2?2.5:4.5,Math.hypot(x1-x0,y1-y0)/2+1,Math.atan2(y1-y0,x1-x0)+Math.PI/2,0,TAU);c.stroke()}
+ else if(k==='chain'){c.strokeStyle='#1a1a1e';c.lineWidth=2.2;c.beginPath();for(let i=0;i<N;i++){const [x0,y0]=pts[i],[x1,y1]=pts[i+1],ex=(x0+x1)/2,ey=(y0+y1)/2,rx=i%2?2.5:4.5,rot=Math.atan2(y1-y0,x1-x0)+Math.PI/2;c.moveTo(ex+rx*Math.cos(rot),ey+rx*Math.sin(rot));c.ellipse(ex,ey,rx,Math.hypot(x1-x0,y1-y0)/2+1,rot,0,TAU)}c.stroke()
   c.beginPath();c.arc(end[0],end[1]+8,8,Math.PI*1.1,Math.PI*1.9,true);c.lineWidth=3.4;c.stroke()}
  else if(k==='frostvine'){line('#1c2838',4);c.fillStyle='#cfeaff';for(let i=1;i<N;i+=2){const [px,py]=pts[i];c.beginPath();c.ellipse(px,py,3.4,2,0,0,TAU);c.fill()}c.fillStyle='rgba(210,240,255,.9)';c.beginPath();c.moveTo(end[0]-3,end[1]);c.lineTo(end[0]+3,end[1]);c.lineTo(end[0],end[1]+16);c.closePath();c.fill()}
+ else if(k==='lamp'){line('#120e12',2.6);const lx=end[0],ly=end[1];c.save();c.globalCompositeOperation='lighter';const fl=.85+.15*Math.sin(t*6+h.seed);c.globalAlpha=.75*fl;c.drawImage(glowSprite('255,190,110'),lx-62,ly-50,124,124);c.restore();
+  c.fillStyle='#1a1418';c.beginPath();c.moveTo(lx-5,ly);c.lineTo(lx+5,ly);c.lineTo(lx+12,ly+10);c.lineTo(lx-12,ly+10);c.closePath();c.fill();c.fillStyle='rgba(255,214,140,'+fl+')';c.beginPath();c.arc(lx,ly+11,4,0,Math.PI);c.fill()}
+ else if(k==='bulbs'){line('#0e2a22',3.4);c.save();c.globalCompositeOperation='lighter';for(const q of[.45,.7,1]){const p2=pts[Math.round(q*N)],pu=.6+.4*Math.sin(t*2+h.seed+q*5);c.fillStyle='rgba(120,255,190,'+(.2*pu)+')';c.beginPath();c.arc(p2[0],p2[1]+3,9,0,TAU);c.fill();c.fillStyle='rgba(190,255,220,'+(.9*pu)+')';c.beginPath();c.arc(p2[0],p2[1]+3,2.6,0,TAU);c.fill()}c.restore()}
+ else if(k==='cage'){line('#1a1a1e',1.8);const cx=end[0],cy=end[1];c.strokeStyle='#1a1a1e';c.lineWidth=1.6;c.beginPath();c.arc(cx,cy+8,8,Math.PI,0);c.lineTo(cx+8,cy+24);c.lineTo(cx-8,cy+24);c.closePath();c.stroke();for(let i=-1;i<=1;i++){c.beginPath();c.moveTo(cx+i*4,cy+1);c.lineTo(cx+i*4,cy+24);c.stroke()}c.fillStyle='#1a1a1e';c.fillRect(cx-9,cy+23,18,3)}
+ else if(k==='icicles'){line('#1c2838',2.6);c.fillStyle='rgba(215,242,255,.92)';c.strokeStyle='rgba(60,100,140,.6)';c.lineWidth=.8;for(const [ox,L] of[[-5,12],[0,20],[5,10]]){c.beginPath();c.moveTo(end[0]+ox-2.5,end[1]);c.lineTo(end[0]+ox+2.5,end[1]);c.lineTo(end[0]+ox,end[1]+L);c.closePath();c.fill();c.stroke()}}
  else{line('#070b1c',4.2);c.save();c.globalCompositeOperation='lighter';const pu=.6+.4*Math.sin(t*2.2+h.seed);c.fillStyle='rgba(110,210,255,'+(.25*pu)+')';c.beginPath();c.arc(end[0],end[1]+4,12,0,TAU);c.fill();c.fillStyle='rgba(190,245,255,'+(.9*pu)+')';c.beginPath();c.arc(end[0],end[1]+4,3.4,0,TAU);c.fill();c.restore()}c.restore()}
 /* screen space, over everything but the HUD: the big black foreground plants */
 function drawLifeScreen(c,t){if(LIFE.room!==room||SCENE!=='play')return;const P=LIFE_PAL[LIFE.kind];
  for(let i=0;i<LIFE.fg.length;i++){const f=LIFE.fg[i],sx=f.lx-cam*1.3;if(sx<-f.h-60||sx>WW+f.h+60)continue;const sway=Math.sin(t*.8+f.seed)*.03+f.rus*Math.sin(t*11+f.seed)*.07;
   c.save();if(f.top){c.translate(sx,-4);c.scale(f.flip*LSZ.fg,-LSZ.fg)}else{c.translate(sx,HH+6);c.scale(f.flip*LSZ.fg,LSZ.fg)}c.rotate(sway);drawFgPlant(c,f,t,P);c.restore()}}
 /* far behind the ground: the same kinds of plants, much bigger, faint and soft in the haze */
-function drawLifeBack(c,cam,t){if(LIFE.room!==room)return;const P=LIFE_PAL[LIFE.kind],gy=groundAt(clamp(cam+WW/2,0,WORLD))+20;if(gy>900)return;
+function drawLifeBack(c,cam,t){drawLifePlantsBack(c,cam,t);drawLifeRays(c,cam,t)}
+function lifeBackGY(cam){return groundAt(clamp(cam+WW/2,0,WORLD))+20}
+function drawLifePlantsBack(c,cam,t){if(LIFE.room!==room)return;const P=LIFE_PAL[LIFE.kind],gy=lifeBackGY(cam);if(gy>900)return;
+ for(const f of LIFE.bg2){const sx=f.lx-cam*.55;if(sx<-f.h*2||sx>WW+f.h*2)continue;c.save();c.translate(sx,gy-30);c.scale(f.flip*LSZ.bg2,LSZ.bg2);c.rotate(Math.sin(t*.4+f.seed)*.02);drawFgPlant(c,f,t,P);c.restore()}
  for(const f of LIFE.bg){const sx=f.lx-cam*.72;if(sx<-f.h*2.4||sx>WW+f.h*2.4)continue;c.save();c.translate(sx,gy);c.scale(f.flip*LSZ.bg,LSZ.bg);c.rotate(Math.sin(t*.5+f.seed)*.02);drawFgPlant(c,f,t,P);c.restore()}}
+function drawLifeRays(c,cam,t){if(LIFE.room!==room||!LIFE.rays.length)return;const P=LIFE_PAL[LIFE.kind];if(lifeBackGY(cam)>900)return;
+ const top=CEIL.cols?null:viewY()-40;c.save();c.globalCompositeOperation='lighter';for(const r of LIFE.rays){const x=r.x-cam;if(x<-300||x>WW+300)continue;const y0=top===null?ceilAt(r.x):top,y1=groundAt(r.x),pu=.75+.25*Math.sin(t*.35+r.seed),dx=(y1-y0)*r.lean;
+   const g=c.createLinearGradient(0,y0,0,y1);g.addColorStop(0,P.ray+(.13*pu)+')');g.addColorStop(1,P.ray+'0)');c.fillStyle=g;c.beginPath();c.moveTo(x-r.w*.3,y0);c.lineTo(x+r.w*.3,y0);c.lineTo(x+dx+r.w*.7,y1);c.lineTo(x+dx-r.w*.7,y1);c.closePath();c.fill()}c.restore()}
+/* soft layers (far plants and mist) are painted at half resolution into a spare canvas with the same camera,
+   then stretched over the screen in one go: they are blurry anyway, and it costs a quarter of the work */
+const HALF={};
+function drawHalf(c,id,fn){const w=Math.max(1,Math.round(c.canvas.width/2)),h=Math.max(1,Math.round(c.canvas.height/2));let b=HALF[id];
+ if(!b||b.cv.width!==w||b.cv.height!==h){const cv=document.createElement('canvas');cv.width=w;cv.height=h;b=HALF[id]={cv,cx:cv.getContext('2d')}}
+ const x=b.cx,m=c.getTransform();x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,w,h);x.setTransform(m.a/2,m.b/2,m.c/2,m.d/2,m.e/2,m.f/2);fn(x);
+ c.save();c.setTransform(1,0,0,1,0,0);c.imageSmoothingEnabled=true;c.drawImage(b.cv,0,0,c.canvas.width,c.canvas.height);c.restore()}
+function drawHazeBack(c,cam,t){if(LIFE.half)drawHalf(c,'back',x=>{drawLifePlantsBack(x,cam,t);drawFogBack(x,cam,t)});else{drawLifePlantsBack(c,cam,t);drawFogBack(c,cam,t)}drawLifeRays(c,cam,t)}
+function drawHazeFront(c,cam,t){if(LIFE.half)drawHalf(c,'front',x=>drawFogFront(x,cam,t));else drawFogFront(c,cam,t)}
+/* a soft round glow, painted once per colour */
+const GLOWS={};
+function glowSprite(col){if(GLOWS[col])return GLOWS[col];const cv=document.createElement('canvas');cv.width=cv.height=96;const x=cv.getContext('2d'),gr=x.createRadialGradient(48,48,0,48,48,48);
+ gr.addColorStop(0,'rgba('+col+',1)');gr.addColorStop(.35,'rgba('+col+',.45)');gr.addColorStop(1,'rgba('+col+',0)');x.fillStyle=gr;x.fillRect(0,0,96,96);return GLOWS[col]=cv}
 function drawFgPlant(c,f,t,P){const h=f.h,k=f.kind,dark=f.col||'#05040a',rim=f.col?'rgba(0,0,0,':P.rim;let s=f.seed;const R=()=>{s=(s*9301+49297)%233280;return s/233280};c.fillStyle=dark;c.strokeStyle=dark;c.lineCap='round';
  if(k==='fern'||k==='roots'){const n=k==='fern'?6:4;for(let i=0;i<n;i++){const a=-1.2+i*(2.4/(n-1))+(R()-.5)*.3,L=h*(.6+R()*.45);c.lineWidth=k==='fern'?4:6;c.beginPath();c.moveTo(0,0);const cx=Math.sin(a)*L*.5,cy=-Math.cos(a)*L*.6,ex=Math.sin(a)*L,ey=-Math.cos(a)*L*.85+L*.15;c.quadraticCurveTo(cx,cy,ex,ey);c.stroke();
    if(k==='fern')for(let j=1;j<9;j++){const q=j/9,px=2*(1-q)*q*cx+q*q*ex,py=2*(1-q)*q*cy+q*q*ey,sz=(1-q)*13+3;for(const sd of[-1,1]){c.beginPath();c.ellipse(px+sd*sz*.6,py,sz*.8,sz*.28,a+sd*.7,0,TAU);c.fill()}}
@@ -5787,6 +5820,31 @@ function drawFgPlant(c,f,t,P){const h=f.h,k=f.kind,dark=f.col||'#05040a',rim=f.c
   c.lineWidth=5;for(let i=0;i<3;i++){const x0=-10+i*14;c.beginPath();c.moveTo(x0,k==='pipes'?-h*.4:0);c.bezierCurveTo(x0+40,-h*.2-i*20,x0+20,-h*.7,x0+50+i*10,-h*(.75+i*.08));c.stroke()}}
  else if(k==='spikes'){for(let i=0;i<7;i++){const x=(i-3)*13+(R()-.5)*8,L=h*(.45+R()*.6),lean=(R()-.5)*.6;c.beginPath();c.moveTo(x-7,0);c.lineTo(x+Math.sin(lean)*L,-L);c.lineTo(x+7,0);c.closePath();c.fill();
    c.save();c.globalCompositeOperation='lighter';c.fillStyle=rim+(.35+.25*Math.sin(t*2+i))+')';c.beginPath();c.arc(x+Math.sin(lean)*L,-L,3.2,0,TAU);c.fill();c.restore()}}}
+
+/* little things lying around on the ground, drawn around their foot point */
+function drawClutter(c,o,t,P){const k=o.kind,OL='rgba(10,8,14,.85)';c.lineJoin='round';
+ if(k==='gear'){c.fillStyle='#5a4a3a';c.beginPath();for(let i=0;i<16;i++){const a=Math.PI+i/15*Math.PI,r=i%2?9:12;c.lineTo(Math.cos(a)*r,Math.sin(a)*r+2)}c.closePath();c.fill();c.strokeStyle=OL;c.lineWidth=1.4;c.stroke();c.fillStyle='#2a2018';c.beginPath();c.arc(0,2,3.5,Math.PI,0);c.fill()}
+ else if(k==='bolts'){for(const [x,y] of[[-6,-2],[0,-3],[6,-2],[-3,-6],[3,-6]]){c.beginPath();for(let i=0;i<6;i++){const a=i*Math.PI/3;c.lineTo(x+Math.cos(a)*3.4,y+Math.sin(a)*3.4)}c.closePath();c.fillStyle='#8a8a96';c.fill();c.strokeStyle=OL;c.lineWidth=1;c.stroke()}}
+ else if(k==='pipe'){c.save();c.rotate(-.12);rrect(c,-16,-8,30,8,3);c.fillStyle='#6a4a34';c.fill();c.strokeStyle=OL;c.lineWidth=1.4;c.stroke();c.beginPath();c.ellipse(14,-4,3,4,0,0,TAU);c.fillStyle='#2a1c14';c.fill();c.restore()}
+ else if(k==='scrap'){c.fillStyle='#3a3238';c.beginPath();c.moveTo(-16,0);c.lineTo(-10,-10);c.lineTo(-2,-7);c.lineTo(4,-14);c.lineTo(12,-6);c.lineTo(16,0);c.closePath();c.fill();c.strokeStyle=OL;c.lineWidth=1.2;c.stroke();c.strokeStyle='#8a6a44';c.beginPath();c.moveTo(-6,-6);c.lineTo(2,-2);c.stroke()}
+ else if(k==='puddle'){c.fillStyle=LIFE.kind==='sewer'?'rgba(60,160,120,.45)':'rgba(20,16,26,.7)';c.beginPath();c.ellipse(0,1,20,3.4,0,0,TAU);c.fill();c.save();c.globalCompositeOperation='lighter';const r=(t*.6+o.seed)%1;c.strokeStyle=(LIFE.kind==='sewer'?'rgba(150,255,210,':'rgba(200,170,255,')+(.4*(1-r))+')';c.lineWidth=1;c.beginPath();c.ellipse(-4,1,3+r*12,1+r*2,0,0,TAU);c.stroke();c.restore()}
+ else if(k==='sign'){c.fillStyle='#3a2a1c';c.fillRect(-1.5,-20,3,20);c.beginPath();c.moveTo(0,-30);c.lineTo(9,-16);c.lineTo(-9,-16);c.closePath();c.fillStyle='#e0a030';c.fill();c.strokeStyle=OL;c.lineWidth=1.2;c.stroke();c.fillStyle='#1a1410';c.fillRect(-.8,-26,1.6,5);c.fillRect(-.8,-19.5,1.6,1.6)}
+ else if(k==='rock'||k==='snowrock'){c.fillStyle=LIFE.kind==='prison'?'#4a4a50':LIFE.kind==='frost'?'#3a4a5c':'#2a3a34';c.beginPath();c.moveTo(-14,0);c.quadraticCurveTo(-14,-11,-4,-12);c.quadraticCurveTo(8,-14,13,-4);c.lineTo(14,0);c.closePath();c.fill();c.strokeStyle=OL;c.lineWidth=1.2;c.stroke();
+  if(k==='snowrock'){c.fillStyle='#f4f9ff';c.beginPath();c.moveTo(-12,-7);c.quadraticCurveTo(-4,-15,8,-12);c.quadraticCurveTo(12,-8,13,-5);c.quadraticCurveTo(0,-9,-12,-7);c.fill()}else{c.fillStyle='rgba(255,255,255,.08)';c.beginPath();c.ellipse(-3,-8,6,2.5,-.3,0,TAU);c.fill()}}
+ else if(k==='skull'){c.fillStyle='#d8d0c0';c.beginPath();c.arc(0,-7,7,Math.PI*.95,Math.PI*.05);c.lineTo(5,0);c.lineTo(-5,0);c.closePath();c.fill();c.strokeStyle=OL;c.lineWidth=1.1;c.stroke();c.fillStyle='#1a1410';c.beginPath();c.arc(-2.6,-6,1.8,0,TAU);c.arc(2.8,-6,1.8,0,TAU);c.fill()}
+ else if(k==='shroomS'){c.save();c.globalCompositeOperation='lighter';c.fillStyle='rgba(120,255,190,'+(.18+.1*Math.sin(t*2+o.seed))+')';c.beginPath();c.arc(0,-6,12,0,TAU);c.fill();c.restore();for(const [x,h,r] of[[-4,7,4],[3,10,5],[7,5,3]]){c.fillStyle='#cfe0c8';c.fillRect(x-1,-h,2,h);c.beginPath();c.ellipse(x,-h,r,r*.6,0,Math.PI,0);c.fillStyle='#3a9a70';c.fill()}}
+ else if(k==='moss'){c.fillStyle='#1e4a3a';c.beginPath();c.ellipse(0,0,16,6,0,Math.PI,0);c.fill();c.fillStyle='#3a8a64';for(let i=-2;i<=2;i++){c.beginPath();c.arc(i*5,-3-Math.abs(i),2.2,0,TAU);c.fill()}}
+ else if(k==='bones'){c.strokeStyle='#d8d0c0';c.lineWidth=2.4;c.lineCap='round';c.beginPath();c.moveTo(-12,-2);c.lineTo(8,-4);c.moveTo(-4,-1);c.lineTo(10,-8);c.stroke();c.fillStyle='#d8d0c0';for(const [x,y] of[[-12,-2],[8,-4],[10,-8]]){c.beginPath();c.arc(x,y,2.2,0,TAU);c.fill()}}
+ else if(k==='brick'){for(const [x,y,a] of[[-8,-4,.2],[4,-4,-.1],[-2,-10,.4]]){c.save();c.translate(x,y);c.rotate(a);c.fillStyle='#5a5a62';c.fillRect(-6,-3,12,6);c.strokeStyle=OL;c.lineWidth=1;c.strokeRect(-6,-3,12,6);c.restore()}}
+ else if(k==='chainF'){c.strokeStyle='#2a2a30';c.lineWidth=1.8;for(let i=0;i<5;i++){c.beginPath();c.ellipse(-14+i*7,-2-Math.sin(i)*1.5,i%2?2:4,2.4,0,0,TAU);c.stroke()}}
+ else if(k==='bucket'){c.beginPath();c.moveTo(-8,-14);c.lineTo(8,-14);c.lineTo(6,0);c.lineTo(-6,0);c.closePath();c.fillStyle='#5a5a62';c.fill();c.strokeStyle=OL;c.lineWidth=1.2;c.stroke();c.strokeStyle='#2a2a30';c.beginPath();c.arc(0,-14,8,Math.PI,0);c.stroke();c.fillStyle='rgba(0,0,0,.3)';c.fillRect(-8,-10,16,2)}
+ else if(k==='straw'){c.strokeStyle='#8a7a4a';c.lineWidth=1.2;for(let i=0;i<14;i++){const x=-14+i*2,a=(i%3-1)*.5;c.beginPath();c.moveTo(x,0);c.lineTo(x+Math.sin(a)*8,-6-(i%4)*2);c.stroke()}}
+ else if(k==='twigs'){c.strokeStyle='#2a2018';c.lineWidth=1.6;c.lineCap='round';c.beginPath();c.moveTo(-12,0);c.lineTo(10,-3);c.moveTo(-2,-1);c.lineTo(-6,-9);c.moveTo(4,-2);c.lineTo(9,-10);c.stroke();c.fillStyle='#f4f9ff';c.beginPath();c.ellipse(0,-2,9,2,0,Math.PI,0);c.fill()}
+ else if(k==='sapling'){c.fillStyle='#1c2a3a';for(let i=0;i<3;i++){const w=10-i*3,y=-6-i*8;c.beginPath();c.moveTo(-w,y);c.lineTo(0,y-11);c.lineTo(w,y);c.closePath();c.fill()}c.fillStyle='#f4f9ff';c.beginPath();c.moveTo(-6,-14);c.lineTo(0,-25);c.lineTo(6,-14);c.quadraticCurveTo(0,-18,-6,-14);c.fill();c.fillStyle='#2a2018';c.fillRect(-1,-6,2,6)}
+ else if(k==='iceshard'){c.fillStyle='rgba(200,235,255,.85)';c.strokeStyle='rgba(60,100,140,.7)';c.lineWidth=1;for(const [x,h,a] of[[-5,14,-.25],[3,20,.1],[9,10,.4]]){c.save();c.translate(x,0);c.rotate(a);c.beginPath();c.moveTo(-3,0);c.lineTo(0,-h);c.lineTo(3,0);c.closePath();c.fill();c.stroke();c.restore()}}
+ else if(k==='shard'){c.save();c.globalCompositeOperation='lighter';c.fillStyle='rgba(110,210,255,'+(.15+.1*Math.sin(t*2.4+o.seed))+')';c.beginPath();c.arc(0,-6,14,0,TAU);c.fill();c.restore();c.fillStyle='#16244a';c.strokeStyle='rgba(150,230,255,.8)';c.lineWidth=1;for(const [x,h,a] of[[-4,16,-.2],[4,11,.3]]){c.save();c.translate(x,0);c.rotate(a);c.beginPath();c.moveTo(-3,0);c.lineTo(0,-h);c.lineTo(3,0);c.closePath();c.fill();c.stroke();c.restore()}}
+ else if(k==='pebbles'){c.save();c.globalCompositeOperation='lighter';for(const [x,y] of[[-8,-1],[-1,-2],[6,-1],[10,-3]]){c.fillStyle='rgba(120,210,255,.55)';c.beginPath();c.arc(x,y,1.6,0,TAU);c.fill()}c.restore()}
+ else if(k==='root'){c.strokeStyle='#070b1c';c.lineWidth=2.6;c.lineCap='round';c.beginPath();c.moveTo(-16,0);c.quadraticCurveTo(-6,-12,4,-4);c.quadraticCurveTo(10,0,16,-8);c.stroke()}}
 
 function genRoom(safeX){genRoom0(safeX);if(room===SHOP_ROOM)ENM=[];if(PUZ_ROOMS[room]!==undefined){if(!isSewer())TER=[{x0:0,x1:WORLD,y:FLOOR}];initPuzzle()}else PZ=null}
 function genRoom0(safeX){CORPSES.length=0;if(SC[room].sewer){HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;genSewer(safeX);return}genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
@@ -5900,7 +5958,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  const fdt=forgeOpen||paused||shopOpen?0:dtms/1000;shakeT=Math.max(0,shakeT-fdt);darkV=Math.max(0,darkV-fdt*.55);const shk=shakeT*7;
  const SW=!!sc.sewer;if(SW)drawSewerBack(g,clock,fdt);HC.glow=UPG.chip?'#6ac8ff':'#ffd84a';
  g.save();{const Z=lifeZoom();g.translate(WW/2,HH*.86);g.scale(Z,Z);g.translate(-WW/2,-HH*.86)}g.translate(shk?rnd(-shk,shk):0,-viewY()+(shk?rnd(-shk,shk):0));
- if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawGodBack(g,cam,clock);drawWardenBack(g,cam,clock);drawFrostBack(g,cam,clock);drawDarkBack(g,cam,clock);drawLifeBack(g,cam,clock);drawFogBack(g,cam,clock);drawSewerTerrain(g,cam);drawCeil(g,cam,clock);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
+ if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawGodBack(g,cam,clock);drawWardenBack(g,cam,clock);drawFrostBack(g,cam,clock);drawDarkBack(g,cam,clock);drawHazeBack(g,cam,clock);drawSewerTerrain(g,cam);drawCeil(g,cam,clock);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
  for(const p of PLAT)(SW?drawSewerPlat:drawPlat)(g,p,cam);drawWalls(g,cam);drawAltar(g,cam,clock);drawHouse(g,cam,clock);if(PZ){PUZ[PZ.type].draw(g,cam,clock,PZ);drawPuzGates(g,cam,clock)}drawCorpses(g,cam,clock);drawForge(g,cam,clock);drawHusk(g,cam,clock);drawPrisonWorld(g,cam,clock);drawPuzSign(g,cam,clock);drawTutWorld(g,cam,clock);drawGorgiWorld(g,cam,clock);drawFrostWorld(g,cam,clock);drawYetiWorld(g,cam,clock);drawDarkWorld(g,cam,clock);drawLifeWorld(g,cam,clock);
  for(const e of ENM)drawEnemy(g,e,cam,clock);drawShots(g,cam);drawNpcTalk(g,cam,clock);drawFlee(g,cam,clock);drawDrops(g,cam,clock);updateLoops();musicUpdate();
  const st=stateNow(),atkP=me.atk>=0?me.atk/26:-1,P=poseFor(st,{ph:me.ph,t:clock,speed:me.speed,atk:atkP,long:me.slashLong,dir:me.atkDir,heal:me.healT/1.5,hurt:me.inv>56&&!me.dead?(me.inv-56)/24:0,ko:me.dead?clamp((110-me.deadT)/40,0,1):0,fill:HP.max?HP.hp/HP.max:1});
@@ -5908,7 +5966,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  const gy=supportY(me.x,me.y-3,null)+6,h=Math.max(0,gy-6-me.y),sw=clamp(30-h*.06,12,30),sg=g.createRadialGradient(sx,gy,2,sx,gy,sw);sg.addColorStop(0,'rgba(10,4,16,'+Math.max(.1,.5-h*.002)+')');sg.addColorStop(1,'rgba(10,4,16,0)');g.save();g.fillStyle=sg;g.beginPath();g.ellipse(sx,gy,sw,sw*.28,0,0,TAU);g.fill();g.restore();
  const atkOn=atkP>.3&&atkP<.8;energy(P,atkOn);drawParts(g,dtms/1000);drawCurls(g,dtms/1000);
  g.save();if(me.inv>0&&((me.inv/5)|0)%2)g.globalAlpha=.35;if(me.dead)g.globalAlpha=.5;heroDraw(g,sx,me.y,me.face,P,0,sq,SC_);g.restore();drawIntroHead(g,sx,P);
- drawDebris(g,dtms/1000);drawLasers(g,cam,clock);drawGrannyFront(g,cam,clock);drawYetiFront(g,cam,clock);drawLifeFront(g,cam,clock);drawFogFront(g,cam,clock);
+ drawDebris(g,dtms/1000);drawLasers(g,cam,clock);drawGrannyFront(g,cam,clock);drawYetiFront(g,cam,clock);drawLifeFront(g,cam,clock);drawHazeFront(g,cam,clock);
  if(me.healT>0){const k=me.healT/1.5,hx=me.x-cam,hy=me.y-59*SC_;g.save();g.lineCap='round';g.strokeStyle='rgba(42,24,48,.6)';g.lineWidth=6;g.beginPath();g.arc(hx,hy,24,0,TAU);g.stroke();g.shadowColor='#ffd84a';g.shadowBlur=12;g.strokeStyle='#ffe27a';g.lineWidth=4;g.beginPath();g.arc(hx,hy,24,-Math.PI/2,-Math.PI/2+TAU*k);g.stroke();g.restore()}
  for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}{/* the slash sits close to the body: pulled in toward the hero along its direction */const hx=me.x-cam,oy=me.y-44*SC_,vert=f.dir==='up'||f.dir==='down';g.save();g.translate(hx,oy);if(vert)g.rotate((f.dir==='up'?-1:1)*f.f*Math.PI/2);const lng=slashIsLong(f.seed);g.translate(-f.f*(vert?(lng?26:40):(lng?20:32)),0);g.translate(-hx,-oy);slashFx(g,hx,oy,f.f,k,f.seed,SC_*1.15);g.restore()}}
  if(SW){drawWBub(g,cam);drawSewerWaterFront(g,cam,clock);if(me.wet&&!UPG.chip&&!me.dead)zap(g,me.x-cam,me.y-40,46)}drawEventWater(g,cam,clock);drawGodTarget(g,cam,clock);
@@ -5938,6 +5996,6 @@ setRoom(0);game.focus();requestAnimationFrame(t=>{last=t;loop(t)});requestAnimat
 function unlockAll(){UPG.far=true;UPG.chip=true;UPG.slow=UPG.stop=UPG.crit=UPG.dash=true;UPG.sword=4;UPG.heart=5;UPG.bat=true;UPG.harness=true;HP.max=10;HP.hp=10;HP.slots.forEach(s=>{s.fill=1;s.pop=1})}
 document.getElementById('bunlock').onclick=()=>{unlockAll();game.focus()};document.getElementById('bgorgi').onclick=()=>{if(SCENE==='play')devGorgi();game.focus()};document.getElementById('bgranny').onclick=()=>{if(SCENE==='play')devGranny();game.focus()};document.getElementById('byeti').onclick=()=>{if(SCENE==='play')devYeti();game.focus()};document.getElementById('bdark').onclick=()=>{if(SCENE==='play'){setRoom(DK0);me.x=DK_RET+110;me.y=560}game.focus()};
 document.getElementById('bhurt').onclick=()=>{hurt();game.focus()};document.getElementById('bheal').onclick=()=>{heal();game.focus()};
-window.__demo={LIFE,BROKE,lifeZoom,CEIL,ceilAt,DK0,DK_N,DK_LAST,isDark,nearRift,enterRift,GRANNY_ST:()=>GRANNY,YETI,yetiBoss,devYeti,FT_LAST,BUL,slashPt,pogo,get atkDir(){return me.atkDir},GRANNY,devGranny,grannyBoss,FT_VILLAGERS,talkVillager,timeMode,FT0,FROSTST,isFrost,onIceNow,get VTALK(){return VTALK},GORGI,GORGI_ROOM,gorgiEnter,devGorgi,get shopOpenNow(){return shopOpen},slashBlocked,skipTutorial,INTRO,TUT,TUT_ROOM,startIntro,get HEADLESS(){return HEADLESS},PAD,get signOpen(){return signOpen},nearSign,QUEST,NEED,NPCS,KEYS,PR0,PR_BOSS,PR_GATE,talkNpc,get TALKN(){return TALKN},SHOTS,tryShoot,questReset,get wardenTalked(){return wardenTalked},set wardenTalked(v){wardenTalked=v},WWAVE,PIPE_A,PIPE_B,PRISON_A,TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
+window.__demo={LIFE,BROKE,lifeZoom,LDRAW:{drawHazeBack,drawHazeFront,drawLifeBack,drawLifeWorld,drawLifeFront,drawLifeScreen,drawFogBack,drawFogFront},get cam(){return cam},CEIL,ceilAt,DK0,DK_N,DK_LAST,isDark,nearRift,enterRift,GRANNY_ST:()=>GRANNY,YETI,yetiBoss,devYeti,FT_LAST,BUL,slashPt,pogo,get atkDir(){return me.atkDir},GRANNY,devGranny,grannyBoss,FT_VILLAGERS,talkVillager,timeMode,FT0,FROSTST,isFrost,onIceNow,get VTALK(){return VTALK},GORGI,GORGI_ROOM,gorgiEnter,devGorgi,get shopOpenNow(){return shopOpen},slashBlocked,skipTutorial,INTRO,TUT,TUT_ROOM,startIntro,get HEADLESS(){return HEADLESS},PAD,get signOpen(){return signOpen},nearSign,QUEST,NEED,NPCS,KEYS,PR0,PR_BOSS,PR_GATE,talkNpc,get TALKN(){return TALKN},SHOTS,tryShoot,questReset,get wardenTalked(){return wardenTalked},set wardenTalked(v){wardenTalked=v},WWAVE,PIPE_A,PIPE_B,PRISON_A,TALK,get godTalked(){return godTalked},set godTalked(v){godTalked=v},get SCENE(){return SCENE},get acs(){return ac&&ac.state},get shopOpen(){return shopOpen},openShop,shopBuy,TFX,CRIT,DASH,useTime,tryDash,GFX,GWAVES,get PZ(){return PZ},solvePuzzle,PUZ,get SWI(){return SWI},enterFrom,EV,get camY(){return camY},get WL(){return WL},CORR,SEW_LAST,takeChip,nearAltar,unlockAll,get bossBeaten(){return bossBeaten},set bossBeaten(v){bossBeaten=v},PARTS,DROPS,dropPart,get paused(){return paused},SAVE,UPG,CUT,HUSK,SOUL,loops,get room(){return room},get forgeOpen(){return forgeOpen},openForge,forgeAct,nearForge,startGame,step,FX,WALLW,buf,ENM:()=>ENM,PLAT:()=>PLAT,TER:()=>TER,genRoom,HP,hurt,heal,me,key,setRoom,SC,get cam(){return cam},tryAttack,parts};
 
 </script>
