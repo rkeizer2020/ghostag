@@ -2498,7 +2498,7 @@ function drawScene(c,sc,t,cam){
  tile(c,cam*.8,()=>{if(sc.mid&&sc.mid.length)drawChain(c,sc.mid,t);for(const x of sc.lamps||[])lampAt(c,x,sc.ceil?36:0,t)});
  tile(c,cam*.8,()=>{if(sc.ceil=='girder')girder(c);else if(sc.ceil=='pipes')ceilPipes(c)});
  if(sc.glow){const g=c.createRadialGradient(sc.glow[0],sc.glow[1],10,sc.glow[0],sc.glow[1],380);g.addColorStop(0,sc.glow[2]);g.addColorStop(1,'rgba(255,140,60,0)');c.fillStyle=g;c.fillRect(0,0,WW,HH+80)}
- drawFogBack(c,cam,t);drawFloorWorld(c,sc,cam);drawCeil(c,cam,t);
+ drawLifeBack(c,cam,t);drawFogBack(c,cam,t);drawFloorWorld(c,sc,cam);drawCeil(c,cam,t);
  tile(c,cam,()=>{if(sc.near&&sc.near.length)drawChain(c,sc.near,t);steam(c,t,sc.vents||[])});
  if(sc.tint){c.fillStyle=sc.tint;c.fillRect(0,0,WW,HH+80)}}
 function drawFront(c,sc,t,cam,i){drawFg(c,t,i,cam);const g=c.createRadialGradient(WW/2,HH*.55,HH*.3,WW/2,HH*.55,WW*.75);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(10,4,16,.55)');c.fillStyle=g;c.fillRect(0,0,WW,HH)}
@@ -5654,15 +5654,17 @@ function drawCeil(c,cam,t){if(!CEIL.cols||CEIL.room!==room)return;const k=CEIL.k
    - things to smash: crates, pots, urns, ice crystals, dark crystals (sometimes a part falls out)
    - small critters (embers, fireflies, moths, wisps) that scatter when you come close
    The camera is also a little closer, so rooms feel smaller and more enclosed. */
-const LIFE={room:-1,ter:null,kind:'',grass:[],hang:[],fg:[],brk:[],bugs:[],parts:[],zoom:1};
+const LIFE={room:-1,ter:null,kind:'',grass:[],hang:[],fg:[],bg:[],brk:[],bugs:[],parts:[],zoom:1};
+/* how big things are drawn: grass, hanging things, things to smash, the foreground and the background plants */
+const LSZ={grass:1.55,hang:1.6,brk:1.45,fg:1.6,bg:2.1};
 const BROKE={};
 function lifeReset(){for(const k in BROKE)delete BROKE[k];LIFE.room=-1}
 const LIFE_PAL={
- factory:{g0:'#24201c',g1:'#6a5a44',rim:'rgba(255,170,90,',hang:'cable',brk:['crate','barrel'],bug:'ember',fg:['pipes','reeds'],top:'cables',chip:['#8a6a44','#5a4430','#9a9aa8']},
- sewer:{g0:'#12302a',g1:'#4aa07a',rim:'rgba(120,230,190,',hang:'moss',brk:['pot','shroom'],bug:'firefly',fg:['fern','reeds'],top:'roots',chip:['#a86a44','#7a4a30','#5adaa0']},
- prison:{g0:'#26262a',g1:'#77736a',rim:'rgba(220,225,235,',hang:'chain',brk:['urn','crate'],bug:'moth',fg:['thorn','reeds'],top:'roots',chip:['#8a8a90','#5a5a60','#9a8a6a']},
- frost:{g0:'#2c3a4c',g1:'#dcefff',rim:'rgba(210,235,255,',hang:'frostvine',brk:['icerock','snowpile'],bug:'flake',fg:['pine','reeds'],top:'branch',chip:['#cfeaff','#8ac0e0','#ffffff']},
- dark:{g0:'#0a1028',g1:'#6ad8ff',rim:'rgba(120,220,255,',hang:'tendril',brk:['crystal','crystal'],bug:'wisp',fg:['spikes','fern'],top:'roots',chip:['#6ad8ff','#1c2a52','#bff4ff']}};
+ factory:{g0:'#24201c',g1:'#6a5a44',rim:'rgba(255,170,90,',hang:'cable',brk:['crate','barrel'],bug:'ember',bgc:'rgba(30,16,26,.5)',fg:['pipes','reeds'],top:'cables',chip:['#8a6a44','#5a4430','#9a9aa8']},
+ sewer:{g0:'#12302a',g1:'#4aa07a',rim:'rgba(120,230,190,',hang:'moss',brk:['pot','shroom'],bug:'firefly',bgc:'rgba(4,26,20,.5)',fg:['fern','reeds'],top:'roots',chip:['#a86a44','#7a4a30','#5adaa0']},
+ prison:{g0:'#26262a',g1:'#77736a',rim:'rgba(220,225,235,',hang:'chain',brk:['urn','crate'],bug:'moth',bgc:'rgba(16,16,20,.5)',fg:['thorn','reeds'],top:'roots',chip:['#8a8a90','#5a5a60','#9a8a6a']},
+ frost:{g0:'#2c3a4c',g1:'#dcefff',rim:'rgba(210,235,255,',hang:'frostvine',brk:['icerock','snowpile'],bug:'flake',bgc:'rgba(22,36,58,.45)',fg:['pine','reeds'],top:'branch',chip:['#cfeaff','#8ac0e0','#ffffff']},
+ dark:{g0:'#0a1028',g1:'#6ad8ff',rim:'rgba(120,220,255,',hang:'tendril',brk:['crystal','crystal'],bug:'wisp',bgc:'rgba(4,10,30,.55)',fg:['spikes','fern'],top:'roots',chip:['#6ad8ff','#1c2a52','#bff4ff']}};
 function lifeKind(){return typeof fogKind==='function'?fogKind():'sewer'}
 function noZoomRoom(){return room===BOSS_ROOM||room===GOD_ROOM||room===PR_BOSS||room===GORGI_ROOM||(room===FT0&&GRANNY.lock)||(room===FT_LAST&&YETI.lock)}
 function lifeZoom(){return LIFE.zoom}
@@ -5671,18 +5673,20 @@ function lifeTop(){return isDark(room)?DK_CEIL:viewY()-30}
 function genLife(){const k=lifeKind(),P=LIFE_PAL[k];LIFE.room=room;LIFE.ter=TER;LIFE.kind=k;
  let sd=(room*9301+49297)%233280||1;const R=()=>{sd=(sd*9301+49297)%233280;return sd/233280},RR=(a,b)=>a+R()*(b-a);
  const boss=noZoomRoom()||room===BOSS_ROOM||room===GOD_ROOM||room===PR_BOSS||room===GORGI_ROOM||room===FT_LAST,puz=PUZ_ROOMS[room]!==undefined,village=isFrost(room)&&room-FT0<2;
- LIFE.grass=[];LIFE.hang=[];LIFE.fg=[];LIFE.brk=[];LIFE.bugs=[];LIFE.parts=[];
+ LIFE.grass=[];LIFE.hang=[];LIFE.fg=[];LIFE.bg=[];LIFE.brk=[];LIFE.bugs=[];LIFE.parts=[];
  /* grass on every stretch of ground */
  for(const s of TER){if(s.y>700||s.x1-s.x0<60)continue;for(let x=s.x0+20+RR(0,60);x<s.x1-20;x+=RR(55,130)){if(R()<.35)continue;LIFE.grass.push({x,y:s.y,n:3+Math.floor(R()*4),h:RR(13,30),seed:R()*99,a:0,v:0,cut:false})}}
  /* hanging things; outdoors in the snow there is nothing above, except in the icicle cavern */
  const outdoor=isFrost(room)&&fsk(room)!==3,small=room===GORGI_ROOM||room===PIPE_A||room===PIPE_B;
  if(!outdoor&&!small)for(let x=RR(80,200);x<WORLD-60;x+=RR(150,290)){if(R()<.3)continue;LIFE.hang.push({x,len:RR(isDark(room)?60:110,isDark(room)?120:220),a:0,v:0,seed:R()*99,kind:P.hang})}
  /* foreground silhouettes, on a layer that scrolls faster than the room */
- for(let lx=RR(-200,200);lx<WORLD*1.3+WW;lx+=RR(520,900))LIFE.fg.push({lx,kind:P.fg[R()<.6?0:1],h:RR(140,230),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:false});
- for(let lx=RR(0,400);lx<WORLD*1.3+WW;lx+=RR(900,1500))LIFE.fg.push({lx,kind:P.top,h:RR(90,170),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:true});
+ for(let lx=RR(-200,200);lx<WORLD*1.3+WW;lx+=RR(560,960))LIFE.fg.push({lx,kind:P.fg[R()<.6?0:1],h:RR(115,190),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:false});
+ for(let lx=RR(0,400);lx<WORLD*1.3+WW;lx+=RR(900,1500))LIFE.fg.push({lx,kind:P.top,h:RR(70,130),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:true});
+ /* big, faint silhouettes far behind the ground, on a layer that scrolls slower than the room */
+ for(let lx=RR(-100,300);lx<WORLD*.75+WW;lx+=RR(420,720))LIFE.bg.push({lx,kind:P.fg[R()<.5?0:1],h:RR(120,190),flip:R()<.5?-1:1,seed:R()*99,rus:0,top:false,col:P.bgc});
  /* things to smash (not in boss arenas or puzzle rooms) */
- if(!boss&&!puz){const n=village?2:3+Math.floor(R()*3),done=BROKE[room]||new Set();for(let i=0,tries=0;i<n&&tries<40;tries++){const x=RR(200,WORLD-200),y=groundAt(x);if(y>700||LIFE.brk.some(b=>Math.abs(b.x-x)<160))continue;
-   if(village&&FT_HOUSES[room-FT0].some(H=>Math.abs(H.x-x)<H.w/2+40))continue;const kind=P.brk[Math.floor(R()*P.brk.length)];LIFE.brk.push({i,x,y,kind,hp:kind==='crate'||kind==='barrel'||kind==='icerock'?2:1,broken:done.has(i),shake:0,seed:R()*99});i++}}
+ if(!boss&&!puz){const n=village?2:3+Math.floor(R()*3),done=BROKE[room]||new Set();for(let i=0,tries=0;i<n&&tries<40;tries++){const x=RR(200,WORLD-200),y=groundAt(x);if(y>700||LIFE.brk.some(b=>Math.abs(b.x-x)<200))continue;
+   if(village&&(FT_HOUSES[room-FT0].some(H=>Math.abs(H.x-x)<H.w/2+40)||FT_VILLAGERS.some(v=>v.r===room-FT0&&Math.abs(v.x-x)<130)))continue;const kind=P.brk[Math.floor(R()*P.brk.length)];LIFE.brk.push({i,x,y,kind,hp:kind==='crate'||kind==='barrel'||kind==='icerock'?2:1,broken:done.has(i),shake:0,seed:R()*99});i++}}
  /* critters */
  const nb=k==='frost'&&outdoor?3:6;for(let i=0;i<nb;i++)LIFE.bugs.push({x:RR(100,WORLD-100),y:groundAt(500)-RR(60,220),hx:0,hy:0,vx:0,vy:0,ph:R()*9,kind:P.bug});for(const b of LIFE.bugs){b.hx=b.x;b.hy=b.y}}
 
@@ -5693,7 +5697,7 @@ function lifeStep(){LIFE.zoom+=((noZoomRoom()||CUT.on?1:1.12)-LIFE.zoom)*.06;
  /* grass: bends when you walk through it, springs back, and is cut by the nail */
  for(const g of LIFE.grass){g.v+=-g.a*.09-g.v*.14;g.a+=g.v;
   if(!me.dead&&Math.abs(me.x-g.x)<18&&Math.abs(me.y-g.y)<14&&Math.abs(me.vx)>.3)g.v+=me.vx*.012;
-  if(slashing&&!g.cut&&Math.hypot(g.x-SP[0],g.y-12-SP[1])<58&&(me.atkDir!=='side'||(g.x-me.x)*me.atkFace>-10)){g.cut=true;for(let i=0;i<5;i++)LIFE.parts.push({x:g.x+rnd(-8,8),y:g.y-rnd(6,g.h),vx:rnd(-1.6,1.6)+me.atkFace*1.2,vy:rnd(-3.2,-1),r:rnd(1.6,3),rot:rnd(0,6),vr:rnd(-.3,.3),life:0,max:rnd(.6,1.1),col:LIFE_PAL[LIFE.kind].g1,leaf:true})}}
+  if(slashing&&!g.cut&&Math.hypot(g.x-SP[0],g.y-18-SP[1])<62&&(me.atkDir!=='side'||(g.x-me.x)*me.atkFace>-10)){g.cut=true;for(let i=0;i<5;i++)LIFE.parts.push({x:g.x+rnd(-8,8),y:g.y-rnd(6,g.h),vx:rnd(-1.6,1.6)+me.atkFace*1.2,vy:rnd(-3.2,-1),r:rnd(1.6,3),rot:rnd(0,6),vr:rnd(-.3,.3),life:0,max:rnd(.6,1.1),col:LIFE_PAL[LIFE.kind].g1,leaf:true})}}
  /* hanging things swing when you brush past or slash them */
  for(const h of LIFE.hang){const top=CEIL.cols?ceilAt(h.x)-4:lifeTop();h.v+=-h.a*.018-h.v*.03;h.a+=h.v;h.a=clamp(h.a,-1,1);
   const tipx=h.x+Math.sin(h.a)*h.len*.7;
@@ -5703,7 +5707,7 @@ function lifeStep(){LIFE.zoom+=((noZoomRoom()||CUT.on?1:1.12)-LIFE.zoom)*.06;
  const meS=me.x-cam;for(const f of LIFE.fg){const sx=f.lx-cam*1.3;f.rus=Math.max(0,f.rus-dt*.8);if(!f.top&&Math.abs(sx-meS)<f.h*.45&&Math.abs(me.vx)>.5)f.rus=Math.min(1,f.rus+dt*3)}
  /* things to smash */
  for(const b of LIFE.brk){if(b.broken)continue;b.shake=Math.max(0,b.shake-dt*4);
-  if(slashHit(b,b.x,b.y-22,30)){b.hp--;b.shake=1;if(b.hp<=0)lifeBreak(b)}}
+  if(slashHit(b,b.x,b.y-32,42)){b.hp--;b.shake=1;if(b.hp<=0)lifeBreak(b)}}
  /* critters: drift around their spot, scatter from you */
  for(const c of LIFE.bugs){c.ph+=dt;const dx=c.x-me.x,dy=c.y-(me.y-40),d=Math.hypot(dx,dy);
   if(d<130&&!me.dead){c.vx+=dx/d*.35;c.vy+=dy/d*.35-.05}else{c.vx+=(c.hx+Math.sin(c.ph*.7)*60-c.x)*.002;c.vy+=(c.hy+Math.sin(c.ph*1.1)*30-c.y)*.002}
@@ -5719,7 +5723,7 @@ function lifeBreak(b){b.broken=true;(BROKE[room]=BROKE[room]||new Set()).add(b.i
 function lifeVisible(x,m){const s=x-cam;return s>-(m||80)&&s<WW+(m||80)}
 /* in the room, behind you: the things you can smash */
 function drawLifeWorld(c,cam,t){if(LIFE.room!==room)return;for(const b of LIFE.brk){if(b.broken||!lifeVisible(b.x))continue;drawBreakable(c,b,b.x-cam,b.y,t)}}
-function drawBreakable(c,b,x,y,t){const sh=b.shake*Math.sin(t*70)*3;c.save();c.translate(x+sh,y);c.fillStyle='rgba(0,0,0,.28)';c.beginPath();c.ellipse(0,1,26,5,0,0,TAU);c.fill();
+function drawBreakable(c,b,x,y,t){const sh=b.shake*Math.sin(t*70)*3;c.save();c.translate(x+sh,y);c.scale(LSZ.brk,LSZ.brk);c.fillStyle='rgba(0,0,0,.28)';c.beginPath();c.ellipse(0,1,26,5,0,0,TAU);c.fill();
  const k=b.kind;
  if(k==='crate'){rrect(c,-24,-44,48,44,3);fillOut(c,lgrad(c,0,-44,0,0,['#8a6440','#5a3e26']),2.4);c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=1.6;for(const yy of[-30,-15]){c.beginPath();c.moveTo(-24,yy);c.lineTo(24,yy);c.stroke()}
   c.strokeStyle='#3a2a1c';c.lineWidth=4;c.beginPath();c.moveTo(-20,-40);c.lineTo(20,-4);c.stroke();c.fillStyle='#9a9aa8';for(const [px,py] of[[-20,-40],[20,-40],[-20,-4],[20,-4]]){c.beginPath();c.arc(px,py,2.2,0,TAU);c.fill()}if(b.hp<2){c.strokeStyle='#1a120c';c.lineWidth=1.6;c.beginPath();c.moveTo(-4,-44);c.lineTo(2,-30);c.lineTo(-6,-20);c.stroke()}}
@@ -5746,11 +5750,11 @@ function drawLifeFront(c,cam,t){if(LIFE.room!==room)return;const P=LIFE_PAL[LIFE
  for(const p of LIFE.parts){const x=p.x-cam,a=1-clamp((p.life-p.max*.6)/(p.max*.4),0,1);c.globalAlpha=a;c.save();c.translate(x,p.y);c.rotate(p.rot);c.fillStyle=p.col;
   if(p.leaf){c.beginPath();c.ellipse(0,0,p.r*1.6,p.r*.6,0,0,TAU);c.fill()}else if(p.shard){c.beginPath();c.moveTo(-p.r,0);c.lineTo(0,-p.r*1.4);c.lineTo(p.r,0);c.closePath();c.fill()}else c.fillRect(-p.r/2,-p.r/2,p.r,p.r*.8);c.restore()}
  c.globalAlpha=1;c.restore()}
-function drawTuft(c,g,x,y,t,P){const w=Math.sin(t*1.4+g.seed)*.08,bend=g.a+w;
+function drawTuft(c,g,x0,y0,t,P){const w=Math.sin(t*1.4+g.seed)*.08,bend=g.a+w,x=0,y=0;c.save();c.translate(x0,y0);c.scale(LSZ.grass,LSZ.grass);
  for(let i=0;i<g.n;i++){const off=(i-(g.n-1)/2)*4.2,h=(g.cut?.32:1)*g.h*(.7+.3*Math.sin(g.seed+i*2.3)),lean=bend+(i-(g.n-1)/2)*.12,tx=x+off+Math.sin(lean)*h,ty=y-Math.cos(lean)*h;
   c.strokeStyle=P.g0;c.lineWidth=2.6;c.beginPath();c.moveTo(x+off,y+2);c.quadraticCurveTo(x+off+Math.sin(lean)*h*.3,y-h*.55,tx,ty);c.stroke();
-  if(!g.cut){c.strokeStyle=P.g1;c.lineWidth=1.3;c.beginPath();c.moveTo(x+off+Math.sin(lean)*h*.55,y-Math.cos(lean)*h*.55);c.quadraticCurveTo(x+off+Math.sin(lean)*h*.8,y-h*.85,tx,ty);c.stroke()}}}
-function drawStrand(c,h,x,top,t,P){const w=Math.sin(t*.9+h.seed)*.05,a=h.a+w,N=9,pts=[];for(let i=0;i<=N;i++){const s=i/N,ang=a*Math.pow(s,1.3);pts.push([x+Math.sin(ang)*h.len*s+Math.sin(t*1.7+h.seed+s*3)*2*s,top+Math.cos(ang)*h.len*s])}
+  if(!g.cut){c.strokeStyle=P.g1;c.lineWidth=1.3;c.beginPath();c.moveTo(x+off+Math.sin(lean)*h*.55,y-Math.cos(lean)*h*.55);c.quadraticCurveTo(x+off+Math.sin(lean)*h*.8,y-h*.85,tx,ty);c.stroke()}}c.restore()}
+function drawStrand(c,h,x0,top0,t,P){const w=Math.sin(t*.9+h.seed)*.05,a=h.a+w,N=9,pts=[],HS=LSZ.hang,L=h.len/HS,x=0,top=0;c.save();c.translate(x0,top0);c.scale(HS,HS);for(let i=0;i<=N;i++){const s=i/N,ang=a*Math.pow(s,1.3);pts.push([x+Math.sin(ang)*L*s+Math.sin(t*1.7+h.seed+s*3)*2*s,top+Math.cos(ang)*L*s])}
  const k=h.kind,line=(col,lw)=>{c.strokeStyle=col;c.lineWidth=lw;c.beginPath();c.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)c.lineTo(pts[i][0],pts[i][1]);c.stroke()},end=pts[N];
  if(k==='cable'){line('#0e0c10',4);line('rgba(255,170,90,.18)',1.2);c.fillStyle='#1a1418';rrect(c,end[0]-5,end[1]-2,10,14,2);c.fill();c.fillStyle='#c8a050';c.fillRect(end[0]-3,end[1]+11,2,5);c.fillRect(end[0]+1,end[1]+11,2,5)}
  else if(k==='moss'){line('#0e2a22',4.5);c.fillStyle='#1c4a3a';for(let i=1;i<N;i++){const [px,py]=pts[i];c.beginPath();c.ellipse(px+(i%2?5:-5),py,5,2.6,i%2?.6:-.6,0,TAU);c.fill()}
@@ -5758,12 +5762,15 @@ function drawStrand(c,h,x,top,t,P){const w=Math.sin(t*.9+h.seed)*.05,a=h.a+w,N=9
  else if(k==='chain'){c.strokeStyle='#1a1a1e';c.lineWidth=2.2;for(let i=0;i<N;i++){const [x0,y0]=pts[i],[x1,y1]=pts[i+1];c.beginPath();c.ellipse((x0+x1)/2,(y0+y1)/2,i%2?2.5:4.5,Math.hypot(x1-x0,y1-y0)/2+1,Math.atan2(y1-y0,x1-x0)+Math.PI/2,0,TAU);c.stroke()}
   c.beginPath();c.arc(end[0],end[1]+8,8,Math.PI*1.1,Math.PI*1.9,true);c.lineWidth=3.4;c.stroke()}
  else if(k==='frostvine'){line('#1c2838',4);c.fillStyle='#cfeaff';for(let i=1;i<N;i+=2){const [px,py]=pts[i];c.beginPath();c.ellipse(px,py,3.4,2,0,0,TAU);c.fill()}c.fillStyle='rgba(210,240,255,.9)';c.beginPath();c.moveTo(end[0]-3,end[1]);c.lineTo(end[0]+3,end[1]);c.lineTo(end[0],end[1]+16);c.closePath();c.fill()}
- else{line('#070b1c',4.2);c.save();c.globalCompositeOperation='lighter';const pu=.6+.4*Math.sin(t*2.2+h.seed);c.fillStyle='rgba(110,210,255,'+(.25*pu)+')';c.beginPath();c.arc(end[0],end[1]+4,12,0,TAU);c.fill();c.fillStyle='rgba(190,245,255,'+(.9*pu)+')';c.beginPath();c.arc(end[0],end[1]+4,3.4,0,TAU);c.fill();c.restore()}}
+ else{line('#070b1c',4.2);c.save();c.globalCompositeOperation='lighter';const pu=.6+.4*Math.sin(t*2.2+h.seed);c.fillStyle='rgba(110,210,255,'+(.25*pu)+')';c.beginPath();c.arc(end[0],end[1]+4,12,0,TAU);c.fill();c.fillStyle='rgba(190,245,255,'+(.9*pu)+')';c.beginPath();c.arc(end[0],end[1]+4,3.4,0,TAU);c.fill();c.restore()}c.restore()}
 /* screen space, over everything but the HUD: the big black foreground plants */
 function drawLifeScreen(c,t){if(LIFE.room!==room||SCENE!=='play')return;const P=LIFE_PAL[LIFE.kind];
  for(let i=0;i<LIFE.fg.length;i++){const f=LIFE.fg[i],sx=f.lx-cam*1.3;if(sx<-f.h-60||sx>WW+f.h+60)continue;const sway=Math.sin(t*.8+f.seed)*.03+f.rus*Math.sin(t*11+f.seed)*.07;
-  c.save();if(f.top){c.translate(sx,-4);c.scale(f.flip,-1)}else{c.translate(sx,HH+6);c.scale(f.flip,1)}c.rotate(sway);drawFgPlant(c,f,t,P);c.restore()}}
-function drawFgPlant(c,f,t,P){const h=f.h,k=f.kind,dark='#05040a',rim=P.rim;let s=f.seed;const R=()=>{s=(s*9301+49297)%233280;return s/233280};c.fillStyle=dark;c.strokeStyle=dark;c.lineCap='round';
+  c.save();if(f.top){c.translate(sx,-4);c.scale(f.flip*LSZ.fg,-LSZ.fg)}else{c.translate(sx,HH+6);c.scale(f.flip*LSZ.fg,LSZ.fg)}c.rotate(sway);drawFgPlant(c,f,t,P);c.restore()}}
+/* far behind the ground: the same kinds of plants, much bigger, faint and soft in the haze */
+function drawLifeBack(c,cam,t){if(LIFE.room!==room)return;const P=LIFE_PAL[LIFE.kind],gy=groundAt(clamp(cam+WW/2,0,WORLD))+20;if(gy>900)return;
+ for(const f of LIFE.bg){const sx=f.lx-cam*.72;if(sx<-f.h*2.4||sx>WW+f.h*2.4)continue;c.save();c.translate(sx,gy);c.scale(f.flip*LSZ.bg,LSZ.bg);c.rotate(Math.sin(t*.5+f.seed)*.02);drawFgPlant(c,f,t,P);c.restore()}}
+function drawFgPlant(c,f,t,P){const h=f.h,k=f.kind,dark=f.col||'#05040a',rim=f.col?'rgba(0,0,0,':P.rim;let s=f.seed;const R=()=>{s=(s*9301+49297)%233280;return s/233280};c.fillStyle=dark;c.strokeStyle=dark;c.lineCap='round';
  if(k==='fern'||k==='roots'){const n=k==='fern'?6:4;for(let i=0;i<n;i++){const a=-1.2+i*(2.4/(n-1))+(R()-.5)*.3,L=h*(.6+R()*.45);c.lineWidth=k==='fern'?4:6;c.beginPath();c.moveTo(0,0);const cx=Math.sin(a)*L*.5,cy=-Math.cos(a)*L*.6,ex=Math.sin(a)*L,ey=-Math.cos(a)*L*.85+L*.15;c.quadraticCurveTo(cx,cy,ex,ey);c.stroke();
    if(k==='fern')for(let j=1;j<9;j++){const q=j/9,px=2*(1-q)*q*cx+q*q*ex,py=2*(1-q)*q*cy+q*q*ey,sz=(1-q)*13+3;for(const sd of[-1,1]){c.beginPath();c.ellipse(px+sd*sz*.6,py,sz*.8,sz*.28,a+sd*.7,0,TAU);c.fill()}}
    else{c.lineWidth=2;for(let j=0;j<3;j++){const q=.3+j*.22,px=2*(1-q)*q*cx+q*q*ex,py=2*(1-q)*q*cy+q*q*ey;c.beginPath();c.moveTo(px,py);c.quadraticCurveTo(px+(R()-.5)*30,py-12,px+(R()-.5)*40,py-24);c.stroke()}}}
@@ -5893,7 +5900,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  const fdt=forgeOpen||paused||shopOpen?0:dtms/1000;shakeT=Math.max(0,shakeT-fdt);darkV=Math.max(0,darkV-fdt*.55);const shk=shakeT*7;
  const SW=!!sc.sewer;if(SW)drawSewerBack(g,clock,fdt);HC.glow=UPG.chip?'#6ac8ff':'#ffd84a';
  g.save();{const Z=lifeZoom();g.translate(WW/2,HH*.86);g.scale(Z,Z);g.translate(-WW/2,-HH*.86)}g.translate(shk?rnd(-shk,shk):0,-viewY()+(shk?rnd(-shk,shk):0));
- if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawGodBack(g,cam,clock);drawWardenBack(g,cam,clock);drawFrostBack(g,cam,clock);drawDarkBack(g,cam,clock);drawFogBack(g,cam,clock);drawSewerTerrain(g,cam);drawCeil(g,cam,clock);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
+ if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawGodBack(g,cam,clock);drawWardenBack(g,cam,clock);drawFrostBack(g,cam,clock);drawDarkBack(g,cam,clock);drawLifeBack(g,cam,clock);drawFogBack(g,cam,clock);drawSewerTerrain(g,cam);drawCeil(g,cam,clock);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
  for(const p of PLAT)(SW?drawSewerPlat:drawPlat)(g,p,cam);drawWalls(g,cam);drawAltar(g,cam,clock);drawHouse(g,cam,clock);if(PZ){PUZ[PZ.type].draw(g,cam,clock,PZ);drawPuzGates(g,cam,clock)}drawCorpses(g,cam,clock);drawForge(g,cam,clock);drawHusk(g,cam,clock);drawPrisonWorld(g,cam,clock);drawPuzSign(g,cam,clock);drawTutWorld(g,cam,clock);drawGorgiWorld(g,cam,clock);drawFrostWorld(g,cam,clock);drawYetiWorld(g,cam,clock);drawDarkWorld(g,cam,clock);drawLifeWorld(g,cam,clock);
  for(const e of ENM)drawEnemy(g,e,cam,clock);drawShots(g,cam);drawNpcTalk(g,cam,clock);drawFlee(g,cam,clock);drawDrops(g,cam,clock);updateLoops();musicUpdate();
  const st=stateNow(),atkP=me.atk>=0?me.atk/26:-1,P=poseFor(st,{ph:me.ph,t:clock,speed:me.speed,atk:atkP,long:me.slashLong,dir:me.atkDir,heal:me.healT/1.5,hurt:me.inv>56&&!me.dead?(me.inv-56)/24:0,ko:me.dead?clamp((110-me.deadT)/40,0,1):0,fill:HP.max?HP.hp/HP.max:1});
