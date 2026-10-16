@@ -2498,7 +2498,7 @@ function drawScene(c,sc,t,cam){
  tile(c,cam*.8,()=>{if(sc.mid&&sc.mid.length)drawChain(c,sc.mid,t);for(const x of sc.lamps||[])lampAt(c,x,sc.ceil?36:0,t)});
  tile(c,cam*.8,()=>{if(sc.ceil=='girder')girder(c);else if(sc.ceil=='pipes')ceilPipes(c)});
  if(sc.glow){const g=c.createRadialGradient(sc.glow[0],sc.glow[1],10,sc.glow[0],sc.glow[1],380);g.addColorStop(0,sc.glow[2]);g.addColorStop(1,'rgba(255,140,60,0)');c.fillStyle=g;c.fillRect(0,0,WW,HH+80)}
- drawFloorWorld(c,sc,cam);
+ drawFogBack(c,cam,t);drawFloorWorld(c,sc,cam);
  tile(c,cam,()=>{if(sc.near&&sc.near.length)drawChain(c,sc.near,t);steam(c,t,sc.vents||[])});
  if(sc.tint){c.fillStyle=sc.tint;c.fillRect(0,0,WW,HH+80)}}
 function drawFront(c,sc,t,cam,i){drawFg(c,t,i,cam);const g=c.createRadialGradient(WW/2,HH*.55,HH*.3,WW/2,HH*.55,WW*.75);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(10,4,16,.55)');c.fillStyle=g;c.fillRect(0,0,WW,HH)}
@@ -5573,6 +5573,29 @@ function drawRiftHint(c,x,t){const yy=560-310+Math.sin(t*3)*3;c.save();rrect(c,x
 function drawDarkScreen(c){
  const k=(clock-DARKST.fx)/.7;if(k>=0&&k<1){c.save();c.fillStyle='rgba(180,225,255,'+(1-k)*.8+')';c.fillRect(0,0,WW,HH);c.restore()}}
 
+/* ===================== FOG =====================
+   Soft drifting mist in every area, like in Hollow Knight: a haze far back behind the ground, a low mist that
+   creeps over the floor and a few faint wisps in front of everything. Every area has its own colour and amount.
+   The mist is one soft puff, painted once per colour and then stretched and drifted around. */
+const FOG_COL={factory:[205,168,138,.85],sewer:[110,200,175,1],prison:[205,212,226,.95],frost:[208,230,255,1.15],dark:[86,128,240,1.1]};
+const FOGS={};
+function fogSprite(k){if(FOGS[k])return FOGS[k];const f=FOG_COL[k]||FOG_COL.sewer,cv=document.createElement('canvas');cv.width=256;cv.height=128;const x=cv.getContext('2d'),c0='rgba('+f[0]+','+f[1]+','+f[2]+',';
+ const gr=x.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,c0+'1)');gr.addColorStop(.4,c0+'.6)');gr.addColorStop(.75,c0+'.18)');gr.addColorStop(1,c0+'0)');x.setTransform(2,0,0,1,0,0);x.fillStyle=gr;x.fillRect(0,0,128,128);return FOGS[k]=cv}
+function fogKind(){const k=typeof biomeOf==='function'?biomeOf(room):'sewer';return FOG_COL[k]?k:'sewer'}
+/* x of a drifting puff on a layer that scrolls at `par` times the camera speed; it wraps around so the screen is always covered */
+function fogX(i,t,sp,par,w,cam){const span=WW+w+400,lx=i*397+t*sp-cam*par;return ((lx%span)+span)%span-w/2-200}
+/* far haze: behind the ground, slower than the camera */
+function drawFogBack(c,cam,t){const k=fogKind(),f=FOG_COL[k],S=fogSprite(k),a=f[3],vy=viewY();c.save();
+ const wash=c.createLinearGradient(0,vy+HH*.3,0,vy+HH);wash.addColorStop(0,'rgba('+f[0]+','+f[1]+','+f[2]+',0)');wash.addColorStop(1,'rgba('+f[0]+','+f[1]+','+f[2]+','+(.16*a)+')');c.fillStyle=wash;c.fillRect(0,vy+HH*.3,WW,HH*.7+80);
+ for(let i=0;i<10;i++){const w=560+(i%3)*190,h=170+(i%2)*80,x=fogX(i,t,7+(i%3)*3,.45+.15*(i%2),w,cam),y=vy+HH*(i<6?.52+.08*(i%3):.24+.1*(i%2))+Math.sin(t*.13+i*1.7)*20;
+  c.globalAlpha=(i<6?.2+.07*Math.sin(t*.21+i):.12+.05*Math.sin(t*.19+i))*a;c.drawImage(S,x,y-h/2,w,h)}c.restore()}
+/* low mist over the floor, and a few faint wisps closer to the camera */
+function drawFogFront(c,cam,t){const k=fogKind(),S=fogSprite(k),a=FOG_COL[k][3],vy=viewY();c.save();
+ for(let i=0;i<12;i++){const w=320+(i%4)*70,h=64+(i%3)*18,x=fogX(i+20,t,11+(i%3)*5,1,w,cam),gx=clamp(x+cam+w/2,0,WORLD),gy=groundAt(gx);if(gy>vy+HH+60)continue;
+  c.globalAlpha=(.15+.06*Math.sin(t*.37+i*2.1))*a;c.drawImage(S,x,gy-h*.62,w,h)}
+ for(let i=0;i<4;i++){const w=700+(i%2)*260,h=210+(i%2)*60,x=fogX(i+40,t,16+i*4,1.3,w,cam),y=vy+HH*(.34+.2*(i%3))+Math.sin(t*.17+i)*24;
+  c.globalAlpha=(.07+.03*Math.sin(t*.25+i*1.3))*a;c.drawImage(S,x,y-h/2,w,h)}c.restore()}
+
 function genRoom(safeX){genRoom0(safeX);if(room===SHOP_ROOM)ENM=[];if(PUZ_ROOMS[room]!==undefined){if(!isSewer())TER=[{x0:0,x1:WORLD,y:FLOOR}];initPuzzle()}else PZ=null}
 function genRoom0(safeX){CORPSES.length=0;if(SC[room].sewer){HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;genSewer(safeX);return}genRoomBase(safeX);HUSK.on=false;CUT.on=false;FLEE.length=0;DARK.length=0;
  if(room===0&&bossBeaten&&!EV.done&&!CUT.on)startAlarm();
@@ -5685,7 +5708,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  const fdt=forgeOpen||paused||shopOpen?0:dtms/1000;shakeT=Math.max(0,shakeT-fdt);darkV=Math.max(0,darkV-fdt*.55);const shk=shakeT*7;
  const SW=!!sc.sewer;if(SW)drawSewerBack(g,clock,fdt);HC.glow=UPG.chip?'#6ac8ff':'#ffd84a';
  g.save();g.translate(shk?rnd(-shk,shk):0,-viewY()+(shk?rnd(-shk,shk):0));
- if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawGodBack(g,cam,clock);drawWardenBack(g,cam,clock);drawFrostBack(g,cam,clock);drawDarkBack(g,cam,clock);drawSewerTerrain(g,cam);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
+ if(SW){drawSewerWaterBack(g,cam);drawCorridorHole(g,cam,clock);drawGodBack(g,cam,clock);drawWardenBack(g,cam,clock);drawFrostBack(g,cam,clock);drawDarkBack(g,cam,clock);drawFogBack(g,cam,clock);drawSewerTerrain(g,cam);drawSewerShafts(g,cam,clock)}else drawScene(g,sc,clock,cam);drawAlarm(g,cam,clock);
  for(const p of PLAT)(SW?drawSewerPlat:drawPlat)(g,p,cam);drawWalls(g,cam);drawAltar(g,cam,clock);drawHouse(g,cam,clock);if(PZ){PUZ[PZ.type].draw(g,cam,clock,PZ);drawPuzGates(g,cam,clock)}drawCorpses(g,cam,clock);drawForge(g,cam,clock);drawHusk(g,cam,clock);drawPrisonWorld(g,cam,clock);drawPuzSign(g,cam,clock);drawTutWorld(g,cam,clock);drawGorgiWorld(g,cam,clock);drawFrostWorld(g,cam,clock);drawYetiWorld(g,cam,clock);drawDarkWorld(g,cam,clock);
  for(const e of ENM)drawEnemy(g,e,cam,clock);drawShots(g,cam);drawNpcTalk(g,cam,clock);drawFlee(g,cam,clock);drawDrops(g,cam,clock);updateLoops();musicUpdate();
  const st=stateNow(),atkP=me.atk>=0?me.atk/26:-1,P=poseFor(st,{ph:me.ph,t:clock,speed:me.speed,atk:atkP,long:me.slashLong,dir:me.atkDir,heal:me.healT/1.5,hurt:me.inv>56&&!me.dead?(me.inv-56)/24:0,ko:me.dead?clamp((110-me.deadT)/40,0,1):0,fill:HP.max?HP.hp/HP.max:1});
@@ -5693,7 +5716,7 @@ function loop(ts){if(FLOW0===null)FLOW0=ts;
  const gy=supportY(me.x,me.y-3,null)+6,h=Math.max(0,gy-6-me.y),sw=clamp(30-h*.06,12,30),sg=g.createRadialGradient(sx,gy,2,sx,gy,sw);sg.addColorStop(0,'rgba(10,4,16,'+Math.max(.1,.5-h*.002)+')');sg.addColorStop(1,'rgba(10,4,16,0)');g.save();g.fillStyle=sg;g.beginPath();g.ellipse(sx,gy,sw,sw*.28,0,0,TAU);g.fill();g.restore();
  const atkOn=atkP>.3&&atkP<.8;energy(P,atkOn);drawParts(g,dtms/1000);drawCurls(g,dtms/1000);
  g.save();if(me.inv>0&&((me.inv/5)|0)%2)g.globalAlpha=.35;if(me.dead)g.globalAlpha=.5;heroDraw(g,sx,me.y,me.face,P,0,sq,SC_);g.restore();drawIntroHead(g,sx,P);
- drawDebris(g,dtms/1000);drawLasers(g,cam,clock);drawGrannyFront(g,cam,clock);drawYetiFront(g,cam,clock);
+ drawDebris(g,dtms/1000);drawLasers(g,cam,clock);drawGrannyFront(g,cam,clock);drawYetiFront(g,cam,clock);drawFogFront(g,cam,clock);
  if(me.healT>0){const k=me.healT/1.5,hx=me.x-cam,hy=me.y-59*SC_;g.save();g.lineCap='round';g.strokeStyle='rgba(42,24,48,.6)';g.lineWidth=6;g.beginPath();g.arc(hx,hy,24,0,TAU);g.stroke();g.shadowColor='#ffd84a';g.shadowBlur=12;g.strokeStyle='#ffe27a';g.lineWidth=4;g.beginPath();g.arc(hx,hy,24,-Math.PI/2,-Math.PI/2+TAU*k);g.stroke();g.restore()}
  for(let i=fxs.length-1;i>=0;i--){const f=fxs[i],k=(clock-f.t0)/.3;if(k>1){fxs.splice(i,1);continue}{/* the slash sits close to the body: pulled in toward the hero along its direction */const hx=me.x-cam,oy=me.y-44*SC_,vert=f.dir==='up'||f.dir==='down';g.save();g.translate(hx,oy);if(vert)g.rotate((f.dir==='up'?-1:1)*f.f*Math.PI/2);const lng=slashIsLong(f.seed);g.translate(-f.f*(vert?(lng?26:40):(lng?20:32)),0);g.translate(-hx,-oy);slashFx(g,hx,oy,f.f,k,f.seed,SC_*1.15);g.restore()}}
  if(SW){drawWBub(g,cam);drawSewerWaterFront(g,cam,clock);if(me.wet&&!UPG.chip&&!me.dead)zap(g,me.x-cam,me.y-40,46)}drawEventWater(g,cam,clock);drawGodTarget(g,cam,clock);
